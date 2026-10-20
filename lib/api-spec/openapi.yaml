@@ -10,6 +10,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: billing
+    description: Billing workspace data
+  - name: customers
+    description: Customer records
+  - name: invoices
+    description: Invoices and sharing
+  - name: team
+    description: Current user and team access
 paths:
   /healthz:
     get:
@@ -24,6 +32,323 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /billing/overview:
+    get:
+      operationId: getBillingOverview
+      tags: [billing]
+      summary: Get invoice dashboard summary
+      responses:
+        "200":
+          description: Dashboard totals and recent invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingOverview"
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Customer" }
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+  /customers/{id}:
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "404": { description: Customer not found }
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Archive a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Customer archived }
+        "404": { description: Customer not found }
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List invoices
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, sent, paid, cancelled]
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get an invoice with line items
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { description: Invoice not found }
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update a draft invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { description: Invoice not found }
+  /invoices/{id}/status:
+    patch:
+      operationId: updateInvoiceStatus
+      tags: [invoices]
+      summary: Update invoice status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceStatusInput" }
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}/share:
+    post:
+      operationId: createInvoiceShare
+      tags: [invoices]
+      summary: Create a public invoice link
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Share link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceShare" }
+  /shared-invoices/{token}:
+    get:
+      operationId: getSharedInvoice
+      tags: [invoices]
+      summary: View an invoice using a private share token
+      security: []
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Shared invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { description: Link not found or expired }
+  /versat/catalogs:
+    get:
+      operationId: getVersatCatalogs
+      tags: [Billing]
+      responses:
+        "200":
+          description: Imported Versat catalogs, accessible to authorized team members
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatCatalogs" }
+  /invoices/{id}/versat-file:
+    get:
+      operationId: getInvoiceVersatFile
+      tags: [Billing]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Candidate Fac file, not yet certified by a real Versat import
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatDownload" }
+        "422":
+          description: Missing or unsupported Versat fields
+  /versat/export-file:
+    get:
+      operationId: getVersatExportFile
+      tags: [Billing]
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: encoding, in: query, schema: { type: string, enum: [windows-1252, utf-8], default: windows-1252 } }
+      responses:
+        "200":
+          description: ZIP with one candidate Fac per issued invoice and instructions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatDownload" }
+        "422":
+          description: No invoices or incomplete mappings; no partial download
+  /versat/export:
+    get:
+      operationId: exportVersatInvoices
+      tags: [invoices]
+      summary: Export invoices for Versat import
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Export rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/InvoiceExportRow" }
+  /team/me:
+    get:
+      operationId: getCurrentTeamMember
+      tags: [team]
+      summary: Get current user's application access
+      responses:
+        "200":
+          description: Current team member
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamMember" }
+        "403": { description: Access has not been granted }
+  /team/members:
+    get:
+      operationId: listTeamMembers
+      tags: [team]
+      summary: List team access
+      responses:
+        "200":
+          description: Team members and pending invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TeamMember" }
+  /team/invitations:
+    post:
+      operationId: inviteTeamMember
+      tags: [team]
+      summary: Grant a specialist access by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeamInvitationInput" }
+      responses:
+        "201":
+          description: Access invitation created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamInvitation" }
 components:
   schemas:
     HealthStatus:
@@ -33,4 +358,209 @@ components:
           type: string
       required:
         - status
+    Customer:
+      type: object
+      required: [id, name, email, phone, taxId, address, notes, active, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        versatCode: { type: ["string", "null"] }
+        versatSourceId: { type: ["integer", "null"] }
+        ircc: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        taxId: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CustomerInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        versatCode: { type: ["string", "null"], maxLength: 40 }
+        ircc: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        taxId: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    InvoiceLine:
+      type: object
+      required: [id, description, quantity, unitPrice, amount]
+      properties:
+        id: { type: integer }
+        description: { type: string }
+        serviceId: { type: ["integer", "null"] }
+        serviceCode: { type: ["string", "null"] }
+        groupCode: { type: ["string", "null"] }
+        unitCode: { type: ["string", "null"] }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        amount: { type: number }
+    InvoiceLineInput:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        description: { type: string, minLength: 1 }
+        serviceId: { type: ["integer", "null"] }
+        groupCode: { type: ["string", "null"], pattern: '^[A-Za-z0-9.-]*$', maxLength: 40 }
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 999999999 }
+        unitPrice: { type: number, minimum: 0, maximum: 999999999999 }
+    Invoice:
+      type: object
+      required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, notes, subtotal, total, lines, createdAt]
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        customerId: { type: integer }
+        customerName: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        issueDate: { type: string, format: date }
+        dueDate: { type: ["string", "null"], format: date }
+        currency: { type: string }
+        status: { type: string, enum: [draft, sent, paid, cancelled] }
+        notes: { type: ["string", "null"] }
+        versat:
+          anyOf:
+            - { $ref: "#/components/schemas/VersatInvoiceSnapshot" }
+            - { type: "null" }
+        subtotal: { type: number }
+        total: { type: number }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceLine" }
+        createdAt: { type: string, format: date-time }
+    InvoiceInput:
+      type: object
+      required: [customerId, issueDate, currency, lines]
+      properties:
+        customerId: { type: integer }
+        issueDate: { type: string, format: date }
+        dueDate: { type: ["string", "null"], format: date }
+        currency: { type: string, minLength: 1 }
+        notes: { type: ["string", "null"] }
+        versat: { $ref: "#/components/schemas/VersatInvoiceInput" }
+        lines:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/InvoiceLineInput" }
+    InvoiceStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [draft, sent, paid, cancelled] }
+    InvoiceShare:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    InvoiceExportRow:
+      type: object
+      required: [invoiceNumber, issueDate, customerName, taxId, currency, subtotal, total, status]
+      properties:
+        id: { type: integer }
+        versatNumber: { type: ["string", "null"] }
+        canExport: { type: boolean }
+        issues: { type: array, items: { type: string } }
+        invoiceNumber: { type: string }
+        issueDate: { type: string, format: date }
+        customerName: { type: string }
+        taxId: { type: ["string", "null"] }
+        currency: { type: string }
+        subtotal: { type: number }
+        total: { type: number }
+        status: { type: string }
+    BillingOverview:
+      type: object
+      required: [invoiceCount, draftCount, sentCount, paidCount, monthTotal, currency, recentInvoices]
+      properties:
+        invoiceCount: { type: integer }
+        draftCount: { type: integer }
+        sentCount: { type: integer }
+        paidCount: { type: integer }
+        monthTotal: { type: number }
+        currency: { type: string }
+        recentInvoices:
+          type: array
+          items: { $ref: "#/components/schemas/Invoice" }
+    TeamMember:
+      type: object
+      required: [userId, name, email, role]
+      properties:
+        userId: { type: string }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        role: { type: string, enum: [owner, specialist, pending] }
+    TeamInvitationInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    TeamInvitation:
+      type: object
+      required: [email, createdAt]
+      properties:
+        email: { type: string, format: email }
+        createdAt: { type: string, format: date-time }
+    VersatCatalogEntry:
+      type: object
+      required: [id, kind, sourceId, code, name, unitCode, unitName, groupCode, position]
+      properties:
+        id: { type: integer }
+        kind: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
+        sourceId: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        unitCode: { type: ["string", "null"] }
+        unitName: { type: ["string", "null"] }
+        groupCode: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+    VersatCatalogs:
+      type: object
+      required: [entries, customerCount]
+      properties:
+        entries: { type: array, items: { $ref: "#/components/schemas/VersatCatalogEntry" } }
+        customerCount: { type: integer }
+    VersatInvoiceInput:
+      type: object
+      required: [conceptId, operationId, commercialId, paymentId]
+      properties:
+        conceptId: { type: integer }
+        operationId: { type: integer }
+        commercialId: { type: integer }
+        paymentId: { type: integer }
+        number: { type: ["string", "null"], pattern: '^[A-Za-z0-9_-]*$', maxLength: 50 }
+        talon: { type: ["string", "null"], pattern: '^[0-9]*$', maxLength: 20 }
+        bankAccountMC: { type: ["string", "null"], maxLength: 100 }
+        bankAccountOM: { type: ["string", "null"], maxLength: 100 }
+        contract: { type: ["string", "null"], maxLength: 100 }
+    VersatInvoiceSnapshot:
+      allOf:
+        - { $ref: "#/components/schemas/VersatInvoiceInput" }
+        - type: object
+          required: [currencyName, conceptCode, operationName, commercialName, commercialPosition, paymentName, customerCode, customerName, customerAddress, customerTaxId]
+          properties:
+            currencyName: { type: string }
+            conceptCode: { type: string }
+            operationName: { type: string }
+            commercialName: { type: string }
+            commercialPosition: { type: string }
+            paymentName: { type: string }
+            customerCode: { type: ["string", "null"] }
+            customerName: { type: string }
+            customerAddress: { type: ["string", "null"] }
+            customerTaxId: { type: ["string", "null"] }
+    VersatDownload:
+      type: object
+      required: [filename, base64, contentType, invoiceCount, warnings]
+      properties:
+        filename: { type: string }
+        base64: { type: string }
+        contentType: { type: string }
+        invoiceCount: { type: integer }
+        warnings: { type: array, items: { type: string } }
 

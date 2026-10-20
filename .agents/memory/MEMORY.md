@@ -1,0 +1,2 @@
+- [Compatibilidad de Clerk](clerk-sdk-compatibility.md) — verificar las APIs del SDK y elegir una versión madura compatible antes de alterar el cableado de autenticación.
+- [Límites de compatibilidad con Versat](versat-compatibility.md) — una muestra .Fac no equivale a especificación; mantener la etiqueta de prueba hasta verificar en el escritorio.

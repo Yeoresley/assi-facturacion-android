@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Facturación Equipo"
+description = "Aplicación web para que un equipo de especialistas gestione clientes, prepare facturas en PDF, las comparta con clientes y exporte los datos para importarlos en Versat Sarasola."
+version = "1.0.0"
+id = "artifacts/facturacion-equipo"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25564
+
+[services.development]
+run = "pnpm --filter @workspace/facturacion-equipo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/facturacion-equipo", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/facturacion-equipo/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25564"
+BASE_PATH = "/"

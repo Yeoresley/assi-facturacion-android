@@ -1,6 +1,18 @@
-# [Project name]
+# Facturación Equipo
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Aplicación web en español para que especialistas remotos preparen facturas y el propietario las lleve a Versat Sarasola de escritorio.
+
+## Contexto y estado
+
+- El flujo actual del usuario consiste en confeccionar las facturas en Versat, guardar PDFs con cuño y firma y distribuirlos a los especialistas.
+- La primera versión incluye clientes, borradores, estados, impresión mediante navegador y enlaces temporales de factura. WhatsApp y correo abren el canal del usuario; no hay envío automático ni adjuntos automáticos.
+- El propietario se identifica por su correo verificado mediante `OWNER_EMAIL`, ya configurado. No conceder administración al primer registro. El propietario autoriza los correos de especialistas.
+- Se recibieron un PDF, un `.Fac` y ocho catálogos Excel. Están cargados en la base de datos sin incorporar los originales al bundle público. La exportación de prueba usa `.Fac`, con descarga individual o ZIP por período. Falta validar una importación real en Versat.
+- El documento impreso es preliminar: aún debe adaptarse al PDF aportado, incluidos los datos legales, cuño y firma autorizados.
+- La moneda inicial es CUP, conforme al documento de referencia. No asumir que una factura guardada en la aplicación ya es compatible con Versat.
+- Los enlaces públicos caducan y la base de datos conserva solo el hash del token.
+- Ver `docs/versat-format.md` para las observaciones técnicas y preguntas abiertas sobre el formato.
+- El catálogo no trae precios. No inventar tarifas, numeración, talones ni agrupadores de servicios desconocidos.
 
 ## Run & Operate
 
