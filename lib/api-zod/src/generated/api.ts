@@ -8,6 +8,329 @@
 import * as zod from 'zod';
 
 
+export const getIssuerResponseProfileOneNameMax = 200;
+
+export const getIssuerResponseProfileOneNitMax = 40;
+
+export const getIssuerResponseProfileOneIrccMax = 80;
+
+export const getIssuerResponseProfileOneAddressMax = 400;
+
+export const getIssuerResponseProfileOneOrganizationMax = 100;
+
+export const getIssuerResponseProfileOnePaymentBeneficiaryMax = 200;
+
+export const getIssuerResponseProfileOneBankAccountMax = 80;
+
+export const getIssuerResponseProfileOneBankBranchMax = 80;
+
+export const getIssuerResponseProfileOneBankNameMax = 200;
+
+
+
+export const GetIssuerResponse = zod.object({
+  "profile": zod.union([zod.object({
+  "name": zod.string().min(1).max(getIssuerResponseProfileOneNameMax),
+  "nit": zod.string().min(1).max(getIssuerResponseProfileOneNitMax),
+  "ircc": zod.string().min(1).max(getIssuerResponseProfileOneIrccMax),
+  "address": zod.string().min(1).max(getIssuerResponseProfileOneAddressMax),
+  "organization": zod.string().min(1).max(getIssuerResponseProfileOneOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(getIssuerResponseProfileOnePaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(getIssuerResponseProfileOneBankAccountMax),
+  "bankBranch": zod.string().min(1).max(getIssuerResponseProfileOneBankBranchMax),
+  "bankName": zod.string().min(1).max(getIssuerResponseProfileOneBankNameMax)
+}),zod.null()]),
+  "hasStamp": zod.boolean(),
+  "hasSignature": zod.boolean()
+})
+
+
+export const updateIssuerBodyNameMax = 200;
+
+export const updateIssuerBodyNitMax = 40;
+
+export const updateIssuerBodyIrccMax = 80;
+
+export const updateIssuerBodyAddressMax = 400;
+
+export const updateIssuerBodyOrganizationMax = 100;
+
+export const updateIssuerBodyPaymentBeneficiaryMax = 200;
+
+export const updateIssuerBodyBankAccountMax = 80;
+
+export const updateIssuerBodyBankBranchMax = 80;
+
+export const updateIssuerBodyBankNameMax = 200;
+
+
+
+export const UpdateIssuerBody = zod.object({
+  "name": zod.string().min(1).max(updateIssuerBodyNameMax),
+  "nit": zod.string().min(1).max(updateIssuerBodyNitMax),
+  "ircc": zod.string().min(1).max(updateIssuerBodyIrccMax),
+  "address": zod.string().min(1).max(updateIssuerBodyAddressMax),
+  "organization": zod.string().min(1).max(updateIssuerBodyOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(updateIssuerBodyPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(updateIssuerBodyBankAccountMax),
+  "bankBranch": zod.string().min(1).max(updateIssuerBodyBankBranchMax),
+  "bankName": zod.string().min(1).max(updateIssuerBodyBankNameMax)
+})
+
+export const updateIssuerResponseProfileOneNameMax = 200;
+
+export const updateIssuerResponseProfileOneNitMax = 40;
+
+export const updateIssuerResponseProfileOneIrccMax = 80;
+
+export const updateIssuerResponseProfileOneAddressMax = 400;
+
+export const updateIssuerResponseProfileOneOrganizationMax = 100;
+
+export const updateIssuerResponseProfileOnePaymentBeneficiaryMax = 200;
+
+export const updateIssuerResponseProfileOneBankAccountMax = 80;
+
+export const updateIssuerResponseProfileOneBankBranchMax = 80;
+
+export const updateIssuerResponseProfileOneBankNameMax = 200;
+
+
+
+export const UpdateIssuerResponse = zod.object({
+  "profile": zod.union([zod.object({
+  "name": zod.string().min(1).max(updateIssuerResponseProfileOneNameMax),
+  "nit": zod.string().min(1).max(updateIssuerResponseProfileOneNitMax),
+  "ircc": zod.string().min(1).max(updateIssuerResponseProfileOneIrccMax),
+  "address": zod.string().min(1).max(updateIssuerResponseProfileOneAddressMax),
+  "organization": zod.string().min(1).max(updateIssuerResponseProfileOneOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(updateIssuerResponseProfileOnePaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(updateIssuerResponseProfileOneBankAccountMax),
+  "bankBranch": zod.string().min(1).max(updateIssuerResponseProfileOneBankBranchMax),
+  "bankName": zod.string().min(1).max(updateIssuerResponseProfileOneBankNameMax)
+}),zod.null()]),
+  "hasStamp": zod.boolean(),
+  "hasSignature": zod.boolean()
+})
+
+
+
+
+
+export const AuthorizeInvoiceDocumentParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const authorizeInvoiceDocumentBodyPreparedByMax = 160;
+
+export const authorizeInvoiceDocumentBodyPreparedPositionMax = 160;
+
+export const authorizeInvoiceDocumentBodyDeliveredByMax = 160;
+
+export const authorizeInvoiceDocumentBodyAccountedByMax = 160;
+
+export const authorizeInvoiceDocumentBodyTransportedByMax = 160;
+
+export const authorizeInvoiceDocumentBodyTransportIdMax = 40;
+
+export const authorizeInvoiceDocumentBodyVehiclePlateMax = 40;
+
+export const authorizeInvoiceDocumentBodyDrivingLicenseMax = 40;
+
+export const authorizeInvoiceDocumentBodyReceivedByMax = 160;
+
+export const authorizeInvoiceDocumentBodyReceivedPositionMax = 160;
+
+export const authorizeInvoiceDocumentBodyReceivedIdMax = 40;
+
+export const authorizeInvoiceDocumentBodyCustomerIrccMax = 80;
+
+export const authorizeInvoiceDocumentBodyCustomerBankAccountMax = 80;
+
+
+
+export const AuthorizeInvoiceDocumentBody = zod.object({
+  "preparedBy": zod.string().min(1).max(authorizeInvoiceDocumentBodyPreparedByMax),
+  "preparedPosition": zod.string().min(1).max(authorizeInvoiceDocumentBodyPreparedPositionMax),
+  "deliveredBy": zod.string().max(authorizeInvoiceDocumentBodyDeliveredByMax),
+  "accountedBy": zod.string().max(authorizeInvoiceDocumentBodyAccountedByMax),
+  "transportedBy": zod.string().max(authorizeInvoiceDocumentBodyTransportedByMax),
+  "transportId": zod.string().max(authorizeInvoiceDocumentBodyTransportIdMax),
+  "vehiclePlate": zod.string().max(authorizeInvoiceDocumentBodyVehiclePlateMax),
+  "drivingLicense": zod.string().max(authorizeInvoiceDocumentBodyDrivingLicenseMax),
+  "receivedBy": zod.string().max(authorizeInvoiceDocumentBodyReceivedByMax),
+  "receivedPosition": zod.string().max(authorizeInvoiceDocumentBodyReceivedPositionMax),
+  "receivedId": zod.string().max(authorizeInvoiceDocumentBodyReceivedIdMax),
+  "customerIrcc": zod.string().max(authorizeInvoiceDocumentBodyCustomerIrccMax),
+  "customerBankAccount": zod.string().max(authorizeInvoiceDocumentBodyCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+})
+
+export const authorizeInvoiceDocumentResponseVersatOneOneNumberMax = 50;
+
+
+export const authorizeInvoiceDocumentResponseVersatOneOneNumberRegExp = new RegExp('^[A-Za-z0-9_-]*$');
+export const authorizeInvoiceDocumentResponseVersatOneOneTalonMax = 20;
+
+
+export const authorizeInvoiceDocumentResponseVersatOneOneTalonRegExp = new RegExp('^[0-9]*$');
+export const authorizeInvoiceDocumentResponseVersatOneOneBankAccountMCMax = 100;
+
+export const authorizeInvoiceDocumentResponseVersatOneOneBankAccountOMMax = 100;
+
+export const authorizeInvoiceDocumentResponseVersatOneOneContractMax = 100;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
+
+
+export const AuthorizeInvoiceDocumentResponse = zod.object({
+  "id": zod.number().int(),
+  "number": zod.string(),
+  "customerId": zod.number().int(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "dueDate": zod.coerce.date().nullable(),
+  "currency": zod.string(),
+  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "notes": zod.string().nullable(),
+  "versat": zod.union([zod.object({
+  "conceptId": zod.number().int(),
+  "operationId": zod.number().int(),
+  "commercialId": zod.number().int(),
+  "paymentId": zod.number().int(),
+  "number": zod.string().max(authorizeInvoiceDocumentResponseVersatOneOneNumberMax).regex(authorizeInvoiceDocumentResponseVersatOneOneNumberRegExp).nullish(),
+  "talon": zod.string().max(authorizeInvoiceDocumentResponseVersatOneOneTalonMax).regex(authorizeInvoiceDocumentResponseVersatOneOneTalonRegExp).nullish(),
+  "bankAccountMC": zod.string().max(authorizeInvoiceDocumentResponseVersatOneOneBankAccountMCMax).nullish(),
+  "bankAccountOM": zod.string().max(authorizeInvoiceDocumentResponseVersatOneOneBankAccountOMMax).nullish(),
+  "contract": zod.string().max(authorizeInvoiceDocumentResponseVersatOneOneContractMax).nullish()
+}).and(zod.object({
+  "currencyName": zod.string(),
+  "conceptCode": zod.string(),
+  "operationName": zod.string(),
+  "commercialName": zod.string(),
+  "commercialPosition": zod.string(),
+  "paymentName": zod.string(),
+  "customerCode": zod.string().nullable(),
+  "customerName": zod.string(),
+  "customerAddress": zod.string().nullable(),
+  "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(authorizeInvoiceDocumentResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
+})),zod.null()]).optional(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "lines": zod.array(zod.object({
+  "id": zod.number().int(),
+  "description": zod.string(),
+  "serviceId": zod.number().int().nullish(),
+  "serviceCode": zod.string().nullish(),
+  "groupCode": zod.string().nullish(),
+  "unitCode": zod.string().nullish(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+})),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const GetInvoiceImageParams = zod.object({
+  "id": zod.coerce.number().int().min(1),
+  "kind": zod.enum(['stamp', 'signature'])
+})
+
+export const GetInvoiceImageResponse = zod.unknown()
+
+
+export const GetSharedInvoiceImageParams = zod.object({
+  "token": zod.coerce.string(),
+  "kind": zod.enum(['stamp', 'signature'])
+})
+
+export const GetSharedInvoiceImageResponse = zod.unknown()
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -33,6 +356,50 @@ export const getBillingOverviewResponseRecentInvoicesItemVersatOneOneBankAccount
 export const getBillingOverviewResponseRecentInvoicesItemVersatOneOneBankAccountOMMax = 100;
 
 export const getBillingOverviewResponseRecentInvoicesItemVersatOneOneContractMax = 100;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOnePreparedByMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneDeliveredByMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneAccountedByMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneTransportedByMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneTransportIdMax = 40;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedByMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedIdMax = 40;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 
@@ -76,6 +443,39 @@ export const GetBillingOverviewResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -227,6 +627,50 @@ export const listInvoicesResponseVersatOneOneBankAccountOMMax = 100;
 
 export const listInvoicesResponseVersatOneOneContractMax = 100;
 
+export const listInvoicesResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const listInvoicesResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const listInvoicesResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const listInvoicesResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const listInvoicesResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const listInvoicesResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const listInvoicesResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const listInvoicesResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const ListInvoicesResponseItem = zod.object({
@@ -262,6 +706,39 @@ export const ListInvoicesResponseItem = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(listInvoicesResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(listInvoicesResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(listInvoicesResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(listInvoicesResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(listInvoicesResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(listInvoicesResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(listInvoicesResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(listInvoicesResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(listInvoicesResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(listInvoicesResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(listInvoicesResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(listInvoicesResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -353,6 +830,50 @@ export const createInvoiceResponseVersatOneOneBankAccountOMMax = 100;
 
 export const createInvoiceResponseVersatOneOneContractMax = 100;
 
+export const createInvoiceResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const createInvoiceResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const createInvoiceResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const createInvoiceResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const createInvoiceResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const createInvoiceResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const createInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const createInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const CreateInvoiceResponse = zod.object({
@@ -388,6 +909,39 @@ export const CreateInvoiceResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(createInvoiceResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(createInvoiceResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(createInvoiceResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(createInvoiceResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(createInvoiceResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(createInvoiceResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(createInvoiceResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(createInvoiceResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(createInvoiceResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(createInvoiceResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(createInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(createInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -427,6 +981,50 @@ export const getInvoiceResponseVersatOneOneBankAccountOMMax = 100;
 
 export const getInvoiceResponseVersatOneOneContractMax = 100;
 
+export const getInvoiceResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const getInvoiceResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const getInvoiceResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const getInvoiceResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const getInvoiceResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const getInvoiceResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const getInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const getInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const GetInvoiceResponse = zod.object({
@@ -462,6 +1060,39 @@ export const GetInvoiceResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(getInvoiceResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(getInvoiceResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(getInvoiceResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(getInvoiceResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(getInvoiceResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(getInvoiceResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(getInvoiceResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(getInvoiceResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(getInvoiceResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(getInvoiceResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(getInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(getInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -556,6 +1187,50 @@ export const updateInvoiceResponseVersatOneOneBankAccountOMMax = 100;
 
 export const updateInvoiceResponseVersatOneOneContractMax = 100;
 
+export const updateInvoiceResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const updateInvoiceResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const updateInvoiceResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const updateInvoiceResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const updateInvoiceResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const updateInvoiceResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const updateInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const UpdateInvoiceResponse = zod.object({
@@ -591,6 +1266,39 @@ export const UpdateInvoiceResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(updateInvoiceResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(updateInvoiceResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(updateInvoiceResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(updateInvoiceResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(updateInvoiceResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(updateInvoiceResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(updateInvoiceResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(updateInvoiceResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(updateInvoiceResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(updateInvoiceResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(updateInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(updateInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -634,6 +1342,50 @@ export const updateInvoiceStatusResponseVersatOneOneBankAccountOMMax = 100;
 
 export const updateInvoiceStatusResponseVersatOneOneContractMax = 100;
 
+export const updateInvoiceStatusResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const updateInvoiceStatusResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const UpdateInvoiceStatusResponse = zod.object({
@@ -669,6 +1421,39 @@ export const UpdateInvoiceStatusResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(updateInvoiceStatusResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),
@@ -721,6 +1506,50 @@ export const getSharedInvoiceResponseVersatOneOneBankAccountOMMax = 100;
 
 export const getSharedInvoiceResponseVersatOneOneContractMax = 100;
 
+export const getSharedInvoiceResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const getSharedInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
 
 
 export const GetSharedInvoiceResponse = zod.object({
@@ -756,6 +1585,39 @@ export const GetSharedInvoiceResponse = zod.object({
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
   "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
 })),zod.null()]).optional(),
   "subtotal": zod.number(),
   "total": zod.number(),

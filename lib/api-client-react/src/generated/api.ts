@@ -23,6 +23,7 @@ import type {
   BillingOverview,
   Customer,
   CustomerInput,
+  DocumentAuthorization,
   ExportVersatInvoicesParams,
   GetVersatExportFileParams,
   HealthStatus,
@@ -31,6 +32,8 @@ import type {
   InvoiceInput,
   InvoiceShare,
   InvoiceStatusInput,
+  IssuerProfile,
+  IssuerSettings,
   ListCustomersParams,
   ListInvoicesParams,
   TeamInvitation,
@@ -66,6 +69,394 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetIssuerUrl = () => {
+
+
+
+
+  return `/api/issuer`
+}
+
+export const getIssuer = async ( options?: Parameters<typeof customFetch>[1]): Promise<IssuerSettings> => {
+
+  return customFetch<IssuerSettings>(getGetIssuerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIssuerQueryKey = () => {
+    return [
+    `/api/issuer`
+    ] as const;
+    }
+
+
+export const getGetIssuerQueryOptions = <TData = Awaited<ReturnType<typeof getIssuer>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIssuerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIssuer>>> = ({ signal }) => getIssuer({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIssuer>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIssuerQueryResult = NonNullable<Awaited<ReturnType<typeof getIssuer>>>
+export type GetIssuerQueryError = ErrorType<unknown>
+
+
+
+export function useGetIssuer<TData = Awaited<ReturnType<typeof getIssuer>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIssuerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateIssuerUrl = () => {
+
+
+
+
+  return `/api/issuer`
+}
+
+export const updateIssuer = async (issuerProfile: IssuerProfile, options?: Parameters<typeof customFetch>[1]): Promise<IssuerSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IssuerSettings>(getUpdateIssuerUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(issuerProfile)
+  }
+);}
+
+
+
+
+
+export const getUpdateIssuerMutationKey = () => ['updateIssuer'] as const;
+
+export const getUpdateIssuerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIssuer>>, TError,UpdateIssuerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIssuer>>, TError,UpdateIssuerMutationVariables, TContext> => {
+
+const mutationKey = getUpdateIssuerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIssuer>>, UpdateIssuerMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateIssuer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIssuerMutationResult = NonNullable<Awaited<ReturnType<typeof updateIssuer>>>
+    export type UpdateIssuerMutationBody = BodyType<IssuerProfile>
+    export type UpdateIssuerMutationError = ErrorType<unknown>
+    export type UpdateIssuerMutationVariables = {data: BodyType<IssuerProfile>}
+
+    export const useUpdateIssuer = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIssuer>>, TError,UpdateIssuerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateIssuer>>,
+        TError,
+        UpdateIssuerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateIssuerMutationOptions(options));
+    }
+
+export const getAuthorizeInvoiceDocumentUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/legal-document`
+}
+
+export const authorizeInvoiceDocument = async (id: number,
+    documentAuthorization: DocumentAuthorization, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Invoice>(getAuthorizeInvoiceDocumentUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(documentAuthorization)
+  }
+);}
+
+
+
+
+
+export const getAuthorizeInvoiceDocumentMutationKey = () => ['authorizeInvoiceDocument'] as const;
+
+export const getAuthorizeInvoiceDocumentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authorizeInvoiceDocument>>, TError,AuthorizeInvoiceDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authorizeInvoiceDocument>>, TError,AuthorizeInvoiceDocumentMutationVariables, TContext> => {
+
+const mutationKey = getAuthorizeInvoiceDocumentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authorizeInvoiceDocument>>, AuthorizeInvoiceDocumentMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  authorizeInvoiceDocument(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthorizeInvoiceDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof authorizeInvoiceDocument>>>
+    export type AuthorizeInvoiceDocumentMutationBody = BodyType<DocumentAuthorization>
+    export type AuthorizeInvoiceDocumentMutationError = ErrorType<unknown>
+    export type AuthorizeInvoiceDocumentMutationVariables = {id: number;data: BodyType<DocumentAuthorization>}
+
+    export const useAuthorizeInvoiceDocument = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authorizeInvoiceDocument>>, TError,AuthorizeInvoiceDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authorizeInvoiceDocument>>,
+        TError,
+        AuthorizeInvoiceDocumentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthorizeInvoiceDocumentMutationOptions(options));
+    }
+
+export const getGetInvoiceImageUrl = (id: number,
+    kind: 'stamp' | 'signature',) => {
+
+
+
+
+  return `/api/invoices/${id}/images/${kind}`
+}
+
+export const getInvoiceImage = async (id: number,
+    kind: 'stamp' | 'signature', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetInvoiceImageUrl(id,kind),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInvoiceImageQueryKey = (id: number,
+    kind: 'stamp' | 'signature',) => {
+    return [
+    `/api/invoices/${id}/images/${kind}`
+    ] as const;
+    }
+
+
+export const getGetInvoiceImageQueryOptions = <TData = Awaited<ReturnType<typeof getInvoiceImage>>, TError = ErrorType<unknown>>(id: number,
+    kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInvoiceImageQueryKey(id,kind);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoiceImage>>> = ({ signal }) => getInvoiceImage(id,kind, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoiceImage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInvoiceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getInvoiceImage>>>
+export type GetInvoiceImageQueryError = ErrorType<unknown>
+
+
+
+export function useGetInvoiceImage<TData = Awaited<ReturnType<typeof getInvoiceImage>>, TError = ErrorType<unknown>>(
+ id: number,
+    kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInvoiceImageQueryOptions(id,kind,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSharedInvoiceImageUrl = (token: string,
+    kind: 'stamp' | 'signature',) => {
+
+
+
+
+  return `/api/shared-invoices/${token}/images/${kind}`
+}
+
+export const getSharedInvoiceImage = async (token: string,
+    kind: 'stamp' | 'signature', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetSharedInvoiceImageUrl(token,kind),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSharedInvoiceImageQueryKey = (token: string,
+    kind: 'stamp' | 'signature',) => {
+    return [
+    `/api/shared-invoices/${token}/images/${kind}`
+    ] as const;
+    }
+
+
+export const getGetSharedInvoiceImageQueryOptions = <TData = Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError = ErrorType<unknown>>(token: string,
+    kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSharedInvoiceImageQueryKey(token,kind);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedInvoiceImage>>> = ({ signal }) => getSharedInvoiceImage(token,kind, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSharedInvoiceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getSharedInvoiceImage>>>
+export type GetSharedInvoiceImageQueryError = ErrorType<unknown>
+
+
+
+export function useGetSharedInvoiceImage<TData = Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError = ErrorType<unknown>>(
+ token: string,
+    kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSharedInvoiceImageQueryOptions(token,kind,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 

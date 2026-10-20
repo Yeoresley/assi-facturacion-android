@@ -8,7 +8,9 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 - La primera versión incluye clientes, borradores, estados, impresión mediante navegador y enlaces temporales de factura. WhatsApp y correo abren el canal del usuario; no hay envío automático ni adjuntos automáticos.
 - El propietario se identifica por su correo verificado mediante `OWNER_EMAIL`, ya configurado. No conceder administración al primer registro. El propietario autoriza los correos de especialistas.
 - Se recibieron un PDF, un `.Fac` y ocho catálogos Excel. Están cargados en la base de datos sin incorporar los originales al bundle público. La exportación de prueba usa `.Fac`, con descarga individual o ZIP por período. Falta validar una importación real en Versat.
-- El documento impreso es preliminar: aún debe adaptarse al PDF aportado, incluidos los datos legales, cuño y firma autorizados.
+- El modelo imprimible y compartido sigue el PDF aportado: emisor configurable por el propietario, detalle con 4/5/2 decimales y bloques de responsabilidad. El propietario debe confirmar emisor y responsables antes de emitir; editar el borrador invalida esa confirmación. Las facturas antiguas sin esa confirmación siguen etiquetadas como preliminares, sin alterar su historial.
+- El propietario autorizó expresamente reutilizar cuño y firma manuscrita escaneados del PDF. Son imágenes, no firmas digitales criptográficas. Se guardan en App Storage privado; la base de datos conserva solo rutas y metadatos. No se sirven para borradores o anuladas; el acceso requiere equipo autorizado o enlace vigente de esa factura.
+- En Ajustes se revisan los datos del emisor transcritos del ejemplo. Los responsables nunca se deducen de los nombres del PDF ni del especialista conectado. Las imágenes se eligen expresamente al confirmar cada factura y se muestran al emitir.
 - La moneda inicial es CUP, conforme al documento de referencia. No asumir que una factura guardada en la aplicación ya es compatible con Versat.
 - Los enlaces públicos caducan y la base de datos conserva solo el hash del token.
 - Ver `docs/versat-format.md` para las observaciones técnicas y preguntas abiertas sobre el formato.
@@ -21,6 +23,7 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/facturacion-equipo/src/lib/invoice-print.test.ts` — comprobar importes en letras
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
@@ -51,6 +54,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 ## Gotchas
 
 _Populate as you build — sharp edges, "always run X before Y" rules._
+
+- Impresión: «Imprimir / Guardar PDF», papel Carta, escala 100 %. El modelo usa cabecera de tabla repetida y contadores de página en navegadores Chromium recientes. Desactivar los encabezados/pies automáticos del navegador para no añadir la URL del enlace compartido. No imprimir si falla la carga de cuño/firma.
+- El post-merge instala dependencias, aplica el esquema de desarrollo e inicializa el emisor solo si no existe, comprobando primero las imágenes privadas ya importadas. No sobrescribe ajustes. Las imágenes y el PDF de referencia nunca se incorporan al bundle público.
 
 ## Pointers
 

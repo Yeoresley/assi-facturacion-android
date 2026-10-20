@@ -30,6 +30,7 @@ import SharedInvoicePage from '@/pages/shared-invoice';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { IssuerSettings } from '@/components/issuer-settings';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -204,7 +205,7 @@ function Shell({ children }: { children: ReactNode }) {
         <button className="side-link w-full" data-testid="button-sign-out" onClick={() => signOut({ redirectUrl: basePath || '/' })}><LogOut size={16} />Cerrar sesión</button>
       </div>
     </aside>
-    <div className="ml-0 flex min-h-[100dvh] w-full flex-col md:ml-[238px]">
+    <div className="app-content ml-0 flex min-h-[100dvh] w-full flex-col md:ml-[238px]">
       <header className="topbar sticky top-0 z-10 flex h-[66px] items-center justify-between border-b border-[#e6e3d8] bg-[#f8f7f0]/95 px-5 backdrop-blur md:px-9">
         <div className="text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
         <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
@@ -280,6 +281,7 @@ function Settings() {
       <div className="grid gap-5 md:grid-cols-[1fr_280px]"><section className="panel p-6"><div className="eyebrow">Cuenta activa</div><div className="mt-5 flex items-center gap-4"><div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#dce9df] font-display text-lg font-bold text-[#315c51]">{(me.name || 'CC').split(/\s+/).map((s) => s[0]).slice(0,2).join('').toUpperCase()}</div><div><h2 className="font-display text-xl font-bold">{me.name || 'Mi cuenta'}</h2><p className="mt-1 text-[12px] text-[#78857f]">{me.email || 'Sin correo asociado'}</p></div></div><div className="mt-6 grid gap-4 border-t border-[#eeece4] pt-5 sm:grid-cols-2"><div><div className="eyebrow">Rol</div><div className="mt-2 text-[13px] font-semibold">{me.role === 'owner' ? 'Propietario' : me.role === 'specialist' ? 'Especialista' : 'Pendiente'}</div></div><div><div className="eyebrow">Identificador</div><div className="mt-2 break-all font-mono text-[11px] text-[#71817b]">{me.userId}</div></div></div></section>
         <aside className="panel p-5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e5f0e8] text-[#39776a]"><ShieldAlert size={17} /></span><h3 className="font-display mt-4 text-base font-bold">Acceso del equipo</h3><p className="mt-2 text-[12px] leading-5 text-[#77847e]">{me.role === 'owner' ? 'Tienes acceso de propietario para revisar la facturación del equipo.' : me.role === 'specialist' ? 'Tienes acceso de especialista para preparar y compartir facturas.' : 'El propietario debe habilitar tu acceso.'}</p><div className="mt-4 flex items-center gap-2 border-t border-[#eeece4] pt-4 text-[11px] font-semibold text-[#44776a]"><Check size={14} />Sesión verificada</div></aside>
       </div>}
+    {me?.role === 'owner' && <IssuerSettings />}
     <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[#e4e1d5] bg-[#efeee5] p-5"><div className="flex items-start gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7edd9] text-[#9d7739]"><Users size={16} /></span><div><div className="text-[12px] font-bold">Accesos del equipo</div><p className="mt-1 text-[11px] leading-5 text-[#77847e]">Consulta los especialistas autorizados y gestiona nuevas altas.</p></div></div><Link href="/team/members" className="button button-plain !min-h-9">Ver equipo <ArrowRight size={14} /></Link></div>
     <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e4e1d5] bg-[#fffefa] px-4 py-3"><div className="flex items-center gap-2 text-[11px] font-semibold text-[#61736c]"><span className={`h-2 w-2 rounded-full ${health.data?.status === 'ok' ? 'bg-[#4a9278]' : health.isError ? 'bg-[#b66050]' : 'bg-[#c9a44c]'}`} />Conexión con el servicio</div><div className="flex items-center gap-3 text-[10px] text-[#85918a]">{health.isLoading ? 'Comprobando…' : health.isError ? 'No disponible' : health.data?.status || 'Conectado'}{health.isError && <button className="font-semibold text-[#39746a]" onClick={() => health.refetch()}>Reintentar</button>}</div></div>
   </div>;

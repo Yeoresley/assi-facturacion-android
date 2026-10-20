@@ -1,0 +1,72 @@
+.legal-invoice { color:#111; background:white; font-family:Arial,sans-serif; font-size:11px; line-height:1.45; padding:30px; max-width:820px; margin:auto; }
+.legal-invoice p { margin:3px 0; overflow-wrap:anywhere; }
+.legal-invoice .legal-lines { width:100%; table-layout:fixed; border-collapse:collapse; }
+.legal-lines th,.legal-lines td { padding:5px 4px; vertical-align:top; text-align:left; overflow-wrap:anywhere; }
+.legal-header-cell { padding:0 0 10px; }
+.legal-running-header { font-size:9px; }
+.legal-heading { display:grid; grid-template-columns:1.2fr 1fr; gap:24px; }
+.legal-company { font-size:18px; }
+.legal-invoice-title { text-align:right; }
+.legal-invoice h1 { font-size:25px; font-style:italic; margin:15px 0 10px; font-weight:700; }
+.legal-invoice h2 { margin:20px 0 14px; text-align:center; font-weight:700; font-size:15px; }
+.legal-pair { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.legal-column-head { border-top:1px solid #222; border-bottom:1px solid #222; }
+.legal-lines th { font-weight:700; }
+.legal-lines .numeric { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; overflow-wrap:normal; font-size:10px; }
+.legal-lines tbody tr { border-bottom:1px solid #eee; }
+.legal-totals { margin:12px 0 20px auto; width:290px; break-inside:avoid; }
+.legal-totals > div { display:flex; justify-content:space-between; gap:12px; padding:3px 0; }
+.legal-total { border-top:1px solid #222; margin-top:5px; }
+.legal-notes { white-space:pre-wrap; overflow-wrap:anywhere; margin:20px 0; }
+.legal-closing { margin-top:40px; break-inside:avoid; }
+.legal-words { margin-bottom:18px!important; }
+.legal-reference { font-size:9px; margin-bottom:8px!important; }
+.legal-payment { margin-bottom:26px!important; }
+.legal-responsibilities { display:grid; grid-template-columns:1fr 1fr 1fr; gap:22px 15px; font-size:10px; }
+.legal-responsibilities > div { min-width:0; }
+.legal-signature { width:95px; height:40px; object-fit:contain; margin:4px 0; }
+.legal-stamp { width:185px; max-width:100%; height:75px; object-fit:contain; }
+.legal-scan-notice { font-size:8px; margin-top:16px!important; color:#555; }
+.legal-watermark { padding:7px; margin-bottom:15px; text-align:center; border:2px solid #777; font-weight:bold; letter-spacing:1px; }
+.legal-image-error { font-size:10px; color:#a22; border:1px solid #a22; padding:4px; }
+.legal-image-error button { text-decoration:underline; display:block; }
+@media screen and (max-width:640px) {
+  .legal-invoice { padding:14px; font-size:9px; }
+  .legal-lines .numeric { font-size:8px; white-space:normal; overflow-wrap:anywhere; }
+  .legal-lines th,.legal-lines td { padding:4px 2px; }
+  .legal-heading { gap:10px; }
+  .legal-company { font-size:14px; }
+  .legal-responsibilities { font-size:8px; gap:15px 8px; }
+}
+@page { size:Letter; margin:12mm; @bottom-right { content:"Página " counter(page) " de " counter(pages); font-family:Arial,sans-serif; font-size:9px; } }
+@media print {
+  /* Reset the authenticated shell as well as the public share wrapper.
+     A transformed animation ancestor causes Chromium to rasterize and clip
+     paginated content; a hidden sidebar must not leave its desktop offset. */
+  .fade-in { animation:none!important; transform:none!important; opacity:1!important; }
+  .app-shell,.app-content,.main-content { display:block!important; width:auto!important; max-width:none!important; min-height:0!important; margin:0!important; padding:0!important; overflow:visible!important; background:white!important; }
+  .shared-invoice-page { padding:0!important; margin:0!important; background:white!important; }
+  html, body, #root { background:white!important; color:#111!important; height:auto!important; overflow:visible!important; }
+  .legal-invoice { width:100%; max-width:none!important; margin:0; padding:0!important; font-size:10px; }
+  .legal-invoice { line-height:1.25; }
+  .legal-invoice p { margin:2px 0; }
+  .legal-header-cell { break-inside:avoid; padding-bottom:6px; }
+  .legal-lines { overflow:visible!important; }
+  /* Chromium will not repeat a thead taller than a quarter of a page.
+     Keep only the compact issuer/invoice reference and columns in thead. */
+  .legal-lines thead { display:table-header-group; break-inside:avoid; }
+  .legal-lines tbody { display:table-row-group; }
+  .legal-lines tr { break-inside:avoid; page-break-inside:avoid; }
+  .legal-lines th,.legal-lines td { padding:2px 4px; }
+  .legal-lines .numeric { font-size:9px; }
+  .legal-closing,.legal-totals { break-inside:avoid; page-break-inside:avoid; }
+  .legal-invoice h1 { font-size:22px; line-height:1.1; margin:6px 0; }
+  .legal-invoice h2 { margin:10px 0 8px; }
+  .legal-closing { margin-top:16px; }
+  .legal-words { margin-bottom:12px!important; }
+  .legal-payment { margin-bottom:14px!important; }
+  .legal-responsibilities { gap:14px 15px; }
+  .legal-totals { margin-top:10px; margin-bottom:12px; }
+  .legal-notes { margin:12px 0; }
+  .legal-image-error { color:#a22!important; }
+}

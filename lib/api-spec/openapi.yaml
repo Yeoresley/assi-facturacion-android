@@ -19,6 +19,73 @@ tags:
   - name: team
     description: Current user and team access
 paths:
+  /issuer:
+    get:
+      operationId: getIssuer
+      tags: [billing]
+      responses:
+        "200":
+          description: Configuración del emisor (solo propietario)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssuerSettings" }
+    put:
+      operationId: updateIssuer
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssuerProfile" }
+      responses:
+        "200":
+          description: Configuración guardada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssuerSettings" }
+  /invoices/{id}/legal-document:
+    put:
+      operationId: authorizeInvoiceDocument
+      tags: [billing]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentAuthorization" }
+      responses:
+        "200":
+          description: Modelo confirmado por el propietario
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}/images/{kind}:
+    get:
+      operationId: getInvoiceImage
+      tags: [billing]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [stamp, signature] } }
+      responses:
+        "200":
+          description: Imagen autorizada; requiere sesión del equipo o enlace vigente de esta factura
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+  /shared-invoices/{token}/images/{kind}:
+    get:
+      operationId: getSharedInvoiceImage
+      tags: [billing]
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [stamp, signature] } }
+      responses:
+        "200":
+          description: Imagen accesible solo con enlace vigente
+          content:
+            image/png:
+              schema: { type: string, format: binary }
   /healthz:
     get:
       operationId: healthCheck
@@ -351,6 +418,59 @@ paths:
               schema: { $ref: "#/components/schemas/TeamInvitation" }
 components:
   schemas:
+    IssuerProfile:
+      type: object
+      required: [name, nit, ircc, address, organization, paymentBeneficiary, bankAccount, bankBranch, bankName]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        nit: { type: string, minLength: 1, maxLength: 40 }
+        ircc: { type: string, minLength: 1, maxLength: 80 }
+        address: { type: string, minLength: 1, maxLength: 400 }
+        organization: { type: string, minLength: 1, maxLength: 100 }
+        paymentBeneficiary: { type: string, minLength: 1, maxLength: 200 }
+        bankAccount: { type: string, minLength: 1, maxLength: 80 }
+        bankBranch: { type: string, minLength: 1, maxLength: 80 }
+        bankName: { type: string, minLength: 1, maxLength: 200 }
+    IssuerSettings:
+      type: object
+      required: [profile, hasStamp, hasSignature]
+      properties:
+        profile:
+          anyOf:
+            - { $ref: "#/components/schemas/IssuerProfile" }
+            - { type: "null" }
+        hasStamp: { type: boolean }
+        hasSignature: { type: boolean }
+    DocumentAuthorization:
+      type: object
+      required: [preparedBy, preparedPosition, deliveredBy, accountedBy, transportedBy, transportId, vehiclePlate, drivingLicense, receivedBy, receivedPosition, receivedId, customerIrcc, customerBankAccount, useStamp, useSignature, confirm]
+      properties:
+        preparedBy: { type: string, minLength: 1, maxLength: 160 }
+        preparedPosition: { type: string, minLength: 1, maxLength: 160 }
+        deliveredBy: { type: string, maxLength: 160 }
+        accountedBy: { type: string, maxLength: 160 }
+        transportedBy: { type: string, maxLength: 160 }
+        transportId: { type: string, maxLength: 40 }
+        vehiclePlate: { type: string, maxLength: 40 }
+        drivingLicense: { type: string, maxLength: 40 }
+        receivedBy: { type: string, maxLength: 160 }
+        receivedPosition: { type: string, maxLength: 160 }
+        receivedId: { type: string, maxLength: 40 }
+        customerIrcc: { type: string, maxLength: 80 }
+        customerBankAccount: { type: string, maxLength: 80 }
+        useStamp: { type: boolean }
+        useSignature: { type: boolean }
+        confirm: { type: boolean, enum: [true] }
+    LegalDocument:
+      allOf:
+        - { $ref: "#/components/schemas/DocumentAuthorization" }
+        - type: object
+          required: [issuer, stampPath, signaturePath, authorizedAt]
+          properties:
+            issuer: { $ref: "#/components/schemas/IssuerProfile" }
+            stampPath: { type: ["string", "null"] }
+            signaturePath: { type: ["string", "null"] }
+            authorizedAt: { type: string }
     HealthStatus:
       type: object
       properties:
@@ -426,6 +546,10 @@ components:
         versat:
           anyOf:
             - { $ref: "#/components/schemas/VersatInvoiceSnapshot" }
+            - { type: "null" }
+        legalDocument:
+          anyOf:
+            - { $ref: "#/components/schemas/LegalDocument" }
             - { type: "null" }
         subtotal: { type: number }
         total: { type: number }

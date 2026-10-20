@@ -12,6 +12,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customersTable } from "./customers";
 import type { VersatInvoiceSnapshot } from "./versat-catalog";
+import type { LegalDocument } from "./issuer";
 
 export const invoicesTable = pgTable("invoices", {
   id: serial("id").primaryKey(),
@@ -29,6 +30,7 @@ export const invoicesTable = pgTable("invoices", {
     .notNull()
     .default("draft"),
   notes: text("notes"),
+  legalDocument: jsonb("legal_document").$type<LegalDocument>(),
   versat: jsonb("versat").$type<VersatInvoiceSnapshot>(),
   versatNumber: text("versat_number").unique(),
   subtotal: numeric("subtotal", { precision: 14, scale: 2, mode: "number" })

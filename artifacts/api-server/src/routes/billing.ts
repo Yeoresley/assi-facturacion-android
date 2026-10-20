@@ -352,6 +352,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
         dueDate: body.data.dueDate ? toDateOnly(body.data.dueDate) : null,
         currency: body.data.currency,
         notes: body.data.notes ?? null,
+        legalDocument: null,
         versat,
         versatNumber: versat?.number ?? null,
         subtotal,
@@ -397,6 +398,10 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
     return;
   }
   if (current.status === "draft" && ["sent", "paid"].includes(body.data.status)) {
+    if (!current.legalDocument) {
+      res.status(422).json({ error: "El propietario debe confirmar el emisor y los responsables del documento antes de emitir." });
+      return;
+    }
     const record = await getInvoiceRow(current.id);
     const issues = record ? getVersatIssues({ ...record, status: body.data.status }) : ["Factura no encontrada."];
     if (issues.length) {
@@ -407,7 +412,8 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   const [invoice] = await db
     .update(invoicesTable)
     .set({ status: body.data.status })
-    .where(and(eq(invoicesTable.id, params.data.id), eq(invoicesTable.status, current.status)))
+    .where(and(eq(invoicesTable.id, params.data.id), eq(invoicesTable.status, current.status),
+      ...((current.status === "draft" && ["sent", "paid"].includes(body.data.status)) ? [eq(invoicesTable.legalDocument, current.legalDocument!)] : [])))
     .returning({ id: invoicesTable.id });
   if (!invoice) {
     res.status(409).json({ error: "La factura cambió en otra sesión. Actualiza la página." });
@@ -473,7 +479,7 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
-  res.json(GetSharedInvoiceResponse.parse(serializeInvoice(invoice)));
+  res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(serializeInvoice(invoice)));
 });
 
 router.get("/team/me", async (req, res): Promise<void> => {

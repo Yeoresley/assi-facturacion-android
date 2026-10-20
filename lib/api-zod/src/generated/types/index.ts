@@ -9,6 +9,7 @@
 export * from './billingOverview';
 export * from './customer';
 export * from './customerInput';
+export * from './documentAuthorization';
 export * from './exportVersatInvoicesParams';
 export * from './getVersatExportFileEncoding';
 export * from './getVersatExportFileParams';
@@ -22,6 +23,9 @@ export * from './invoiceShare';
 export * from './invoiceStatus';
 export * from './invoiceStatusInput';
 export * from './invoiceStatusInputStatus';
+export * from './issuerProfile';
+export * from './issuerSettings';
+export * from './legalDocument';
 export * from './listCustomersParams';
 export * from './listInvoicesParams';
 export * from './listInvoicesStatus';

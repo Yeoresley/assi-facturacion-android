@@ -7,6 +7,7 @@
  */
 import type { InvoiceLine } from './invoiceLine';
 import type { InvoiceStatus } from './invoiceStatus';
+import type { LegalDocument } from './legalDocument';
 import type { VersatInvoiceSnapshot } from './versatInvoiceSnapshot';
 
 export interface Invoice {
@@ -24,6 +25,7 @@ export interface Invoice {
   /** @nullable */
   notes: string | null;
   versat?: VersatInvoiceSnapshot | null;
+  legalDocument?: LegalDocument | null;
   subtotal: number;
   total: number;
   lines: InvoiceLine[];

@@ -7,7 +7,10 @@ import {
 import type { InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Clipboard, Mail, Pencil, Printer } from 'lucide-react';
 import { Link, useParams } from 'wouter';
-import { BrandMark, QueryError, Status, TestFileNotice, date, downloadBase64File, errorDetail, money } from '@/lib/shared';
+import { QueryError, Status, TestFileNotice, date, downloadBase64File, errorDetail } from '@/lib/shared';
+import { InvoiceDocument } from '@/components/invoice-document';
+import { DocumentAuthorizationForm } from '@/components/document-authorization';
+import { printInvoice } from '@/lib/invoice-print';
 
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -64,7 +67,7 @@ export default function InvoiceDetailPage() {
   return <div className="fade-in mx-auto max-w-[980px]">
     <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3"><Link href="/invoices" className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />Todas las facturas</Link><div className="flex flex-wrap gap-2">
       {inv.status === 'draft' && <Link href={`/invoices/${inv.id}/edit`} className="button button-soft" data-testid="link-edit-invoice"><Pencil size={15} />Editar borrador</Link>}
-      <button className="button button-plain" onClick={() => window.print()} data-testid="button-print-invoice"><Printer size={15} />Imprimir</button>
+      <button className="button button-plain" onClick={() => printInvoice().catch(err => setNotice(err.message))} data-testid="button-print-invoice"><Printer size={15} />Imprimir / Guardar PDF</button>
       <button className="button button-primary" onClick={makeShare} disabled={createShare.isPending} data-testid="button-create-share"><ArrowUpRight size={15} />{createShare.isPending ? 'Creando enlace…' : 'Compartir'}</button></div></div>
     {shareUrl && <div className="no-print panel mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[12px] font-bold text-[#315b52]">Enlace público creado</div><input className="field mt-2 !h-9 font-mono text-[11px]" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} data-testid="input-share-url" /><div className="mt-1 text-[10px] text-[#818c85]">Caduca: {date(share?.expiresAt)}</div></div><div className="flex gap-2"><button className="button button-soft !min-h-9" onClick={() => { navigator.clipboard?.writeText(shareUrl); setNotice('Enlace copiado.'); }}><Clipboard size={14} />Copiar</button><a className="button button-plain !min-h-9" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Factura ${inv.number}: ${shareUrl}`)}`}><ArrowUpRight size={14} />WhatsApp</a><a className="button button-plain !min-h-9" href={`mailto:?subject=${encodeURIComponent(`Factura ${inv.number}`)}&body=${encodeURIComponent(`Hola, aquí tienes tu factura: ${shareUrl}`)}`}><Mail size={14} />Email</a></div></div>}
     {notice && <div className="no-print mb-4 text-[12px] font-semibold text-[#377668]" role="status">{notice}</div>}
@@ -76,17 +79,9 @@ export default function InvoiceDetailPage() {
       {fileInfo.length > 0 && <ul className="mt-3 list-disc pl-5 text-[11px] leading-5 text-[#8a6a25]">{fileInfo.map((w, i) => <li key={i}>{w}</li>)}</ul>}
     </section>}
 
-    <article className="invoice-paper mx-auto max-w-[780px] border border-[#e8e5dc] px-7 py-8 md:px-14 md:py-12">
-      <div className="flex flex-wrap justify-between gap-8 border-b border-[#e8e5dc] pb-8"><div><BrandMark /><div className="mt-5 text-[11px] text-[#8a948e]">Documento emitido por el equipo</div></div><div className="text-right"><div className="eyebrow">Factura</div><h1 className="font-display mt-1 text-[25px] font-bold tracking-[-.05em]">{inv.number}</h1>{v?.number && <div className="mt-1 font-mono text-[11px] text-[#71817b]">Versat Nº {v.number}</div>}<div className="mt-2"><Status status={inv.status} /></div></div></div>
-      <div className="grid gap-8 py-8 sm:grid-cols-2"><div><div className="eyebrow">Facturar a</div><div className="mt-3 text-[15px] font-bold">{v?.customerName || inv.customerName}</div>{v?.customerCode && <div className="mt-1 font-mono text-[11px] text-[#5f736c]">Código Versat: {v.customerCode}</div>}{v?.customerTaxId && <div className="mt-1 font-mono text-[11px] text-[#5f736c]">NIT: {v.customerTaxId}</div>}{v?.customerAddress && <div className="mt-1 text-[11px] text-[#78857f]">{v.customerAddress}</div>}</div><div className="grid grid-cols-2 gap-4"><div><div className="eyebrow">Fecha de emisión</div><div className="mt-3 text-[13px] font-semibold">{date(inv.issueDate)}</div></div><div><div className="eyebrow">Vencimiento</div><div className="mt-3 text-[13px] font-semibold">{date(inv.dueDate)}</div></div></div></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[520px]"><thead><tr className="border-y border-[#e8e5dc] text-left"><th className="py-3 pr-3 eyebrow">Servicio</th><th className="px-2 py-3 eyebrow">UM</th><th className="px-2 py-3 text-right eyebrow">Cant.</th><th className="px-2 py-3 text-right eyebrow">Precio</th><th className="py-3 pl-2 text-right eyebrow">Importe</th></tr></thead><tbody>{inv.lines.map((line) => <tr key={line.id} className="border-b border-[#f0eee7]"><td className="py-4 pr-3"><div className="text-[13px] font-medium">{line.description}</div><div className="mt-1 font-mono text-[10px] text-[#7d8a84]">{line.serviceCode ? `Servicio ${line.serviceCode}` : 'Sin servicio de catálogo'}{line.groupCode ? ` · Grupo ${line.groupCode}` : ' · Sin grupo'}</div></td><td className="px-2 py-4 font-mono text-[11px] text-[#71817b]">{line.unitCode || '—'}</td><td className="px-2 py-4 text-right text-[12px] text-[#71817b]">{line.quantity}</td><td className="px-2 py-4 text-right text-[12px] text-[#71817b]">{money(line.unitPrice, inv.currency, 5)}</td><td className="py-4 pl-2 text-right text-[13px] font-bold">{money(line.amount, inv.currency)}</td></tr>)}</tbody></table></div>
-      <div className="ml-auto mt-5 max-w-[280px] space-y-2"><div className="flex justify-between text-[12px] text-[#71817b]"><span>Subtotal</span><span>{money(inv.subtotal, inv.currency)}</span></div><div className="flex justify-between border-t border-[#e8e5dc] pt-3 font-display text-[17px] font-bold"><span>Total</span><span>{money(inv.total, inv.currency)}</span></div></div>
-      {v && <div className="mt-8 border-t border-[#e8e5dc] pt-5"><div className="eyebrow">Datos de Versat</div><dl className="mt-3 grid gap-x-6 gap-y-3 text-[12px] sm:grid-cols-2">
-        {[['Moneda', `${inv.currency} · ${v.currencyName}`], ['Concepto', v.conceptCode], ['Operación', v.operationName], ['Comercial', `${v.commercialName}${v.commercialPosition ? ` (${v.commercialPosition})` : ''}`], ['Forma de pago', v.paymentName], ['Talón', v.talon], ['Cuenta MC', v.bankAccountMC], ['Cuenta OM', v.bankAccountOM], ['Contrato', v.contract]].map(([k, val]) => val ? <div key={k}><dt className="text-[10px] text-[#85918a]">{k}</dt><dd className="mt-0.5 font-semibold">{val}</dd></div> : null)}
-      </dl></div>}
-      {inv.notes && <div className="mt-8 border-t border-[#e8e5dc] pt-5"><div className="eyebrow">Nota</div><p className="mt-2 whitespace-pre-line text-[12px] leading-5 text-[#63736d]">{inv.notes}</p></div>}
-      <div className="mt-12 border-t border-[#e8e5dc] pt-4 text-[10px] text-[#89948d]">Preparada por {inv.specialistName} <span className="mx-2">·</span> Cuenta Clara desk</div>
-    </article>
+    {isOwner && inv.status === 'draft' && <DocumentAuthorizationForm key={`${inv.id}-${inv.legalDocument?.authorizedAt || 'new'}`} invoice={inv} />}
+    {inv.status === 'draft' && !inv.legalDocument && <p className="no-print mb-4 text-xs">El propietario debe confirmar el emisor y los responsables antes de emitir esta factura.</p>}
+    <InvoiceDocument invoice={inv} />
     {!v && <p className="no-print mx-auto mt-4 max-w-[780px] text-[11px] text-[#85918a]">Esta factura aún no tiene datos de Versat. {inv.status === 'draft' ? 'Edita el borrador para completarlos.' : ''}</p>}
   </div>;
 }

@@ -5,6 +5,107 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface IssuerProfile {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  nit: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  ircc: string;
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  address: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  organization: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  paymentBeneficiary: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  bankAccount: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  bankBranch: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  bankName: string;
+}
+
+export interface IssuerSettings {
+  profile: IssuerProfile | null;
+  hasStamp: boolean;
+  hasSignature: boolean;
+}
+
+export interface DocumentAuthorization {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  preparedBy: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  preparedPosition: string;
+  /** @maxLength 160 */
+  deliveredBy: string;
+  /** @maxLength 160 */
+  accountedBy: string;
+  /** @maxLength 160 */
+  transportedBy: string;
+  /** @maxLength 40 */
+  transportId: string;
+  /** @maxLength 40 */
+  vehiclePlate: string;
+  /** @maxLength 40 */
+  drivingLicense: string;
+  /** @maxLength 160 */
+  receivedBy: string;
+  /** @maxLength 160 */
+  receivedPosition: string;
+  /** @maxLength 40 */
+  receivedId: string;
+  /** @maxLength 80 */
+  customerIrcc: string;
+  /** @maxLength 80 */
+  customerBankAccount: string;
+  useStamp: boolean;
+  useSignature: boolean;
+  confirm: true;
+}
+
+export type LegalDocument = DocumentAuthorization & ({
+  issuer: IssuerProfile;
+  /** @nullable */
+  stampPath: string | null;
+  /** @nullable */
+  signaturePath: string | null;
+  authorizedAt: string;
+});
+
 export interface HealthStatus {
   status: string;
 }
@@ -168,6 +269,7 @@ export interface Invoice {
   /** @nullable */
   notes: string | null;
   versat?: VersatInvoiceSnapshot | null;
+  legalDocument?: LegalDocument | null;
   subtotal: number;
   total: number;
   lines: InvoiceLine[];
