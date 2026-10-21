@@ -15,6 +15,8 @@ import { eq, inArray } from "drizzle-orm";
 import {
   customersTable,
   db,
+  invoiceLinesTable,
+  invoiceNumberReservationsTable,
   invoicePaymentsTable,
   invoicesTable,
   invoiceSharesTable,
@@ -39,6 +41,8 @@ let commercialOneId: number;
 let commercialTwoId: number;
 let invoiceOneId: number;
 let invoiceTwoId: number;
+const mutationInvoiceIds: number[] = [];
+const mutationCatalogIds: number[] = [];
 
 before(async () => {
   mock.method(clerkClient.users, "getUser", async (id: string) => ({
@@ -168,8 +172,11 @@ after(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   mock.restoreAll();
   const invoiceIds = [invoiceOneId, invoiceTwoId].filter(Boolean);
+  invoiceIds.push(...mutationInvoiceIds);
   if (invoiceIds.length) {
     await db.delete(invoiceSharesTable).where(inArray(invoiceSharesTable.invoiceId, invoiceIds));
+    await db.delete(invoiceNumberReservationsTable).where(inArray(invoiceNumberReservationsTable.invoiceId, invoiceIds));
+    await db.delete(invoiceLinesTable).where(inArray(invoiceLinesTable.invoiceId, invoiceIds));
     await db.delete(invoicesTable).where(inArray(invoicesTable.id, invoiceIds));
   }
   if (customerId) await db.delete(customersTable).where(eq(customersTable.id, customerId));
@@ -177,6 +184,9 @@ after(async () => {
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
   if (commercialOneId && commercialTwoId) {
     await db.delete(versatCatalogTable).where(inArray(versatCatalogTable.id, [commercialOneId, commercialTwoId]));
+  }
+  if (mutationCatalogIds.length) {
+    await db.delete(versatCatalogTable).where(inArray(versatCatalogTable.id, mutationCatalogIds));
   }
   await pool.end();
 });
@@ -284,4 +294,101 @@ test("specialists see only their commercial's invoice payments in lists, details
     assert.equal(ownerDetail.status, 200);
     assertPaymentSnapshot(GetInvoiceResponse.parse(await ownerDetail.json()), expected);
   }
+});
+
+test("foreign specialists cannot edit drafts or change their status; denied requests leave all invoice data untouched", async () => {
+  const [currency, concept, operation, payment] = await db.insert(versatCatalogTable).values([
+    { kind: "currency", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: `${tag}-CUR`, name: "Synthetic currency", exportValue: "Synthetic currency" },
+    { kind: "concept", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: `${tag}-CON`, name: "Synthetic concept", exportValue: "Synthetic concept" },
+    { kind: "operation", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: `${tag}-OP`, name: "Synthetic operation", exportValue: "Synthetic operation" },
+    { kind: "payment", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: `${tag}-PAY`, name: "Synthetic payment", exportValue: "Synthetic payment" },
+  ]).returning();
+  mutationCatalogIds.push(currency.id, concept.id, operation.id, payment.id);
+
+  const snapshot = (commercialId: number, label: string): VersatInvoiceSnapshot => ({
+    commercialId,
+    conceptId: concept.id,
+    operationId: operation.id,
+    paymentId: payment.id,
+    number: `${tag}-${label}-original`,
+    talon: "9",
+    bankAccountMC: null,
+    bankAccountOM: null,
+    contract: null,
+    currencyName: currency.exportValue,
+    conceptCode: concept.code,
+    operationName: operation.exportValue,
+    commercialName: label,
+    commercialPosition: "",
+    paymentName: payment.exportValue,
+    customerCode: "TEST",
+    customerName: tag,
+    customerAddress: null,
+    customerTaxId: null,
+  });
+  const [draftOne, draftTwo] = await db.insert(invoicesTable).values([
+    {
+      number: `${tag}-draft-one`, customerId, specialistId: specialistOneId, specialistName: specialistOneId,
+      issueDate: "2026-10-21", currency: currency.code, status: "draft",
+      versat: snapshot(commercialOneId, "one"), versatNumber: `${tag}-one-original`, subtotal: 20, total: 20,
+    },
+    {
+      number: `${tag}-draft-two`, customerId, specialistId: specialistTwoId, specialistName: specialistTwoId,
+      issueDate: "2026-10-21", currency: currency.code, status: "draft",
+      versat: snapshot(commercialTwoId, "two"), versatNumber: `${tag}-two-original`, subtotal: 40, total: 40,
+    },
+  ]).returning();
+  mutationInvoiceIds.push(draftOne.id, draftTwo.id);
+  await db.insert(invoiceLinesTable).values([
+    { invoiceId: draftOne.id, description: "Original one", quantity: 1, unitPrice: 20, amount: 20, groupCode: "TEST" },
+    { invoiceId: draftTwo.id, description: "Original two", quantity: 1, unitPrice: 40, amount: 40, groupCode: "TEST" },
+  ]);
+  const originalRows = [draftOne, draftTwo];
+  const originalLines = await db.select().from(invoiceLinesTable)
+    .where(inArray(invoiceLinesTable.invoiceId, mutationInvoiceIds));
+  const editBody = (commercialId: number, label: string) => ({
+    customerId,
+    issueDate: "2026-10-22",
+    currency: currency.code,
+    notes: `${tag}-edited-${label}`,
+    versat: {
+      conceptId: concept.id,
+      operationId: operation.id,
+      commercialId,
+      paymentId: payment.id,
+      number: `${tag.slice(0, 20)}-${label}-edited`,
+      talon: "9",
+    },
+    lines: [{ description: `Edited ${label}`, groupCode: "TEST", quantity: 2, unitPrice: 30 }],
+  });
+
+  for (const [actor, foreignDraft, foreignCommercial] of [
+    [specialistOneId, draftTwo, commercialTwoId],
+    [specialistTwoId, draftOne, commercialOneId],
+  ] as const) {
+    const edit = await request(`/invoices/${foreignDraft.id}`, actor, "PATCH", editBody(foreignCommercial, "denied"));
+    assert.equal(edit.status, 404);
+    const status = await request(`/invoices/${foreignDraft.id}/status`, actor, "PATCH", { status: "finished" });
+    assert.equal(status.status, 404);
+  }
+
+  const afterDeniedRows = await db.select().from(invoicesTable)
+    .where(inArray(invoicesTable.id, mutationInvoiceIds));
+  const afterDeniedLines = await db.select().from(invoiceLinesTable)
+    .where(inArray(invoiceLinesTable.invoiceId, mutationInvoiceIds));
+  assert.deepEqual(afterDeniedRows, originalRows);
+  assert.deepEqual(afterDeniedLines, originalLines);
+
+  const ownerEdit = await request(
+    `/invoices/${draftTwo.id}`, ownerId, "PATCH", editBody(commercialTwoId, "owner"),
+  );
+  assert.equal(ownerEdit.status, 200, await ownerEdit.text());
+  const updated = (await db.select().from(invoicesTable).where(eq(invoicesTable.id, draftTwo.id)))[0];
+  assert.equal(updated.status, "draft");
+  assert.equal(updated.notes, `${tag}-edited-owner`);
+  assert.equal(updated.versatNumber, `${tag.slice(0, 20)}-owner-edited`);
+  const updatedLines = await db.select().from(invoiceLinesTable)
+    .where(eq(invoiceLinesTable.invoiceId, draftTwo.id));
+  assert.equal(updatedLines.length, 1);
+  assert.equal(updatedLines[0].description, "Edited owner");
 });

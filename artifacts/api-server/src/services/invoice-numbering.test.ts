@@ -126,14 +126,31 @@ test("concurrent retries on the same invoice consume only one number", async () 
   await assert.rejects(transitionInvoice(d.id, "draft"), /Edición/);
 });
 
-test("commercial scope is checked inside the issuance transaction before allocating", async () => {
+test("a specialist cannot change a foreign commercial invoice, while the owner can issue it", async () => {
   const s = await series();
-  const d = await draft(s.id);
-  await assert.rejects(scopedTransitionInvoice(d.id, "finished", invoiceScope({ role: "specialist", commercialId: 2 }), { ...specialist, commercialId: 2 }), /no encontrada/);
+  const commercialOneInvoice = await draft(s.id, { versat: { ...snapshot, commercialId: 1 } });
+  const commercialTwoInvoice = await draft(s.id, { versat: { ...snapshot, commercialId: 2 } });
+  const beforeOne = await stored(commercialOneInvoice.id);
+  const beforeTwo = await stored(commercialTwoInvoice.id);
+  const otherSpecialist = { ...specialist, userId: "other-commercial-specialist", commercialId: 2 };
+  await assert.rejects(scopedTransitionInvoice(
+    commercialTwoInvoice.id, "finished", invoiceScope(specialist), specialist,
+  ), /no encontrada/);
+  await assert.rejects(scopedTransitionInvoice(
+    commercialOneInvoice.id, "finished", invoiceScope(otherSpecialist), otherSpecialist,
+  ), /no encontrada/);
+  assert.deepEqual(await stored(commercialOneInvoice.id), beforeOne);
+  assert.deepEqual(await stored(commercialTwoInvoice.id), beforeTwo);
   assert.equal(await counter(s.id), 1);
-  assert.equal((await stored(d.id)).status, "draft");
-  await scopedTransitionInvoice(d.id, "finished", invoiceScope({ role: "specialist", commercialId: snapshot.commercialId }), specialist);
-  assert.equal((await stored(d.id)).versatNumber, formatSeries(s));
+  assert.equal((await db.select().from(invoiceNumberReservationsTable)
+    .where(inArray(invoiceNumberReservationsTable.invoiceId, [commercialOneInvoice.id, commercialTwoInvoice.id]))).length, 0);
+
+  await scopedTransitionInvoice(
+    commercialTwoInvoice.id, "finished", invoiceScope({ role: "owner", commercialId: null }),
+    { userId: "test-owner", role: "owner", commercialId: null },
+  );
+  assert.equal((await stored(commercialTwoInvoice.id)).versatNumber, formatSeries(s));
+  assert.equal((await stored(commercialTwoInvoice.id)).status, "finished");
 });
 
 test("validation failure after allocation rolls back number, reservation, counter and status", async () => {

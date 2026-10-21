@@ -358,8 +358,12 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     .from(invoicesTable)
     .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member)))
     .limit(1);
-  if (!current || current.status !== "draft") {
-    res.status(current ? 409 : 404).json({ error: "Only draft invoices can be edited" });
+  if (!current || !canAccessInvoice(member, current)) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  if (current.status !== "draft") {
+    res.status(409).json({ error: "Only draft invoices can be edited" });
     return;
   }
   const effectiveVersat = body.data.versat ?? current.versat ?? undefined;
@@ -396,7 +400,8 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   try {
     await db.transaction(async (tx) => {
     const [locked] = await tx.select().from(invoicesTable).where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member))).for("update");
-    if (!locked || locked.status !== "draft") throw new Error("INVOICE_NOT_DRAFT");
+    if (!locked || !canAccessInvoice(member, locked)) throw new Error("INVOICE_NOT_FOUND");
+    if (locked.status !== "draft") throw new Error("INVOICE_NOT_DRAFT");
     await lockNumbering(tx);
     await validateSeriesSelection(tx, body.data.seriesId === undefined ? locked.seriesId : body.data.seriesId, versat);
     await reserveNumber(tx, locked.id, locked.versatNumber, locked.versat?.talon ?? null);
@@ -430,6 +435,8 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   } catch (error) {
     if (error instanceof NumberingError) {
       res.status(error.status).json({ error: error.message });
+    } else if (error instanceof Error && error.message === "INVOICE_NOT_FOUND") {
+      res.status(404).json({ error: "Invoice not found" });
     } else if (error instanceof Error && error.message === "INVOICE_NOT_DRAFT") {
       res.status(409).json({ error: "La factura ya no es un borrador." });
     } else if (isDuplicate(error)) {
