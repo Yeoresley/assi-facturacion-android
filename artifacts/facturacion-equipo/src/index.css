@@ -162,6 +162,7 @@ textarea.field { height:auto; min-height:92px; padding:11px 12px; resize:vertica
 .grain::after { content:'';pointer-events:none;position:fixed;inset:0;z-index:40;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E"); }
 .invoice-paper { background:#fffefa; box-shadow:0 18px 55px rgba(34,57,51,.10); }
 .mobile-nav { display:none; }
+.mobile-brand { display:none; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:3px solid #27afd0; outline-offset:2px; }
 .brand-emblem { display:block; width:40px; height:40px; object-fit:contain; }
 /* Translate the original palette utility tokens into ASSI blue without touching semantic state colors. */
@@ -174,6 +175,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .border-\[\#e4e1d5\],.border-\[\#eeece4\],.border-\[\#e4e1d5\] { border-color:#dce8ed!important; }
 @media (max-width: 800px) {
   .sidebar { display:none!important; }
+  .mobile-brand { display:flex; min-width:0; }
+  .desktop-account-label, .account-details { display:none!important; }
   .mobile-nav { display:flex; position:fixed; z-index:30; bottom:0;left:0;right:0; overflow-x:auto; justify-content:space-around; padding:9px 8px calc(9px + env(safe-area-inset-bottom)); background:#12365a; box-shadow:0 -6px 24px rgba(18,54,90,.18); }
   .mobile-nav a { display:flex;flex:1 0 48px;min-width:48px;flex-direction:column;align-items:center;gap:4px;color:#cad5ce;font-size:9px;font-weight:600; }
   .mobile-nav a.active { color:#89d0de; }

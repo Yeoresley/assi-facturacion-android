@@ -235,10 +235,11 @@ function Shell({ children }: { children: ReactNode }) {
         <button className="side-link w-full" data-testid="button-sign-out" onClick={() => signOut({ redirectUrl: basePath || '/' })}><LogOut size={16} />Cerrar sesión</button>
       </div>
     </aside>
-    <div className="app-content ml-0 flex min-h-[100dvh] w-full flex-col md:ml-[238px]">
+    <div className="app-content ml-0 flex min-h-[100dvh] w-full flex-col min-[801px]:ml-[238px]">
       <header className="topbar sticky top-0 z-10 flex h-[66px] items-center justify-between border-b border-[#d9e4e7] bg-[#e9f0f2]/95 px-5 backdrop-blur md:px-9">
-        <div className="text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
-        <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
+        <Link href="/dashboard" className="mobile-brand" aria-label="ASSI, ir al resumen"><BrandMark /></Link>
+        <div className="desktop-account-label text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
+        <div className="flex items-center gap-3"><div className="account-details hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
       </header>
       <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
     </div>
