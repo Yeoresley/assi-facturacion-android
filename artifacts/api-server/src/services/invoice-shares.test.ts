@@ -4,10 +4,15 @@ import { after, before, mock, test } from "node:test";
 import type { Server } from "node:http";
 import express from "express";
 import { clerkClient } from "@clerk/express";
-import { CreateInvoiceShareResponse, GetSharedInvoiceResponse, ListInvoiceSharesResponse } from "@workspace/api-zod";
+import {
+  CreateInvoiceShareResponse,
+  GetInvoiceResponse,
+  GetSharedInvoiceResponse,
+  ListInvoiceSharesResponse,
+} from "@workspace/api-zod";
 import { eq, inArray } from "drizzle-orm";
 import {
-  db, pool, customersTable, invoicesTable, invoiceSharesTable, invoiceSeriesTable,
+  db, pool, customersTable, invoicesTable, invoicePaymentCorrectionsTable, invoiceSharesTable, invoiceSeriesTable,
   teamMembersTable, teamInvitationsTable, versatCatalogTable, type LegalDocument,
   type VersatInvoiceSnapshot,
 } from "@workspace/db";
@@ -81,6 +86,18 @@ before(async () => {
     { invoiceId, tokenHash: hash(expiredToken), expiresAt: new Date(Date.now() - 1000) },
   ]).returning();
   shareId = share.id;
+  await db.insert(invoicePaymentCorrectionsTable).values({
+    invoiceId,
+    idempotencyKey: `${tag}-correction`,
+    reason: `${tag}-internal-correction-reason`,
+    correctedBy: `${tag}-internal-corrector`,
+    beforeInvoiceStatus: "sent",
+    afterInvoiceStatus: "sent",
+    beforePaymentStatus: "pending",
+    afterPaymentStatus: "pending",
+    beforeTotalPaid: 0,
+    afterTotalPaid: 0,
+  });
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -113,7 +130,7 @@ after(async () => {
 const request = (path: string, actor = specialist, method = "GET") =>
   fetch(`${base}${path}`, { method, headers: { "x-synthetic-id": actor } });
 
-test("scoped revocation blocks public data and both images, preserves history, other links, invoices and numbering", async () => {
+test("public shares omit internal correction audit while team detail preserves it; scoped revocation preserves history", async () => {
   const initialInvoices = await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId]));
   const initialSeries = await db.select().from(invoiceSeriesTable);
   const list = `/invoices/${invoiceId}/shares`;
@@ -137,7 +154,15 @@ test("scoped revocation blocks public data and both images, preserves history, o
   const liveData = await request(`/shared-invoices/${token}`, "");
   assert.equal(liveData.status, 200);
   assert.match(liveData.headers.get("cache-control")!, /no-store/);
-  assert.equal(GetSharedInvoiceResponse.parse(await liveData.json()).id, invoiceId);
+  const sharedBody = await liveData.json() as Record<string, unknown>;
+  assert.equal(GetSharedInvoiceResponse.parse(sharedBody).id, invoiceId);
+  assert.equal(Object.hasOwn(sharedBody, "paymentCorrections"), false);
+  assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-correction-reason`), false);
+  assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-corrector`), false);
+  const teamDetail = GetInvoiceResponse.parse(await (await request(`/invoices/${invoiceId}`, owner)).json());
+  assert.equal(teamDetail.paymentCorrections?.length, 1);
+  assert.equal(teamDetail.paymentCorrections?.[0].reason, `${tag}-internal-correction-reason`);
+  assert.equal(teamDetail.paymentCorrections?.[0].correctedBy, `${tag}-internal-corrector`);
   for (const kind of ["stamp", "signature"]) {
     const image = await request(`/shared-invoices/${token}/images/${kind}`, "");
     assert.equal(image.status, 200);
