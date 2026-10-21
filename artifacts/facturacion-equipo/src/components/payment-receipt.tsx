@@ -22,7 +22,7 @@ export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt
     {receipt.paymentMethod && <section className="payment-receipt-customer">
       <div><span>Medio de pago</span><strong>{paymentMethodLabel(receipt.paymentMethod)}</strong></div>
     </section>}
-    {receipt.reference && <section className="payment-receipt-customer">
+    {receipt.reference && <section className="payment-receipt-customer payment-receipt-reference">
       <div><span>Referencia del cobro</span><strong>{receipt.reference}</strong></div>
     </section>}
     <section className="payment-receipt-amount">
