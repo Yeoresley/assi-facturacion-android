@@ -10,6 +10,7 @@ import type { Invoice } from '@workspace/api-client-react';
 import { ArrowDownToLine, HandCoins, ReceiptText, RotateCcw } from 'lucide-react';
 import { Link } from 'wouter';
 import { date, downloadBase64File, errorDetail, money } from '@/lib/shared';
+import { paymentMethodLabel } from '@/lib/payment-method';
 
 type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt' | 'totalPaid' | 'balanceDue' | 'currency'>;
 const eligible = ['finished', 'accepted', 'confirmed', 'sent'];
@@ -39,6 +40,7 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
   const [amount, setAmount] = useState(() => String(invoice.balanceDue));
   const [paidOn, setPaidOn] = useState(localToday);
   const [reference, setReference] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'other' | ''>('');
   const [validationError, setValidationError] = useState('');
   const requestRef = useRef<{ signature: string; key: string } | null>(null);
   const isOwner = member.data?.role === 'owner';
@@ -49,12 +51,13 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
   const balanceCents = Math.round(invoice.balanceDue * 100);
   const validAmount = Number.isFinite(amountNumber) && amountCents >= 1 && amountCents <= balanceCents;
   const normalizedReference = reference.trim();
-  const signature = `${amountCents}|${paidOn}|${normalizedReference}`;
+  const signature = `${amountCents}|${paidOn}|${normalizedReference}|${paymentMethod}`;
 
   const openDialog = () => {
     setAmount(String(invoice.balanceDue));
     setPaidOn(localToday());
     setReference('');
+    setPaymentMethod('');
     setValidationError('');
     payment.reset();
     requestRef.current = null;
@@ -81,6 +84,7 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
         paidOn,
         idempotencyKey: requestRef.current.key,
         ...(normalizedReference ? { reference: normalizedReference } : {}),
+        ...(paymentMethod ? { paymentMethod } : {}),
       },
     }, {
       onSuccess: async () => {
@@ -121,7 +125,14 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
           <label htmlFor={`payment-date-${invoice.id}`} className="field-label mt-4">Fecha de recepción</label>
           <input id={`payment-date-${invoice.id}`} className="field" type="date" value={paidOn} max={localToday()} onChange={(event) => setPaidOn(event.target.value)} data-testid={`input-payment-date-${invoice.id}`} />
           <label htmlFor={`payment-reference-${invoice.id}`} className="field-label mt-4">Referencia del cobro (opcional)</label>
-          <input id={`payment-reference-${invoice.id}`} className="field" type="text" maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Ej.: transferencia 145" data-testid={`input-payment-reference-${invoice.id}`} />
+          <input id={`payment-reference-${invoice.id}`} className="field" type="text" maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Ej.: número de operación o comprobante" data-testid={`input-payment-reference-${invoice.id}`} />
+          <label htmlFor={`payment-method-${invoice.id}`} className="field-label mt-4">Medio de pago (opcional)</label>
+          <select id={`payment-method-${invoice.id}`} className="field" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)} data-testid={`select-payment-method-${invoice.id}`}>
+            <option value="">Sin especificar</option>
+            <option value="transfer">Transferencia</option>
+            <option value="cash">Efectivo</option>
+            <option value="other">Otro medio</option>
+          </select>
           {(validationError || payment.isError) && <div className="mt-3 rounded-lg bg-[#fbefeb] px-3 py-2.5 text-[12px] leading-5 text-[#9a3b2e]" role="alert">{validationError || errorDetail(payment.error, 'No se pudo registrar el abono. Puedes volver a intentarlo; el mismo envío conserva su identificador seguro.')}</div>}
           <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
             <button type="button" className="button button-plain" disabled={payment.isPending} onClick={() => setOpen(false)}>Cancelar</button>
@@ -333,7 +344,7 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
           const effectivePaidOn = paymentCorrection?.afterPaidOn ?? payment.paidOn;
           const reversed = reversedPaymentIds.has(payment.id);
           return <li key={payment.id} className="flex items-center justify-between gap-3 py-3" data-testid={`row-invoice-payment-${payment.id}`}>
-          <div className="min-w-0"><div className={`text-[12px] font-semibold ${reversed ? 'text-[#9a3b2e] line-through' : ''}`}>{reversed ? 'Abono revertido' : paymentCorrection ? 'Abono corregido' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha efectiva · {date(effectivePaidOn)}{paymentCorrection && ` · Original: ${date(payment.paidOn)}`}</div>{payment.reference && <div className="mt-1 break-words [overflow-wrap:anywhere] text-[11px] text-[#75827c]">Referencia · {payment.reference}</div>}</div>
+          <div className="min-w-0"><div className={`text-[12px] font-semibold ${reversed ? 'text-[#9a3b2e] line-through' : ''}`}>{reversed ? 'Abono revertido' : paymentCorrection ? 'Abono corregido' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha efectiva · {date(effectivePaidOn)}{paymentCorrection && ` · Original: ${date(payment.paidOn)}`}</div>{payment.paymentMethod && <div className="mt-1 text-[11px] text-[#75827c]">Medio · {paymentMethodLabel(payment.paymentMethod)}</div>}{payment.reference && <div className="mt-1 break-words [overflow-wrap:anywhere] text-[11px] text-[#75827c]">Referencia · {payment.reference}</div>}</div>
           <div className="flex shrink-0 items-center gap-3">
             <div className="text-right"><div className="font-display text-[13px] font-bold">{money(effectiveAmount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">{paymentCorrection ? `Recibo original · ${money(payment.amount, payment.currency || invoice.currency)}` : `Registrado · ${date(payment.recordedAt)}`}</div></div>
             {canGenerateReceipts && !reversed && <Link className="button button-soft !min-h-8 !px-2.5 !text-[11px]" href={`/invoices/${invoice.id}?receipt=${payment.id}`} aria-label={`Generar comprobante original del abono del ${date(payment.paidOn)}`} data-testid={`link-payment-receipt-${payment.id}`}><ReceiptText size={13} />{paymentCorrection ? 'Recibo original' : 'Comprobante'}</Link>}

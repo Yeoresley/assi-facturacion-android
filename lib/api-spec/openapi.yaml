@@ -1082,7 +1082,7 @@ components:
         createdAt: { type: string, format: date-time }
     SharedInvoiceReceipt:
       type: object
-      required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, remainingBalance]
+      required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, paymentMethod, remainingBalance]
       properties:
         invoiceNumber: { type: string }
         customerName: { type: string }
@@ -1091,6 +1091,7 @@ components:
         paidOn: { type: string, format: date }
         paymentCurrency: { type: string }
         reference: { type: ["string", "null"], maxLength: 120 }
+        paymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
         remainingBalance: { type: number, minimum: 0 }
     InvoiceInput:
       type: object
@@ -1115,6 +1116,7 @@ components:
         paidOn: { type: string, format: date }
         idempotencyKey: { type: string, format: uuid }
         reference: { type: string, maxLength: 120 }
+        paymentMethod: { type: string, enum: [transfer, cash, other] }
     InvoicePaymentCorrectionInput:
       type: object
       required: [reason, idempotencyKey, confirmed]
@@ -1127,7 +1129,7 @@ components:
         confirmed: { type: boolean, enum: [true] }
     InvoicePayment:
       type: object
-      required: [id, amount, currency, paidOn, recordedAt, reference]
+      required: [id, amount, currency, paidOn, recordedAt, reference, paymentMethod]
       properties:
         id: { type: integer }
         amount: { type: number }
@@ -1135,6 +1137,7 @@ components:
         paidOn: { type: string, format: date }
         recordedAt: { type: string, format: date-time }
         reference: { type: ["string", "null"], maxLength: 120 }
+        paymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
     InvoicePaymentCorrection:
       type: object
       required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]

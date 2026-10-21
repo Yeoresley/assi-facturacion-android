@@ -1045,7 +1045,8 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(authorizeInvoiceDocumentResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(authorizeInvoiceDocumentResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1280,7 +1281,8 @@ export const GetBillingOverviewResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(getBillingOverviewResponseRecentInvoicesItemPaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(getBillingOverviewResponseRecentInvoicesItemPaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1588,7 +1590,8 @@ export const ListInvoicesResponseItem = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(listInvoicesResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(listInvoicesResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1837,7 +1840,8 @@ export const CreateInvoiceResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(createInvoiceResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(createInvoiceResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2032,7 +2036,8 @@ export const GetInvoiceResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(getInvoiceResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(getInvoiceResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2284,7 +2289,8 @@ export const UpdateInvoiceResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(updateInvoiceResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(updateInvoiceResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2483,7 +2489,8 @@ export const UpdateInvoiceStatusResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(updateInvoiceStatusResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(updateInvoiceStatusResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2600,7 +2607,8 @@ export const CreateInvoicePaymentBody = zod.object({
   "amount": zod.number().gt(createInvoicePaymentBodyAmountExclusiveMin).max(createInvoicePaymentBodyAmountMax).multipleOf(createInvoicePaymentBodyAmountMultipleOf),
   "paidOn": zod.coerce.date(),
   "idempotencyKey": zod.string().uuid(),
-  "reference": zod.string().max(createInvoicePaymentBodyReferenceMax).optional()
+  "reference": zod.string().max(createInvoicePaymentBodyReferenceMax).optional(),
+  "paymentMethod": zod.enum(['transfer', 'cash', 'other']).optional()
 })
 
 export const createInvoicePaymentResponsePaymentsItemReferenceMax = 120;
@@ -2618,7 +2626,8 @@ export const CreateInvoicePaymentResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(createInvoicePaymentResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(createInvoicePaymentResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 }))
 })
 
@@ -2664,7 +2673,8 @@ export const CorrectInvoicePaymentResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(correctInvoicePaymentResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(correctInvoicePaymentResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2866,7 +2876,8 @@ export const GetSharedInvoiceResponse = zod.object({
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
   "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(getSharedInvoiceResponsePaymentsItemReferenceMax).nullable()
+  "reference": zod.string().max(getSharedInvoiceResponsePaymentsItemReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2991,6 +3002,7 @@ export const GetSharedInvoiceReceiptResponse = zod.object({
   "paidOn": zod.coerce.date(),
   "paymentCurrency": zod.string(),
   "reference": zod.string().max(getSharedInvoiceReceiptResponseReferenceMax).nullable(),
+  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable(),
   "remainingBalance": zod.number().min(getSharedInvoiceReceiptResponseRemainingBalanceMin)
 })
 

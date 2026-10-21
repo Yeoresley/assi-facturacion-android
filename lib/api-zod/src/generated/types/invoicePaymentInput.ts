@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoicePaymentInputPaymentMethod } from './invoicePaymentInputPaymentMethod';
 
 export interface InvoicePaymentInput {
   /**
@@ -16,4 +17,5 @@ export interface InvoicePaymentInput {
   idempotencyKey: string;
   /** @maxLength 120 */
   reference?: string;
+  paymentMethod?: InvoicePaymentInputPaymentMethod;
 }

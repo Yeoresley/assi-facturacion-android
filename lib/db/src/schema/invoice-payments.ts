@@ -11,6 +11,7 @@ export const invoicePaymentsTable = pgTable("invoice_payments", {
   currency: text("currency").notNull(),
   paidOn: date("paid_on", { mode: "string" }).notNull(),
   reference: text("reference"),
+  paymentMethod: text("payment_method", { enum: ["transfer", "cash", "other"] }),
   paidBy: text("paid_by").notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

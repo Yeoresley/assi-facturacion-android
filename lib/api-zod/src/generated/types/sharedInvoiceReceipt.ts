@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SharedInvoiceReceiptPaymentMethod } from './sharedInvoiceReceiptPaymentMethod';
 
 export interface SharedInvoiceReceipt {
   invoiceNumber: string;
@@ -19,6 +20,8 @@ export interface SharedInvoiceReceipt {
      * @nullable
      */
   reference: string | null;
+  /** @nullable */
+  paymentMethod: SharedInvoiceReceiptPaymentMethod;
   /** @minimum 0 */
   remainingBalance: number;
 }

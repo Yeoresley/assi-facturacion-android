@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoicePaymentPaymentMethod } from './invoicePaymentPaymentMethod';
 
 export interface InvoicePayment {
   id: number;
@@ -17,4 +18,6 @@ export interface InvoicePayment {
      * @nullable
      */
   reference: string | null;
+  /** @nullable */
+  paymentMethod: InvoicePaymentPaymentMethod;
 }

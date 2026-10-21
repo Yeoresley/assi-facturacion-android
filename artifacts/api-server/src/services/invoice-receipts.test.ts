@@ -12,7 +12,7 @@ test('public receipt data excludes reversed payment rows', () => {
 test('payment serialization never includes the private payer identifier', () => {
   const payment = {
     id: 11, amount: 25, currency: 'CUP', paidOn: '2026-10-20',
-    recordedAt: new Date('2026-10-20T12:00:00.000Z'), reference: null, paidBy: 'private-user-id',
+    recordedAt: new Date('2026-10-20T12:00:00.000Z'), reference: null, paymentMethod: null, paidBy: 'private-user-id',
   };
   const summary = summarizePayments(
     { id: 1, status: 'sent', paymentStatus: 'pending', total: 100 },
@@ -20,6 +20,6 @@ test('payment serialization never includes the private payer identifier', () => 
   );
   assert.deepEqual(summary.payments, [{
     id: 11, amount: 25, currency: 'CUP', paidOn: '2026-10-20',
-    recordedAt: '2026-10-20T12:00:00.000Z', reference: null,
+     recordedAt: '2026-10-20T12:00:00.000Z', reference: null, paymentMethod: null,
   }]);
 });

@@ -752,6 +752,7 @@ router.get("/shared-invoices/:token/receipts/:paymentId", async (req, res): Prom
     paidOn: payment.paidOn,
     paymentCurrency: payment.currency,
     reference: payment.reference,
+    paymentMethod: payment.paymentMethod,
     remainingBalance: Math.max(0, Math.round(invoice.total * 100) - paidThroughCents) / 100,
   }));
 });

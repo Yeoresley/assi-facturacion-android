@@ -293,22 +293,27 @@ test("specialists see only their commercial's invoice payments in lists, details
     paidOn: "2026-10-21",
     idempotencyKey: randomUUID(),
     reference,
+    paymentMethod: "transfer" as const,
   };
   const paymentResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", paymentInput);
   assert.equal(paymentResponse.status, 201);
   const paymentResult = CreateInvoicePaymentResponse.parse(await paymentResponse.json());
   const referencedPayment = paymentResult.payments.find(({ reference: value }) => value === reference);
   assert.ok(referencedPayment);
+  assert.equal(referencedPayment.paymentMethod, "transfer");
   const retryResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", paymentInput);
   assert.equal(retryResponse.status, 200);
   const mismatchedRetryResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", {
     ...paymentInput,
-    reference: `${reference}-different`,
+    paymentMethod: "cash",
   });
   assert.equal(mismatchedRetryResponse.status, 409);
   assert.ok(paymentResult.payments
     .filter(({ id }) => id !== referencedPayment.id)
     .every(({ reference: value }) => value === null));
+  assert.ok(paymentResult.payments
+    .filter(({ id }) => id !== referencedPayment.id)
+    .every(({ paymentMethod }) => paymentMethod === null));
   const updatedOwnSummary = { id: invoiceOneId, totalPaid: 38, balanceDue: 62, payments: [10, 25, 5] };
 
   const createdResponse = await request(`/invoices/${invoiceOneId}/share`, specialistOneId, "POST");
@@ -321,6 +326,7 @@ test("specialists see only their commercial's invoice payments in lists, details
   const sharedInvoice = GetSharedInvoiceResponse.parse(await sharedResponse.json());
   assertPaymentSnapshot(sharedInvoice, updatedOwnSummary);
   assert.equal(sharedInvoice.payments.find(({ id }) => id === referencedPayment.id)?.reference, reference);
+  assert.equal(sharedInvoice.payments.find(({ id }) => id === referencedPayment.id)?.paymentMethod, "transfer");
   assert.ok(sharedInvoice.payments
     .filter(({ id }) => id !== referencedPayment.id)
     .every(({ reference: value }) => value === null));

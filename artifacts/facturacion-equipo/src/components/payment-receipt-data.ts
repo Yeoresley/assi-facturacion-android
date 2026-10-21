@@ -22,6 +22,7 @@ export function getPaymentReceiptInfo(invoice: ReceiptSource, paymentId: number)
     paidOn: payment.paidOn,
     paymentCurrency: payment.currency,
     reference: payment.reference,
+    paymentMethod: payment.paymentMethod,
     remainingBalance: remainingCents / 100,
   };
 }

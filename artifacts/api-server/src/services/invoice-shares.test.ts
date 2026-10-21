@@ -92,7 +92,7 @@ before(async () => {
   invoiceId = invoice.id;
   otherInvoiceId = foreign.id;
   const [payment] = await db.insert(invoicePaymentsTable).values([
-    { invoiceId, idempotencyKey: `${tag}-payment`, amount: 25, currency: "CUP", paidOn: "2026-10-20", reference: `${tag}-reference`, paidBy: owner },
+    { invoiceId, idempotencyKey: `${tag}-payment`, amount: 25, currency: "CUP", paidOn: "2026-10-20", reference: `${tag}-reference`, paymentMethod: "transfer", paidBy: owner },
   ]).returning();
   paymentId = payment.id;
   const [share] = await db.insert(invoiceSharesTable).values([
@@ -218,7 +218,7 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.match(receiptResponse.headers.get("cache-control")!, /no-store/);
   const receiptBody = await receiptResponse.json() as Record<string, unknown>;
   assert.deepEqual(Object.keys(receiptBody).sort(), [
-    "amount", "currency", "customerName", "invoiceNumber", "paidOn", "paymentCurrency", "reference", "remainingBalance",
+    "amount", "currency", "customerName", "invoiceNumber", "paidOn", "paymentCurrency", "paymentMethod", "reference", "remainingBalance",
   ]);
   assert.deepEqual(receiptBody, {
     invoiceNumber: tag,
@@ -227,6 +227,7 @@ test("public shares omit internal correction audit while team detail preserves i
     amount: 25,
     paidOn: "2026-10-20T00:00:00.000Z",
     paymentCurrency: "CUP",
+    paymentMethod: "transfer",
     reference: `${tag}-reference`,
     remainingBalance: 0,
   });

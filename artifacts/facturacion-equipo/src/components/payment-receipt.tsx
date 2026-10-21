@@ -1,5 +1,6 @@
 import type { SharedInvoiceReceipt } from '@workspace/api-client-react';
 import { date, money } from '@/lib/shared';
+import { paymentMethodLabel } from '@/lib/payment-method';
 import './invoice-document.css';
 
 export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt }) {
@@ -18,6 +19,9 @@ export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt
       <div><span>Cliente</span><strong>{receipt.customerName}</strong></div>
       <div><span>Fecha de pago</span><strong>{date(receipt.paidOn)}</strong></div>
     </section>
+    {receipt.paymentMethod && <section className="payment-receipt-customer">
+      <div><span>Medio de pago</span><strong>{paymentMethodLabel(receipt.paymentMethod)}</strong></div>
+    </section>}
     {receipt.reference && <section className="payment-receipt-customer">
       <div><span>Referencia del cobro</span><strong>{receipt.reference}</strong></div>
     </section>}

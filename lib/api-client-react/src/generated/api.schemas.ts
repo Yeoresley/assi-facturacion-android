@@ -276,6 +276,18 @@ export const InvoicePaymentStatus = {
   paid: 'paid',
 } as const;
 
+/**
+ * @nullable
+ */
+export type InvoicePaymentPaymentMethod = typeof InvoicePaymentPaymentMethod[keyof typeof InvoicePaymentPaymentMethod] | null;
+
+
+export const InvoicePaymentPaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
 export interface InvoicePayment {
   id: number;
   amount: number;
@@ -287,6 +299,8 @@ export interface InvoicePayment {
      * @nullable
      */
   reference: string | null;
+  /** @nullable */
+  paymentMethod: InvoicePaymentPaymentMethod;
 }
 
 export type InvoicePaymentCorrectionBeforePaymentStatus = typeof InvoicePaymentCorrectionBeforePaymentStatus[keyof typeof InvoicePaymentCorrectionBeforePaymentStatus];
@@ -427,6 +441,18 @@ export interface Invoice {
   createdAt: string;
 }
 
+/**
+ * @nullable
+ */
+export type SharedInvoiceReceiptPaymentMethod = typeof SharedInvoiceReceiptPaymentMethod[keyof typeof SharedInvoiceReceiptPaymentMethod] | null;
+
+
+export const SharedInvoiceReceiptPaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
 export interface SharedInvoiceReceipt {
   invoiceNumber: string;
   customerName: string;
@@ -440,6 +466,8 @@ export interface SharedInvoiceReceipt {
      * @nullable
      */
   reference: string | null;
+  /** @nullable */
+  paymentMethod: SharedInvoiceReceiptPaymentMethod;
   /** @minimum 0 */
   remainingBalance: number;
 }
@@ -463,6 +491,15 @@ export interface InvoiceInput {
   lines: InvoiceLineInput[];
 }
 
+export type InvoicePaymentInputPaymentMethod = typeof InvoicePaymentInputPaymentMethod[keyof typeof InvoicePaymentInputPaymentMethod];
+
+
+export const InvoicePaymentInputPaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
 export interface InvoicePaymentInput {
   /**
      * @maximum 999999999999.99
@@ -473,6 +510,7 @@ export interface InvoicePaymentInput {
   idempotencyKey: string;
   /** @maxLength 120 */
   reference?: string;
+  paymentMethod?: InvoicePaymentInputPaymentMethod;
 }
 
 export interface InvoicePaymentCorrectionInput {
