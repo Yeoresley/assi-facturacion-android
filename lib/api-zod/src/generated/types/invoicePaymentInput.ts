@@ -5,8 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { InvoicePaymentInputPaymentStatus } from './invoicePaymentInputPaymentStatus';
 
 export interface InvoicePaymentInput {
-  paymentStatus: InvoicePaymentInputPaymentStatus;
+  /**
+     * @maximum 999999999999.99
+     * @exclusiveMinimum 0
+     */
+  amount: number;
+  paidOn: Date;
+  idempotencyKey: string;
 }

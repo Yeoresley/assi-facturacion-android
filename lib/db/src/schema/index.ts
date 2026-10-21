@@ -19,6 +19,7 @@
 
 export * from "./customers";
 export * from "./invoices";
+export * from "./invoice-payments";
 export * from "./invoice-shares";
 export * from "./team";
 export * from "./versat-catalog";

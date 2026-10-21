@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InvoiceLine } from './invoiceLine';
+import type { InvoicePayment } from './invoicePayment';
 import type { InvoicePaymentStatus } from './invoicePaymentStatus';
 import type { InvoiceStatus } from './invoiceStatus';
 import type { LegalDocument } from './legalDocument';
@@ -32,6 +33,11 @@ export interface Invoice {
      */
   statusCode?: number | null;
   paymentStatus: InvoicePaymentStatus;
+  /** @minimum 0 */
+  totalPaid: number;
+  /** @minimum 0 */
+  balanceDue: number;
+  payments: InvoicePayment[];
   /** @nullable */
   paidAt: Date | null;
   /** @nullable */

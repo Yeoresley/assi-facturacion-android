@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
-  customersTable, db, pool, invoiceLinesTable, invoiceNumberReservationsTable, invoicesTable,
+  customersTable, db, pool, invoiceLinesTable, invoiceNumberReservationsTable, invoicePaymentsTable, invoicesTable,
   invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
 } from "@workspace/db";
 import { allocateNumber, formatSeries, lockNumbering, reserveNumber, validateSeriesSelection } from "./invoice-numbering";
@@ -11,7 +11,7 @@ import { transitionInvoice as scopedTransitionInvoice } from "./issue-invoice";
 import { invoiceScope } from "./invoice-access";
 import { buildFac } from "./versat-file";
 import type { WorkflowStatus } from "./invoice-status";
-import { markInvoicePaid, paymentFilter, paymentStatus } from "./invoice-payment";
+import { recordInvoicePayment, paymentFilter, paymentStatus } from "./invoice-payment";
 
 // Integration tests use only explicitly created synthetic fixtures, never business invoices.
 const tag = `TEST_${randomUUID().replaceAll("-", "").slice(0, 12)}_`;
@@ -20,6 +20,13 @@ const seriesIds: number[] = [];
 const specialist = { userId: "test-specialist", role: "specialist" as const, commercialId: 1 };
 const transitionInvoice = (id: number, status: WorkflowStatus) =>
   scopedTransitionInvoice(id, status, sql`true`, specialist);
+const recordPayment = (
+  id: number,
+  actor: { userId: string; role: "owner" | "specialist" },
+  amount = 1,
+  paidOn = "2026-10-20",
+  idempotencyKey = randomUUID(),
+) => recordInvoicePayment(id, { amount, paidOn, idempotencyKey }, actor);
 let customerId: number;
 const legal: LegalDocument = {
   confirm: true, useStamp: false, useSignature: false, stampPath: null, signaturePath: null,
@@ -259,16 +266,21 @@ test("formatted and compact numbers cannot reserve the same desktop invoice iden
   }), /otra factura/);
 });
 
-test("only the administrator records payment; retries preserve actor/date and do not accept or import", async () => {
+test("only the administrator records payment; the final abono sets payment status without changing lifecycle", async () => {
   const s = await series();
   const d = await draft(s.id);
   const owner = { userId: "payment-test-owner", role: "owner" as const };
-  await assert.rejects(markInvoicePaid(d.id, owner), /Solo puedes/);
+  await assert.rejects(recordPayment(d.id, owner), /terminada, aceptada o confirmada/);
   await transitionInvoice(d.id, "finished");
   const before = await stored(d.id);
-  await assert.rejects(markInvoicePaid(d.id, specialist), /administrador/);
-  await Promise.all(Array.from({ length: 4 }, () => markInvoicePaid(d.id, owner)));
+  await assert.rejects(recordPayment(d.id, specialist), /administrador/);
+  const retryKey = randomUUID();
+  const retries = await Promise.all(Array.from({ length: 4 }, () => recordPayment(d.id, owner, 1, "2026-10-19", retryKey)));
   const paid = await stored(d.id);
+  assert.equal(retries.filter((result) => result.created).length, 1);
+  assert.equal(retries[0].totalPaid, 1);
+  assert.equal(retries[0].balanceDue, 0);
+  assert.equal(retries[0].payments.length, 1);
   assert.equal(paid.paymentStatus, "paid");
   assert.equal(paid.paidBy, owner.userId);
   assert.ok(paid.paidAt instanceof Date);
@@ -279,11 +291,66 @@ test("only the administrator records payment; retries preserve actor/date and do
   assert.equal(paid.versatNumber, before.versatNumber);
   assert.equal(await counter(s.id), 2);
   assert.throws(() => buildFac({ ...paid, lines: [] }), /Aceptada/);
-  await markInvoicePaid(d.id, { userId: "other-owner", role: "owner" });
+  const duplicate = await recordPayment(d.id, { userId: "other-owner", role: "owner" }, 1, "2026-10-19", retryKey);
+  assert.equal(duplicate.created, false);
   assert.equal((await stored(d.id)).paidBy, owner.userId);
   assert.deepEqual((await stored(d.id)).paidAt, paid.paidAt);
   await transitionInvoice(d.id, "accepted");
   assert.equal((await stored(d.id)).paymentStatus, "paid");
+  assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 1);
+});
+
+test("partial abonos preserve exact cents, date and balance; exact final balance completes payment", async () => {
+  const d = await draft(await series().then((row) => row.id));
+  await transitionInvoice(d.id, "finished");
+  const owner = { userId: "partial-owner", role: "owner" as const };
+  const firstKey = randomUUID();
+  const first = await recordPayment(d.id, owner, 0.4, "2026-10-10", firstKey);
+  assert.equal(first.created, true);
+  assert.equal(first.paymentStatus, "pending");
+  assert.equal(first.totalPaid, 0.4);
+  assert.equal(first.balanceDue, 0.6);
+  assert.equal(first.payments[0].paidOn, "2026-10-10");
+  assert.equal((await stored(d.id)).status, "finished");
+  assert.equal((await stored(d.id)).paidAt, null);
+  assert.equal((await stored(d.id)).paidBy, null);
+  assert.equal((await stored(d.id)).paymentStatus, "pending");
+  const retry = await recordPayment(d.id, owner, 0.4, "2026-10-10", firstKey);
+  assert.equal(retry.created, false);
+  assert.equal(retry.totalPaid, 0.4);
+  await assert.rejects(recordPayment(d.id, owner, 0.41, "2026-10-10", firstKey), /solicitud ya se usó/);
+  await assert.rejects(recordPayment(d.id, owner, 0.61), /supera el saldo/);
+  await assert.rejects(recordPayment(d.id, owner, 0.001), /dos decimales/);
+  await assert.rejects(recordPayment(d.id, owner, 0.1, "2026-02-30"), /fecha.*válida/);
+  const final = await recordPayment(d.id, owner, 0.6, "2026-10-20");
+  assert.equal(final.paymentStatus, "paid");
+  assert.equal(final.totalPaid, 1);
+  assert.equal(final.balanceDue, 0);
+  assert.equal(final.payments.length, 2);
+  const saved = await stored(d.id);
+  assert.equal(saved.status, "finished");
+  assert.equal(saved.paymentStatus, "paid");
+  assert.equal(saved.paidBy, owner.userId);
+  assert.ok(saved.paidAt instanceof Date);
+  assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 2);
+  await transitionInvoice(d.id, "accepted");
+  assert.equal((await stored(d.id)).paymentStatus, "paid");
+});
+
+test("concurrent different abonos lock the invoice and cannot overpay its remaining balance", async () => {
+  const d = await draft(await series().then((row) => row.id));
+  await transitionInvoice(d.id, "finished");
+  const owner = { userId: "parallel-payment-owner", role: "owner" as const };
+  const outcomes = await Promise.allSettled([
+    recordPayment(d.id, owner, 0.6),
+    recordPayment(d.id, owner, 0.6),
+  ]);
+  assert.equal(outcomes.filter((result) => result.status === "fulfilled").length, 1);
+  const failures = outcomes.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+  assert.equal(failures.length, 1);
+  assert.match(String(failures[0].reason), /supera el saldo/);
+  assert.equal((await stored(d.id)).paymentStatus, "pending");
+  assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 1);
 });
 
 test("pending-payment filter respects commercial scope and excludes unissued, voided, error and historical paid", async () => {
@@ -292,7 +359,7 @@ test("pending-payment filter respects commercial scope and excludes unissued, vo
   await transitionInvoice(pending.id, "finished");
   const paid = await draft(s.id);
   await transitionInvoice(paid.id, "finished");
-  await markInvoicePaid(paid.id, { userId: "test-owner", role: "owner" });
+  await recordPayment(paid.id, { userId: "test-owner", role: "owner" });
   const unissued = await draft(s.id);
   const errored = await draft(s.id, { status: "error" });
   const cancelled = await draft(s.id, { status: "cancelled" });
@@ -314,6 +381,6 @@ test("pending-payment filter respects commercial scope and excludes unissued, vo
   assert.equal(adopted.paymentStatus, "paid");
   assert.equal(adopted.paidAt, null); // Don't fabricate a historical payment date.
   for (const id of [unissued.id, errored.id, cancelled.id, voided.id]) {
-    await assert.rejects(markInvoicePaid(id, { userId: "owner", role: "owner" }), /Solo puedes/);
+    await assert.rejects(recordPayment(id, { userId: "owner", role: "owner" }), /terminada, aceptada o confirmada/);
   }
 });

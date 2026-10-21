@@ -30,9 +30,9 @@ import {
   UpdateInvoiceStatusParams,
   UpdateInvoiceStatusResponse,
   GetCurrentTeamMemberResponse,
-  MarkInvoicePaidParams,
-  MarkInvoicePaidBody,
-  MarkInvoicePaidResponse,
+  CreateInvoicePaymentParams,
+  CreateInvoicePaymentBody,
+  CreateInvoicePaymentResponse,
   UpdateTeamMemberAccessBody,
   UpdateTeamMemberAccessParams,
 } from "@workspace/api-zod";
@@ -53,7 +53,7 @@ import { versatCatalogTable } from "@workspace/db";
 import seriesRouter from "./invoice-series";
 import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
 import { transitionInvoice } from "../services/issue-invoice";
-import { markInvoicePaid, InvoicePaymentError, paymentFilter } from "../services/invoice-payment";
+import { recordInvoicePayment, InvoicePaymentError, paymentFilter } from "../services/invoice-payment";
 
 const router: IRouter = Router();
 router.use(seriesRouter);
@@ -420,22 +420,29 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   res.json(UpdateInvoiceResponse.parse(serializeInvoice(invoice!)));
 });
 
-router.patch("/invoices/:id/payment", async (req, res): Promise<void> => {
+router.post("/invoices/:id/payments", async (req, res): Promise<void> => {
   const owner = await requireOwner(req, res);
   if (!owner) return;
-  const params = MarkInvoicePaidParams.safeParse(req.params);
-  const body = MarkInvoicePaidBody.safeParse(req.body);
+  const params = CreateInvoicePaymentParams.safeParse(req.params);
+  const body = CreateInvoicePaymentBody.safeParse(req.body);
   if (!params.success || !body.success) {
     res.status(400).json({ error: params.error?.message ?? body.error?.message }); return;
   }
   try {
-    await markInvoicePaid(params.data.id, owner);
+    const result = await recordInvoicePayment(params.data.id, {
+      ...body.data, paidOn: toDateOnly(body.data.paidOn),
+    }, owner);
+    res.status(result.created ? 201 : 200).json(CreateInvoicePaymentResponse.parse({
+      invoiceId: params.data.id,
+      paymentStatus: result.paymentStatus,
+      totalPaid: result.totalPaid,
+      balanceDue: result.balanceDue,
+      payments: result.payments,
+    }));
   } catch (error) {
     if (error instanceof InvoicePaymentError) { res.status(error.status).json({ error: error.message }); return; }
     throw error;
   }
-  const invoice = await getInvoiceRow(params.data.id);
-  res.json(MarkInvoicePaidResponse.parse(serializeInvoice(invoice!)));
 });
 
 router.patch("/invoices/:id/status", async (req, res): Promise<void> => {

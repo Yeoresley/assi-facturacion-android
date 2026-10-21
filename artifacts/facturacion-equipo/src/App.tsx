@@ -23,6 +23,7 @@ import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation, use
 import { BrandMark, EmptyState, PageHeading, QueryError, Status, statusLabels, date, money } from '@/lib/shared';
 import CatalogsPage from '@/pages/catalogs';
 import CustomersPage from '@/pages/customers';
+import Customer360Page from '@/pages/customer-360';
 import ExportPage from '@/pages/export';
 import InvoiceDetailPage from '@/pages/invoice-detail';
 import InvoiceFormPage from '@/pages/invoice-form';
@@ -251,7 +252,7 @@ function Protected({ children }: { children: ReactNode }) {
 function InvoiceTable({ invoices, emptyPending = false }: { invoices: Invoice[]; emptyPending?: boolean }) {
   if (!invoices.length && emptyPending) return <EmptyState title="No hay pagos pendientes" text="Ninguna factura emitida está pendiente de pago con estos filtros." />;
   if (!invoices.length) return <EmptyState title="Aquí empezará el movimiento" text="Cuando el equipo cree una factura, aparecerá en esta lista." action={<Link className="button button-primary" href="/invoices/new"><FilePlus2 size={15} />Crear factura</Link>} />;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura</th><th className="px-4 py-3 font-medium">Cliente</th><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Especialista</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Pago</th><th className="px-5 py-3 text-right font-medium">Total</th></tr></thead><tbody>{invoices.map((inv) => <tr className="table-row" key={inv.id} data-testid={`row-invoice-${inv.id}`}><td className="px-5 py-4"><Link href={`/invoices/${inv.id}`} className="font-mono text-[12px] font-medium text-[#2e6960]">{inv.number}</Link></td><td className="px-4 py-4 text-[13px] font-semibold">{inv.customerName}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{date(inv.issueDate)}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{inv.specialistName}</td><td className="px-4 py-4"><Status status={inv.status} /></td><td className="px-4 py-4"><div className="flex flex-wrap items-center gap-2"><PaymentBadge invoice={inv} /><MarkPaidButton invoice={inv} /></div></td><td className="px-5 py-4 text-right text-[13px] font-bold">{money(inv.total, inv.currency)}</td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura</th><th className="px-4 py-3 font-medium">Cliente</th><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Especialista</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Pago</th><th className="px-5 py-3 text-right font-medium">Total</th></tr></thead><tbody>{invoices.map((inv) => <tr className="table-row" key={inv.id} data-testid={`row-invoice-${inv.id}`}><td className="px-5 py-4"><Link href={`/invoices/${inv.id}`} className="font-mono text-[12px] font-medium text-[#2e6960]">{inv.number}</Link></td><td className="px-4 py-4 text-[13px] font-semibold">{inv.customerName}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{date(inv.issueDate)}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{inv.specialistName}</td><td className="px-4 py-4"><Status status={inv.status} /></td><td className="px-4 py-4"><div className="flex flex-wrap items-center gap-2"><PaymentBadge invoice={inv} /><MarkPaidButton invoice={inv} /></div>{inv.totalPaid > 0 && inv.paymentStatus === 'pending' && <div className="mt-2 text-[10px] leading-4 text-[#71817b]">Abonado {money(inv.totalPaid, inv.currency)} <span aria-hidden="true">·</span> Saldo {money(inv.balanceDue, inv.currency)}</div>}</td><td className="px-5 py-4 text-right text-[13px] font-bold">{money(inv.total, inv.currency)}</td></tr>)}</tbody></table></div>;
 }
 
 function Dashboard() {
@@ -337,6 +338,7 @@ function AppRoutes() {
         <Route path="/invoices/:id"><AuthenticatedRoute><InvoiceDetailPage /></AuthenticatedRoute></Route>
         <Route path="/catalogs"><AuthenticatedRoute><CatalogsPage /></AuthenticatedRoute></Route>
         <Route path="/customers"><AuthenticatedRoute><CustomersPage /></AuthenticatedRoute></Route>
+        <Route path="/customers/:id"><AuthenticatedRoute><Customer360Page /></AuthenticatedRoute></Route>
         <Route path="/export"><AuthenticatedRoute><ExportPage /></AuthenticatedRoute></Route>
         <Route path="/settings"><AuthenticatedRoute><Settings /></AuthenticatedRoute></Route>
         <Route path="/team/members"><AuthenticatedRoute><TeamMembers /></AuthenticatedRoute></Route>

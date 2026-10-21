@@ -1,11 +1,20 @@
 import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
-import { customersTable, db, invoiceLinesTable, invoicesTable } from "@workspace/db";
+import { customersTable, db, invoiceLinesTable, invoicePaymentsTable, invoicesTable } from "@workspace/db";
 import { statusCodes, type WorkflowStatus } from "./invoice-status";
-import { paymentStatus } from "./invoice-payment";
+import { paymentStatus, summarizePayments } from "./invoice-payment";
 
 export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
   customerName: string;
   lines: Array<typeof invoiceLinesTable.$inferSelect>;
+  totalPaid: number;
+  balanceDue: number;
+  payments: Array<{
+    id: number;
+    amount: number;
+    currency: string;
+    paidOn: string;
+    recordedAt: string;
+  }>;
 };
 
 export async function getInvoiceRows(ids?: number[], scope?: SQL, reader: Pick<typeof db, "select"> = db): Promise<InvoiceRecord[]> {
@@ -18,11 +27,18 @@ export async function getInvoiceRows(ids?: number[], scope?: SQL, reader: Pick<t
   if (!rows.length) return [];
   const lines = await reader.select().from(invoiceLinesTable)
     .where(inArray(invoiceLinesTable.invoiceId, rows.map(({ invoice }) => invoice.id)));
-  return rows.map(({ invoice, customerName }) => ({
-    ...invoice,
-    customerName: invoice.versat?.customerName ?? customerName,
-    lines: lines.filter((line) => line.invoiceId === invoice.id),
-  }));
+  const paymentRows = await reader.select().from(invoicePaymentsTable)
+    .where(inArray(invoicePaymentsTable.invoiceId, rows.map(({ invoice }) => invoice.id)))
+    .orderBy(invoicePaymentsTable.paidOn, invoicePaymentsTable.id);
+  return rows.map(({ invoice, customerName }) => {
+    const totals = summarizePayments(invoice, paymentRows.filter((payment) => payment.invoiceId === invoice.id));
+    return {
+      ...invoice,
+      customerName: invoice.versat?.customerName ?? customerName,
+      lines: lines.filter((line) => line.invoiceId === invoice.id),
+      ...totals,
+    };
+  });
 }
 
 export async function getInvoiceRow(id: number, scope?: SQL): Promise<InvoiceRecord | null> {
@@ -34,6 +50,9 @@ export function serializeInvoice(invoice: InvoiceRecord) {
     ...invoice,
     statusCode: statusCodes[invoice.status as WorkflowStatus] ?? null,
     paymentStatus: paymentStatus(invoice),
+    totalPaid: invoice.totalPaid,
+    balanceDue: invoice.balanceDue,
+    payments: invoice.payments,
     paidAt: invoice.paidAt?.toISOString() ?? null,
     acceptedAt: invoice.acceptedAt?.toISOString() ?? null,
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,

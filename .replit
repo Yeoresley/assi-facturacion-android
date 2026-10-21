@@ -62,3 +62,6 @@ packages = ["freetype", "gumbo", "harfbuzz", "jbig2dec", "libjpeg_turbo", "mupdf
 
 [userenv.shared]
 OWNER_EMAIL = "kcodguez@gmail.com"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-a6d0d251-3729-4537-8506-bfd9f9a1ecbb"

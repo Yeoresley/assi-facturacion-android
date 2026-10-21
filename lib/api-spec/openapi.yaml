@@ -36,6 +36,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/InvoiceSeriesInput" }
       responses:
+        "200":
+          description: A previous request with this idempotency key; no second payment was created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePaymentResponse" }
         "201":
           description: Serie confirmada por propietario.
           content:
@@ -320,11 +325,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
-  /invoices/{id}/payment:
-    patch:
-      operationId: markInvoicePaid
+  /invoices/{id}/payments:
+    post:
+      operationId: createInvoicePayment
       tags: [invoices]
-      summary: Administrator records full payment without changing the invoice lifecycle
+      summary: Administrator records a partial or full invoice payment
       parameters:
         - in: path
           name: id
@@ -336,11 +341,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/InvoicePaymentInput" }
       responses:
-        "200":
-          description: Invoice with payment recorded
+        "201":
+          description: Payment recorded and invoice balance recalculated
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Invoice" }
+              schema: { $ref: "#/components/schemas/InvoicePaymentResponse" }
         "403":
           description: Only the administrator may record payment
         "404":
@@ -656,7 +661,7 @@ components:
         unitPrice: { type: number, minimum: 0, maximum: 999999999999 }
     Invoice:
       type: object
-      required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, paymentStatus, paidAt, notes, subtotal, total, lines, createdAt]
+      required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, paymentStatus, totalPaid, balanceDue, payments, paidAt, notes, subtotal, total, lines, createdAt]
       properties:
         seriesId: { type: ["integer", "null"] }
         id: { type: integer }
@@ -671,6 +676,11 @@ components:
         status: { type: string, enum: [draft, finished, accepted, confirmed, voided, cancelled, error, sent, paid] }
         statusCode: { type: ["integer", "null"], minimum: 1, maximum: 7 }
         paymentStatus: { type: string, enum: [pending, paid] }
+        totalPaid: { type: number, minimum: 0 }
+        balanceDue: { type: number, minimum: 0 }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/InvoicePayment" }
         paidAt: { type: ["string", "null"], format: date-time }
         acceptedAt: { type: ["string", "null"], format: date-time }
         confirmedAt: { type: ["string", "null"], format: date-time }
@@ -706,9 +716,31 @@ components:
           items: { $ref: "#/components/schemas/InvoiceLineInput" }
     InvoicePaymentInput:
       type: object
-      required: [paymentStatus]
+      required: [amount, paidOn, idempotencyKey]
       properties:
-        paymentStatus: { type: string, enum: [paid] }
+        amount: { type: number, exclusiveMinimum: 0, maximum: 999999999999.99, multipleOf: 0.01 }
+        paidOn: { type: string, format: date }
+        idempotencyKey: { type: string, format: uuid }
+    InvoicePayment:
+      type: object
+      required: [id, amount, currency, paidOn, recordedAt]
+      properties:
+        id: { type: integer }
+        amount: { type: number }
+        currency: { type: string }
+        paidOn: { type: string, format: date }
+        recordedAt: { type: string, format: date-time }
+    InvoicePaymentResponse:
+      type: object
+      required: [invoiceId, paymentStatus, totalPaid, balanceDue, payments]
+      properties:
+        invoiceId: { type: integer }
+        paymentStatus: { type: string, enum: [pending, paid] }
+        totalPaid: { type: number }
+        balanceDue: { type: number }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/InvoicePayment" }
     InvoiceStatusInput:
       type: object
       required: [status]
