@@ -7,6 +7,7 @@ import {
 } from '@workspace/api-client-react';
 import type { Invoice } from '@workspace/api-client-react';
 import { HandCoins, ReceiptText, RotateCcw } from 'lucide-react';
+import { Link } from 'wouter';
 import { date, errorDetail, money } from '@/lib/shared';
 
 type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt' | 'totalPaid' | 'balanceDue' | 'currency'>;
@@ -212,7 +213,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
   </>;
 }
 
-export function InvoicePaymentHistory({ invoice }: { invoice: Invoice }) {
+export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false }: { invoice: Invoice; canGenerateReceipts?: boolean }) {
   const [period, setPeriod] = useState<'all' | '30' | '90'>('all');
   const corrections = invoice.paymentCorrections ?? [];
   const sortedPayments = useMemo(() => [...invoice.payments].sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.recordedAt.localeCompare(a.recordedAt)), [invoice.payments]);
@@ -242,7 +243,10 @@ export function InvoicePaymentHistory({ invoice }: { invoice: Invoice }) {
       {visiblePayments.length ? <ul className="divide-y divide-[#eeece4]" data-testid="list-invoice-payments">
         {visiblePayments.map((payment) => <li key={payment.id} className="flex items-center justify-between gap-3 py-3" data-testid={`row-invoice-payment-${payment.id}`}>
           <div><div className={`text-[12px] font-semibold ${reversedPaymentIds.has(payment.id) ? 'text-[#9a3b2e] line-through' : ''}`}>{reversedPaymentIds.has(payment.id) ? 'Pago recibido · reversado' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha de pago · {date(payment.paidOn)}</div></div>
-          <div className="shrink-0 text-right"><div className="font-display text-[13px] font-bold">{money(payment.amount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">Registrado · {date(payment.recordedAt)}</div></div>
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="text-right"><div className="font-display text-[13px] font-bold">{money(payment.amount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">Registrado · {date(payment.recordedAt)}</div></div>
+            {canGenerateReceipts && !reversedPaymentIds.has(payment.id) && <Link className="button button-soft !min-h-8 !px-2.5 !text-[11px]" href={`/invoices/${invoice.id}?receipt=${payment.id}`} aria-label={`Generar comprobante del abono del ${date(payment.paidOn)}`} data-testid={`link-payment-receipt-${payment.id}`}><ReceiptText size={13} />Comprobante</Link>}
+          </div>
         </li>)}
       </ul> : <div className="rounded-lg border border-dashed border-[#dedfd4] bg-[#fbfaf5] px-4 py-5 text-center text-[12px] text-[#7b8780]" data-testid="empty-payment-history">{invoice.payments.length ? 'No hay abonos en este período.' : 'Todavía no se han registrado abonos.'}</div>}
       {corrections.length > 0 && <section className="mt-5 border-t border-[#eeece4] pt-4" aria-labelledby="payment-corrections-title">

@@ -53,6 +53,7 @@ import {
 } from "@workspace/db";
 import { resolveTeamMember, requireOwner, setTeamMemberSuspension, TeamAccessError } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
+import { activeInvoicePayments } from "../services/invoice-receipts";
 import { prepareInvoice } from "../services/prepare-invoice";
 import { activeInvoiceShare, canAccessInvoice, getActiveInvoiceShare, invoiceScope } from "../services/invoice-access";
 import { versatCatalogTable } from "@workspace/db";
@@ -591,6 +592,8 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
     return;
   }
   const { paymentCorrections: _internalPaymentCorrections, ...sharedInvoice } = serializeInvoice(invoice);
+  // Public receipt links must not continue to present a corrected/reversed payment as active.
+  sharedInvoice.payments = activeInvoicePayments(sharedInvoice.payments, invoice.paymentCorrections);
   res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(sharedInvoice));
 });
 

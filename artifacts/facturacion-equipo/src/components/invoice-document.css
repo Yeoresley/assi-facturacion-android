@@ -32,6 +32,21 @@
 .legal-watermark { padding:7px; margin-bottom:15px; text-align:center; border:2px solid #777; font-weight:bold; letter-spacing:1px; }
 .legal-image-error { font-size:10px; color:#a22; border:1px solid #a22; padding:4px; }
 .legal-image-error button { text-decoration:underline; display:block; }
+.payment-receipt-paper { color:#111; background:#fff; font-family:Arial,sans-serif; max-width:720px; min-height:400px; margin:20px auto; padding:42px; border:1px solid #e4e1d5; }
+.payment-receipt-heading { display:flex; justify-content:space-between; gap:24px; border-bottom:2px solid #315b52; padding-bottom:22px; }
+.payment-receipt-brand { font-size:18px; font-weight:700; color:#315b52; }
+.payment-receipt-heading p { margin:6px 0 0; color:#63746d; font-size:12px; }
+.payment-receipt-title { text-align:right; }
+.payment-receipt-title h1 { margin:8px 0 0; font-size:22px; line-height:1.15; }
+.payment-receipt-customer { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:30px; }
+.payment-receipt-customer div,.payment-receipt-amount,.payment-receipt-balance { display:flex; flex-direction:column; gap:8px; }
+.payment-receipt-customer span,.payment-receipt-amount span,.payment-receipt-balance span { color:#65756e; font-size:11px; }
+.payment-receipt-customer strong { font-size:14px; }
+.payment-receipt-amount { margin-top:32px; padding:20px; background:#f4f3eb; }
+.payment-receipt-amount strong { font-size:25px; }
+.payment-receipt-balance { flex-direction:row; align-items:center; justify-content:space-between; gap:16px; border-top:1px solid #dedfd4; padding:16px 2px; }
+.payment-receipt-balance strong { font-size:16px; }
+.payment-receipt-note { margin-top:34px!important; color:#65756e; font-size:11px; line-height:1.6; }
 @media screen and (max-width:640px) {
   .legal-invoice { padding:14px; font-size:9px; }
   .legal-lines .numeric { font-size:8px; white-space:normal; overflow-wrap:anywhere; }
@@ -40,6 +55,10 @@
   .legal-company { font-size:14px; }
   .legal-responsibilities { font-size:8px; gap:15px 8px; }
    .legal-stamp-placeholder { min-height:50px; }
+  .payment-receipt-paper { min-height:0; padding:22px 16px; }
+  .payment-receipt-heading { gap:12px; }
+  .payment-receipt-brand { font-size:15px; }
+  .payment-receipt-title h1 { font-size:18px; }
 }
 @page { size:Letter; margin:12mm; @bottom-right { content:"Página " counter(page) " de " counter(pages); font-family:Arial,sans-serif; font-size:9px; } }
 @media print {
@@ -72,4 +91,8 @@
   .legal-totals { margin-top:10px; margin-bottom:12px; }
   .legal-notes { margin:12px 0; }
    .legal-image-error { color:#a22!important; }
+  .payment-receipt-paper { width:100%; max-width:none; min-height:0; margin:0; padding:12mm 8mm; border:0; }
+  .payment-receipt-heading { break-inside:avoid; }
+  .payment-receipt-customer,.payment-receipt-amount,.payment-receipt-balance { break-inside:avoid; }
+  .payment-receipt-note { margin-top:20px!important; }
 }
