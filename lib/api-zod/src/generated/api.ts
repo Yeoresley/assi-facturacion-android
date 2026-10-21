@@ -254,6 +254,8 @@ export const AuthorizeInvoiceDocumentBody = zod.object({
   "confirm": zod.literal(true)
 })
 
+export const authorizeInvoiceDocumentResponseStatusCodeMax = 7;
+
 export const authorizeInvoiceDocumentResponseVersatOneOneNumberMax = 50;
 
 
@@ -325,7 +327,12 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(authorizeInvoiceDocumentResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -430,6 +437,8 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get invoice dashboard summary
  */
+export const getBillingOverviewResponseRecentInvoicesItemStatusCodeMax = 7;
+
 export const getBillingOverviewResponseRecentInvoicesItemVersatOneOneNumberMax = 50;
 
 
@@ -495,6 +504,9 @@ export const GetBillingOverviewResponse = zod.object({
   "draftCount": zod.number().int(),
   "sentCount": zod.number().int(),
   "paidCount": zod.number().int(),
+  "finishedCount": zod.number().int(),
+  "acceptedCount": zod.number().int(),
+  "confirmedCount": zod.number().int(),
   "monthTotal": zod.number(),
   "currency": zod.string(),
   "recentInvoices": zod.array(zod.object({
@@ -508,7 +520,12 @@ export const GetBillingOverviewResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(getBillingOverviewResponseRecentInvoicesItemStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -696,10 +713,13 @@ export const DeleteCustomerResponse = zod.void()
  */
 export const ListInvoicesQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']).optional(),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']).optional(),
+  "paymentStatus": zod.enum(['pending', 'paid']).optional(),
   "from": zod.date().optional(),
   "to": zod.date().optional()
 })
+
+export const listInvoicesResponseStatusCodeMax = 7;
 
 export const listInvoicesResponseVersatOneOneNumberMax = 50;
 
@@ -772,7 +792,12 @@ export const ListInvoicesResponseItem = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(listInvoicesResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -907,6 +932,8 @@ export const CreateInvoiceBody = zod.object({
 })).min(1)
 })
 
+export const createInvoiceResponseStatusCodeMax = 7;
+
 export const createInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -978,7 +1005,12 @@ export const CreateInvoiceResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(createInvoiceResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -1059,6 +1091,8 @@ export const GetInvoiceParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const getInvoiceResponseStatusCodeMax = 7;
+
 export const getInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -1130,7 +1164,12 @@ export const GetInvoiceResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(getInvoiceResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -1268,6 +1307,8 @@ export const UpdateInvoiceBody = zod.object({
 })).min(1)
 })
 
+export const updateInvoiceResponseStatusCodeMax = 7;
+
 export const updateInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -1339,7 +1380,12 @@ export const UpdateInvoiceResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(updateInvoiceResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -1421,8 +1467,10 @@ export const UpdateInvoiceStatusParams = zod.object({
 })
 
 export const UpdateInvoiceStatusBody = zod.object({
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled'])
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error'])
 })
+
+export const updateInvoiceStatusResponseStatusCodeMax = 7;
 
 export const updateInvoiceStatusResponseVersatOneOneNumberMax = 50;
 
@@ -1495,7 +1543,12 @@ export const UpdateInvoiceStatusResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(updateInvoiceStatusResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),
@@ -1570,6 +1623,169 @@ export const UpdateInvoiceStatusResponse = zod.object({
 
 
 /**
+ * @summary Administrator records full payment without changing the invoice lifecycle
+ */
+export const MarkInvoicePaidParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const MarkInvoicePaidBody = zod.object({
+  "paymentStatus": zod.enum(['paid'])
+})
+
+export const markInvoicePaidResponseStatusCodeMax = 7;
+
+export const markInvoicePaidResponseVersatOneOneNumberMax = 50;
+
+
+export const markInvoicePaidResponseVersatOneOneNumberRegExp = new RegExp('^[A-Za-z0-9_-]*$');
+export const markInvoicePaidResponseVersatOneOneTalonMax = 20;
+
+
+export const markInvoicePaidResponseVersatOneOneTalonRegExp = new RegExp('^[0-9]*$');
+export const markInvoicePaidResponseVersatOneOneBankAccountMCMax = 100;
+
+export const markInvoicePaidResponseVersatOneOneBankAccountOMMax = 100;
+
+export const markInvoicePaidResponseVersatOneOneContractMax = 100;
+
+export const markInvoicePaidResponseLegalDocumentOneOnePreparedByMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOnePreparedPositionMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneDeliveredByMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneAccountedByMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneTransportedByMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneTransportIdMax = 40;
+
+export const markInvoicePaidResponseLegalDocumentOneOneVehiclePlateMax = 40;
+
+export const markInvoicePaidResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+
+export const markInvoicePaidResponseLegalDocumentOneOneReceivedByMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneReceivedPositionMax = 160;
+
+export const markInvoicePaidResponseLegalDocumentOneOneReceivedIdMax = 40;
+
+export const markInvoicePaidResponseLegalDocumentOneOneCustomerIrccMax = 80;
+
+export const markInvoicePaidResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerNameMax = 200;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerNitMax = 40;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerIrccMax = 80;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerAddressMax = 400;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
+
+export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+
+
+
+export const MarkInvoicePaidResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
+  "id": zod.number().int(),
+  "number": zod.string(),
+  "customerId": zod.number().int(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "dueDate": zod.coerce.date().nullable(),
+  "currency": zod.string(),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(markInvoicePaidResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullable(),
+  "versat": zod.union([zod.object({
+  "conceptId": zod.number().int(),
+  "operationId": zod.number().int(),
+  "commercialId": zod.number().int(),
+  "paymentId": zod.number().int(),
+  "number": zod.string().max(markInvoicePaidResponseVersatOneOneNumberMax).regex(markInvoicePaidResponseVersatOneOneNumberRegExp).nullish(),
+  "talon": zod.string().max(markInvoicePaidResponseVersatOneOneTalonMax).regex(markInvoicePaidResponseVersatOneOneTalonRegExp).nullish(),
+  "bankAccountMC": zod.string().max(markInvoicePaidResponseVersatOneOneBankAccountMCMax).nullish(),
+  "bankAccountOM": zod.string().max(markInvoicePaidResponseVersatOneOneBankAccountOMMax).nullish(),
+  "contract": zod.string().max(markInvoicePaidResponseVersatOneOneContractMax).nullish()
+}).and(zod.object({
+  "currencyName": zod.string(),
+  "conceptCode": zod.string(),
+  "operationName": zod.string(),
+  "commercialName": zod.string(),
+  "commercialPosition": zod.string(),
+  "paymentName": zod.string(),
+  "customerCode": zod.string().nullable(),
+  "customerName": zod.string(),
+  "customerAddress": zod.string().nullable(),
+  "customerTaxId": zod.string().nullable()
+})),zod.null()]).optional(),
+  "legalDocument": zod.union([zod.object({
+  "preparedBy": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneDeliveredByMax),
+  "accountedBy": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneAccountedByMax),
+  "transportedBy": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneTransportedByMax),
+  "transportId": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneTransportIdMax),
+  "vehiclePlate": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneReceivedByMax),
+  "receivedPosition": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneReceivedPositionMax),
+  "receivedId": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneReceivedIdMax),
+  "customerIrcc": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(markInvoicePaidResponseLegalDocumentOneOneCustomerBankAccountMax),
+  "useStamp": zod.boolean(),
+  "useSignature": zod.boolean(),
+  "confirm": zod.literal(true)
+}).and(zod.object({
+  "issuer": zod.object({
+  "name": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerNameMax),
+  "nit": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerNitMax),
+  "ircc": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerIrccMax),
+  "address": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerAddressMax),
+  "organization": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(markInvoicePaidResponseLegalDocumentOneTwoIssuerBankNameMax)
+}),
+  "stampPath": zod.string().nullable(),
+  "signaturePath": zod.string().nullable(),
+  "authorizedAt": zod.string()
+})),zod.null()]).optional(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "lines": zod.array(zod.object({
+  "id": zod.number().int(),
+  "description": zod.string(),
+  "serviceId": zod.number().int().nullish(),
+  "serviceCode": zod.string().nullish(),
+  "groupCode": zod.string().nullish(),
+  "unitCode": zod.string().nullish(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+})),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Create a public invoice link
  */
 export const CreateInvoiceShareParams = zod.object({
@@ -1588,6 +1804,8 @@ export const CreateInvoiceShareResponse = zod.object({
 export const GetSharedInvoiceParams = zod.object({
   "token": zod.coerce.string()
 })
+
+export const getSharedInvoiceResponseStatusCodeMax = 7;
 
 export const getSharedInvoiceResponseVersatOneOneNumberMax = 50;
 
@@ -1660,7 +1878,12 @@ export const GetSharedInvoiceResponse = zod.object({
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
-  "status": zod.enum(['draft', 'sent', 'paid', 'cancelled']),
+  "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
+  "statusCode": zod.number().int().min(1).max(getSharedInvoiceResponseStatusCodeMax).nullish(),
+  "paymentStatus": zod.enum(['pending', 'paid']),
+  "paidAt": zod.coerce.date().nullable(),
+  "acceptedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
   "conceptId": zod.number().int(),

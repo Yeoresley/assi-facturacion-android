@@ -18,7 +18,7 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 ## Parámetros anuales confirmados
 
 - La numeración oficial es una única secuencia compartida por todos los especialistas, no una secuencia por persona.
-- Para 2026, la primera factura del aplicativo debe ser `HAB-26-091`; las siguientes continúan consecutivamente conservando ese formato. El número de registro del talón para la exportación es `1005`.
+- Para 2026, la primera factura del aplicativo debe ser `HAB-26-091`; las siguientes continúan consecutivamente conservando ese formato en la aplicación y el PDF. El talón correcto para exportar es `5`, no `1005`. En el `.Fac` y su nombre de archivo, el número se escribe sin guiones: `HAB26091` / `BHAB26091.Fac`.
 - El administrador configura el número inicial completo, el registro del talón y los datos de la entidad. La emisión del nuevo año debe quedar bloqueada hasta que configure sus parámetros; los de 2026 no se reutilizan automáticamente.
 - El administrador vincula cada correo autorizado a un comercial del catálogo de Versat. Cada especialista solo accede a facturas de ese comercial, incluidas las preparadas por el administrador; el creador de la factura no determina el permiso. Sin comercial asignado no hay acceso a facturas. El propietario conserva acceso a todas.
 

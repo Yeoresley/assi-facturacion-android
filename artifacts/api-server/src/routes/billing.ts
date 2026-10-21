@@ -30,6 +30,9 @@ import {
   UpdateInvoiceStatusParams,
   UpdateInvoiceStatusResponse,
   GetCurrentTeamMemberResponse,
+  MarkInvoicePaidParams,
+  MarkInvoicePaidBody,
+  MarkInvoicePaidResponse,
 } from "@workspace/api-zod";
 import {
   customersTable,
@@ -48,6 +51,7 @@ import { versatCatalogTable } from "@workspace/db";
 import seriesRouter from "./invoice-series";
 import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
 import { transitionInvoice } from "../services/issue-invoice";
+import { markInvoicePaid, InvoicePaymentError, paymentFilter } from "../services/invoice-payment";
 
 const router: IRouter = Router();
 router.use(seriesRouter);
@@ -79,7 +83,7 @@ router.get("/billing/overview", async (req, res): Promise<void> => {
       (invoice) =>
         invoice.issueDate.startsWith(month) &&
         invoice.currency === currency &&
-        (invoice.status === "sent" || invoice.status === "paid"),
+        ["finished", "accepted", "confirmed", "sent", "paid"].includes(invoice.status),
     )
     .reduce((total, invoice) => total + invoice.total, 0);
   const counts = {
@@ -87,6 +91,9 @@ router.get("/billing/overview", async (req, res): Promise<void> => {
     draftCount: invoices.filter((invoice) => invoice.status === "draft").length,
     sentCount: invoices.filter((invoice) => invoice.status === "sent").length,
     paidCount: invoices.filter((invoice) => invoice.status === "paid").length,
+    finishedCount: invoices.filter((invoice) => invoice.status === "finished").length,
+    acceptedCount: invoices.filter((invoice) => invoice.status === "accepted").length,
+    confirmedCount: invoices.filter((invoice) => invoice.status === "confirmed").length,
     monthTotal: roundMoney(monthTotal),
     currency,
     recentInvoices: invoices.slice(0, 6).map(serializeInvoice),
@@ -214,6 +221,7 @@ router.get("/invoices", async (req, res): Promise<void> => {
     )!);
   }
   if (parsed.data.status) filters.push(eq(invoicesTable.status, parsed.data.status));
+  if (parsed.data.paymentStatus) filters.push(paymentFilter(parsed.data.paymentStatus));
   if (parsed.data.from) filters.push(gte(invoicesTable.issueDate, toDateOnly(parsed.data.from)));
   if (parsed.data.to) filters.push(lte(invoicesTable.issueDate, toDateOnly(parsed.data.to)));
   const rows = await db
@@ -410,6 +418,24 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   res.json(UpdateInvoiceResponse.parse(serializeInvoice(invoice!)));
 });
 
+router.patch("/invoices/:id/payment", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = MarkInvoicePaidParams.safeParse(req.params);
+  const body = MarkInvoicePaidBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.error?.message ?? body.error?.message }); return;
+  }
+  try {
+    await markInvoicePaid(params.data.id, owner);
+  } catch (error) {
+    if (error instanceof InvoicePaymentError) { res.status(error.status).json({ error: error.message }); return; }
+    throw error;
+  }
+  const invoice = await getInvoiceRow(params.data.id);
+  res.json(MarkInvoicePaidResponse.parse(serializeInvoice(invoice!)));
+});
+
 router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
@@ -420,7 +446,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
     return;
   }
   try {
-    await transitionInvoice(params.data.id, body.data.status, invoiceScope(member));
+    await transitionInvoice(params.data.id, body.data.status, invoiceScope(member), member);
   } catch (error) {
     if (error instanceof NumberingError) { res.status(error.status).json({ error: error.message }); return; }
     if (!isDuplicate(error)) throw error;

@@ -228,7 +228,10 @@ paths:
           name: status
           schema:
             type: string
-            enum: [draft, sent, paid, cancelled]
+            enum: [draft, finished, accepted, confirmed, voided, cancelled, error, sent, paid]
+        - in: query
+          name: paymentStatus
+          schema: { type: string, enum: [pending, paid] }
         - in: query
           name: from
           schema: { type: string, format: date }
@@ -317,6 +320,33 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}/payment:
+    patch:
+      operationId: markInvoicePaid
+      tags: [invoices]
+      summary: Administrator records full payment without changing the invoice lifecycle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoicePaymentInput" }
+      responses:
+        "200":
+          description: Invoice with payment recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "403":
+          description: Only the administrator may record payment
+        "404":
+          description: Invoice not found
+        "409":
+          description: Payment cannot be recorded in this lifecycle state
   /invoices/{id}/share:
     post:
       operationId: createInvoiceShare
@@ -598,7 +628,7 @@ components:
         unitPrice: { type: number, minimum: 0, maximum: 999999999999 }
     Invoice:
       type: object
-      required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, notes, subtotal, total, lines, createdAt]
+      required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, paymentStatus, paidAt, notes, subtotal, total, lines, createdAt]
       properties:
         seriesId: { type: ["integer", "null"] }
         id: { type: integer }
@@ -610,7 +640,12 @@ components:
         issueDate: { type: string, format: date }
         dueDate: { type: ["string", "null"], format: date }
         currency: { type: string }
-        status: { type: string, enum: [draft, sent, paid, cancelled] }
+        status: { type: string, enum: [draft, finished, accepted, confirmed, voided, cancelled, error, sent, paid] }
+        statusCode: { type: ["integer", "null"], minimum: 1, maximum: 7 }
+        paymentStatus: { type: string, enum: [pending, paid] }
+        paidAt: { type: ["string", "null"], format: date-time }
+        acceptedAt: { type: ["string", "null"], format: date-time }
+        confirmedAt: { type: ["string", "null"], format: date-time }
         notes: { type: ["string", "null"] }
         versat:
           anyOf:
@@ -641,11 +676,16 @@ components:
           type: array
           minItems: 1
           items: { $ref: "#/components/schemas/InvoiceLineInput" }
+    InvoicePaymentInput:
+      type: object
+      required: [paymentStatus]
+      properties:
+        paymentStatus: { type: string, enum: [paid] }
     InvoiceStatusInput:
       type: object
       required: [status]
       properties:
-        status: { type: string, enum: [draft, sent, paid, cancelled] }
+        status: { type: string, enum: [draft, finished, accepted, confirmed, voided, cancelled, error] }
     InvoiceShare:
       type: object
       required: [url, expiresAt]
@@ -670,12 +710,15 @@ components:
         status: { type: string }
     BillingOverview:
       type: object
-      required: [invoiceCount, draftCount, sentCount, paidCount, monthTotal, currency, recentInvoices]
+      required: [invoiceCount, draftCount, sentCount, paidCount, finishedCount, acceptedCount, confirmedCount, monthTotal, currency, recentInvoices]
       properties:
         invoiceCount: { type: integer }
         draftCount: { type: integer }
         sentCount: { type: integer }
         paidCount: { type: integer }
+        finishedCount: { type: integer }
+        acceptedCount: { type: integer }
+        confirmedCount: { type: integer }
         monthTotal: { type: number }
         currency: { type: string }
         recentInvoices:

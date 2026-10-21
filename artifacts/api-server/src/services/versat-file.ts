@@ -1,5 +1,6 @@
 import iconv from "iconv-lite";
 import type { VersatInvoiceSnapshot } from "@workspace/db";
+import { facNumber, facTalon } from "./versat-identity";
 
 export type FacInvoice = {
   number: string;
@@ -14,19 +15,29 @@ export type FacInvoice = {
   }>;
 };
 export const facWarnings = [
-  "Archivo de prueba basado en el ejemplo recibido; pendiente validar una importación real en Versat.",
+  "Importación del caso de servicios confirmada por el usuario; otras variantes requieren validación en Versat.",
   "Solo servicios sin descuentos, recargos ni impuestos. No importar dos veces la misma numeración.",
   "La numeración se controla solo en esta app; no hay sincronización directa con Versat de escritorio.",
 ];
 
 export function getVersatIssues(invoice: FacInvoice): string[] {
+  const issues = getVersatDataIssues(invoice);
+  if (invoice.status !== "accepted") {
+    issues.unshift(invoice.status === "confirmed"
+      ? "La factura ya está confirmada como importada en Versat; no se puede volver a exportar."
+      : "El especialista debe marcar la factura como Aceptada antes de exportarla a Versat.");
+  }
+  return issues;
+}
+
+// Finishing assigns a number and validates accounting data, but grants no export permission.
+export function getVersatDataIssues(invoice: FacInvoice): string[] {
   const issues: string[] = [];
-  if (!["sent", "paid"].includes(invoice.status)) issues.push("La factura debe estar emitida o pagada.");
   const snapshot = invoice.versat;
   if (!snapshot) issues.push("Faltan concepto, operación, comercial y forma de pago de Versat.");
   else {
     if (!snapshot.number) issues.push("Falta el número de factura para Versat.");
-    else if (!/^[A-Za-z0-9_-]+$/.test(snapshot.number)) issues.push("El número de Versat contiene caracteres no admitidos.");
+    else if (!/^[A-Za-z0-9_-]+$/.test(snapshot.number) || !facNumber(snapshot.number)) issues.push("El número de Versat contiene caracteres no admitidos.");
     if (!snapshot.talon) issues.push("Falta el talón de Versat.");
     if (!snapshot.customerCode) issues.push("El cliente no tiene código de entidad de Versat.");
     if (/mercanc[ií]as/i.test(snapshot.operationName)) issues.push("La venta de mercancías no está cubierta por el ejemplo de servicios recibido.");
@@ -58,13 +69,13 @@ export function buildFac(invoice: FacInvoice): string {
     return value ?? "";
   };
   const header: Array<[string, string | number | null | undefined]> = [
-    ["Numero", s.number], ["MC", s.currencyName], ["OM", s.currencyName],
+    ["Numero", facNumber(s.number!)], ["MC", s.currencyName], ["OM", s.currencyName],
     ["Fecha", serialVersatDate(invoice.issueDate)], ["Entidad", s.customerCode],
     ["Concepto", s.conceptCode], ["Comercial", s.commercialName],
     ["CtaBancoMC", s.bankAccountMC], ["CtaBancoOM", s.bankAccountOM],
     ["Forma", s.paymentName], ["Operacion", s.operationName],
     ["Observacion", (invoice.notes ?? "").replace(/[\r\n]+/g, " ")],
-    ["MA", ""], ["CtoArancel", ""], ["PorcientoAra", 0], ["Talon", s.talon],
+    ["MA", ""], ["CtoArancel", ""], ["PorcientoAra", 0], ["Talon", facTalon(s.talon)],
     ["Contrato", s.contract], ["VtaCadena", 0],
     ["NomHecho", s.commercialName], ["CargoHecho", s.commercialPosition],
     ["CIHecho", ""], ["NomJA", ""], ["CIJA", ""], ["NomTra", ""], ["Chapa", ""],

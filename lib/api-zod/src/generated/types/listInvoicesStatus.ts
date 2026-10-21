@@ -11,7 +11,12 @@ export type ListInvoicesStatus = typeof ListInvoicesStatus[keyof typeof ListInvo
 
 export const ListInvoicesStatus = {
   draft: 'draft',
+  finished: 'finished',
+  accepted: 'accepted',
+  confirmed: 'confirmed',
+  voided: 'voided',
+  cancelled: 'cancelled',
+  error: 'error',
   sent: 'sent',
   paid: 'paid',
-  cancelled: 'cancelled',
 } as const;

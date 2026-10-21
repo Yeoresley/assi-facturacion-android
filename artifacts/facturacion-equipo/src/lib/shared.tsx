@@ -33,8 +33,13 @@ export function date(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed);
 }
 
+export const statusLabels: Record<string, string> = {
+  draft: 'Edición', finished: 'Terminada', confirmed: 'Confirmada', voided: 'Anulada', cancelled: 'Cancelada',
+  error: 'Con Error', accepted: 'Aceptada', sent: 'Enviada · anterior', paid: 'Pagada · anterior',
+};
+
 export function Status({ status }: { status: string }) {
-  const labels: Record<string, string> = { draft: 'Borrador', sent: 'Enviada', paid: 'Pagada', cancelled: 'Cancelada' };
+  const labels = statusLabels;
   return <span className={`status-pill status-${status}`}>{labels[status] || status}</span>;
 }
 
@@ -81,6 +86,6 @@ export function downloadBase64File(base64: string, filename: string, contentType
 export function TestFileNotice({ children }: { children?: ReactNode }) {
   return <div className="flex items-start gap-3 rounded-xl border border-[#ecd9a8] bg-[#fbf1d9] px-4 py-3 text-[#7d5e1f]" role="note">
     <TriangleAlert size={16} className="mt-0.5 shrink-0" />
-    <div className="text-[11px] leading-5"><div className="text-[12px] font-bold">Archivo de prueba: pendiente validar en Versat</div>{children}</div>
+    <div className="text-[11px] leading-5"><div className="text-[12px] font-bold">Formato probado para servicios; otras variantes requieren validación</div>{children}</div>
   </div>;
 }

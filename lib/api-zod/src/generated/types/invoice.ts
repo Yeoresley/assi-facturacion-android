@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InvoiceLine } from './invoiceLine';
+import type { InvoicePaymentStatus } from './invoicePaymentStatus';
 import type { InvoiceStatus } from './invoiceStatus';
 import type { LegalDocument } from './legalDocument';
 import type { VersatInvoiceSnapshot } from './versatInvoiceSnapshot';
@@ -24,6 +25,19 @@ export interface Invoice {
   dueDate: Date | null;
   currency: string;
   status: InvoiceStatus;
+  /**
+     * @minimum 1
+     * @maximum 7
+     * @nullable
+     */
+  statusCode?: number | null;
+  paymentStatus: InvoicePaymentStatus;
+  /** @nullable */
+  paidAt: Date | null;
+  /** @nullable */
+  acceptedAt?: Date | null;
+  /** @nullable */
+  confirmedAt?: Date | null;
   /** @nullable */
   notes: string | null;
   versat?: VersatInvoiceSnapshot | null;

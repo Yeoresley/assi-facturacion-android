@@ -13,14 +13,14 @@ import {
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListTeamMembersQueryKey,
   getHealthCheckQueryKey,
 } from '@workspace/api-client-react';
-import type { Customer, CustomerInput, Invoice, InvoiceInput, InvoiceStatusInputStatus } from '@workspace/api-client-react';
+import type { ListInvoicesPaymentStatus, ListInvoicesStatus, Customer, CustomerInput, Invoice, InvoiceInput, InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, BookOpen, CalendarDays,
   Check, ChevronDown, CircleHelp, Clipboard, FilePlus2, FileText, Filter, HandCoins, LayoutDashboard,
   LogOut, Mail, Printer, Search, Settings2, ShieldAlert, Users, X,
 } from 'lucide-react';
 import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation, useParams } from 'wouter';
-import { BrandMark, EmptyState, PageHeading, QueryError, Status, date, money } from '@/lib/shared';
+import { BrandMark, EmptyState, PageHeading, QueryError, Status, statusLabels, date, money } from '@/lib/shared';
 import CatalogsPage from '@/pages/catalogs';
 import CustomersPage from '@/pages/customers';
 import ExportPage from '@/pages/export';
@@ -31,6 +31,7 @@ import TeamMembers from '@/pages/team-members';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
 import { IssuerSettings } from '@/components/issuer-settings';
 import { NumberingSettings } from '@/components/numbering-settings';
 
@@ -222,7 +223,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
         <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
       </header>
-      <main className="main-content flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
+      <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
     </div>
     <nav className="mobile-nav">{navItems.slice(0, 5).map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
   </div>;
@@ -235,13 +236,14 @@ function Protected({ children }: { children: ReactNode }) {
   return <><Show when="signed-in"><Shell>{children}</Shell></Show><Show when="signed-out"><Redirect to="/" /></Show></>;
 }
 
-function InvoiceTable({ invoices }: { invoices: Invoice[] }) {
+function InvoiceTable({ invoices, emptyPending = false }: { invoices: Invoice[]; emptyPending?: boolean }) {
+  if (!invoices.length && emptyPending) return <EmptyState title="No hay pagos pendientes" text="Ninguna factura emitida está pendiente de pago con estos filtros." />;
   if (!invoices.length) return <EmptyState title="Aquí empezará el movimiento" text="Cuando el equipo cree una factura, aparecerá en esta lista." action={<Link className="button button-primary" href="/invoices/new"><FilePlus2 size={15} />Crear factura</Link>} />;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[720px] border-collapse text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura</th><th className="px-4 py-3 font-medium">Cliente</th><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Especialista</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-5 py-3 text-right font-medium">Total</th></tr></thead><tbody>{invoices.map((inv) => <tr className="table-row" key={inv.id} data-testid={`row-invoice-${inv.id}`}><td className="px-5 py-4"><Link href={`/invoices/${inv.id}`} className="font-mono text-[12px] font-medium text-[#2e6960]">{inv.number}</Link></td><td className="px-4 py-4 text-[13px] font-semibold">{inv.customerName}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{date(inv.issueDate)}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{inv.specialistName}</td><td className="px-4 py-4"><Status status={inv.status} /></td><td className="px-5 py-4 text-right text-[13px] font-bold">{money(inv.total, inv.currency)}</td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura</th><th className="px-4 py-3 font-medium">Cliente</th><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Especialista</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Pago</th><th className="px-5 py-3 text-right font-medium">Total</th></tr></thead><tbody>{invoices.map((inv) => <tr className="table-row" key={inv.id} data-testid={`row-invoice-${inv.id}`}><td className="px-5 py-4"><Link href={`/invoices/${inv.id}`} className="font-mono text-[12px] font-medium text-[#2e6960]">{inv.number}</Link></td><td className="px-4 py-4 text-[13px] font-semibold">{inv.customerName}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{date(inv.issueDate)}</td><td className="px-4 py-4 text-[12px] text-[#71817b]">{inv.specialistName}</td><td className="px-4 py-4"><Status status={inv.status} /></td><td className="px-4 py-4"><div className="flex flex-wrap items-center gap-2"><PaymentBadge invoice={inv} /><MarkPaidButton invoice={inv} /></div></td><td className="px-5 py-4 text-right text-[13px] font-bold">{money(inv.total, inv.currency)}</td></tr>)}</tbody></table></div>;
 }
 
 function Dashboard() {
-  const overview = useGetBillingOverview({ query: { queryKey: getGetBillingOverviewQueryKey(), retry: false } });
+  const overview = useGetBillingOverview({ query: { queryKey: getGetBillingOverviewQueryKey(), retry: false, refetchInterval: 20000 } });
   const [month] = useState(() => new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()));
   return <div className="fade-in">
     <PageHeading eyebrow="Tu escritorio" title="Buenos días. Aquí está el mes." description={`Resumen compartido · ${month}`} action={<Link href="/invoices/new" className="button button-primary"><FilePlus2 size={16} />Nueva factura</Link>} />
@@ -251,8 +253,8 @@ function Dashboard() {
         {[
           { label: 'Facturado este mes', value: money(overview.data.monthTotal, overview.data.currency), note: 'Total del período', icon: Banknote, tint: 'bg-[#e3f0e8] text-[#377868]' },
           { label: 'Facturas en el mes', value: overview.data.invoiceCount, note: 'Actividad del equipo', icon: FileText, tint: 'bg-[#e9eee7] text-[#52756a]' },
-          { label: 'Por cobrar', value: overview.data.sentCount, note: 'Facturas enviadas', icon: HandCoins, tint: 'bg-[#f8edd7] text-[#a07832]' },
-          { label: 'Borradores', value: overview.data.draftCount, note: 'Aún no compartidos', icon: Clipboard, tint: 'bg-[#efeee4] text-[#837f65]' },
+          { label: 'Aceptadas', value: overview.data.acceptedCount, note: 'Pendientes de importar en Versat (aceptar no es cobrar)', icon: HandCoins, tint: 'bg-[#f8edd7] text-[#a07832]' },
+          { label: 'En edición', value: overview.data.draftCount, note: `${overview.data.finishedCount} terminadas · ${overview.data.confirmedCount} confirmadas`, icon: Clipboard, tint: 'bg-[#efeee4] text-[#837f65]' },
         ].map(({ label, value, note, icon: Icon, tint }) => <div key={label} className="panel p-5"><div className="flex items-start justify-between"><div className="eyebrow">{label}</div><span className={`grid h-9 w-9 place-items-center rounded-xl ${tint}`}><Icon size={17} /></span></div><div className="font-display mt-4 text-[27px] font-bold tracking-[-.06em]">{value}</div><div className="mt-1 text-[11px] text-[#7c8881]">{note}</div></div>)}
       </div>}
     <div className="mt-8 grid gap-5 xl:grid-cols-[1fr_300px]">
@@ -270,16 +272,18 @@ function Dashboard() {
 function Invoices() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const params = { ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status: status as 'draft' | 'sent' | 'paid' | 'cancelled' } : {}) };
-  const query = useListInvoices(params);
+  const [payment, setPayment] = useState('');
+  const params = { ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status: status as ListInvoicesStatus } : {}), ...(payment ? { paymentStatus: payment as ListInvoicesPaymentStatus } : {}) };
+  const query = useListInvoices(params, { query: { queryKey: getListInvoicesQueryKey(params), refetchInterval: 20000 } });
   return <div className="fade-in">
     <PageHeading eyebrow="Archivo del equipo" title="Facturas" description="Busca una factura o filtra por estado." action={<Link href="/invoices/new" className="button button-primary"><FilePlus2 size={16} />Nueva factura</Link>} />
     <section className="panel overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 md:px-5">
         <label className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={16} /><input className="field !h-10 !pl-9" type="search" placeholder="Buscar por número o cliente" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-invoice-search" /></label>
-        <label className="relative flex items-center gap-2 text-[#84908a]"><Filter size={14} /><select className="field !h-10 !w-[155px] appearance-none pr-8 text-[12px]" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filtrar por estado" data-testid="select-invoice-status"><option value="">Todos los estados</option><option value="draft">Borrador</option><option value="sent">Enviada</option><option value="paid">Pagada</option><option value="cancelled">Cancelada</option></select><ChevronDown className="pointer-events-none absolute right-3" size={14} /></label>
+        <label className="relative flex items-center gap-2 text-[#84908a]"><Filter size={14} /><select className="field !h-10 !w-[155px] appearance-none pr-8 text-[12px]" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filtrar por estado" data-testid="select-invoice-status"><option value="">Todos los estados</option>{Object.entries(statusLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3" size={14} /></label>
+        <label className="relative flex items-center gap-2 text-[#84908a]"><select className="field !h-10 !w-[170px] appearance-none pr-8 text-[12px]" value={payment} onChange={(e) => setPayment(e.target.value)} aria-label="Filtrar por pago" data-testid="select-invoice-payment"><option value="">Todos los pagos</option><option value="pending">Pendientes de pago</option><option value="paid">Pagadas</option></select><ChevronDown className="pointer-events-none absolute right-3" size={14} /></label>
       </div>
-      {query.isLoading ? <div className="space-y-4 p-5">{[0,1,2,3,4].map((i) => <div className="skeleton h-10" key={i} />)}</div> : query.isError ? <div className="p-5"><QueryError retry={() => query.refetch()} /></div> : <InvoiceTable invoices={query.data || []} />}
+      {query.isLoading ? <div className="space-y-4 p-5">{[0,1,2,3,4].map((i) => <div className="skeleton h-10" key={i} />)}</div> : query.isError ? <div className="p-5"><QueryError retry={() => query.refetch()} /></div> : <InvoiceTable invoices={query.data || []} emptyPending={payment === 'pending'} />}
     </section>
   </div>;
 }

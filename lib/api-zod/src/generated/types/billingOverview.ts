@@ -12,6 +12,9 @@ export interface BillingOverview {
   draftCount: number;
   sentCount: number;
   paidCount: number;
+  finishedCount: number;
+  acceptedCount: number;
+  confirmedCount: number;
   monthTotal: number;
   currency: string;
   recentInvoices: Invoice[];

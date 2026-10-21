@@ -254,9 +254,22 @@ export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
 
 export const InvoiceStatus = {
   draft: 'draft',
+  finished: 'finished',
+  accepted: 'accepted',
+  confirmed: 'confirmed',
+  voided: 'voided',
+  cancelled: 'cancelled',
+  error: 'error',
   sent: 'sent',
   paid: 'paid',
-  cancelled: 'cancelled',
+} as const;
+
+export type InvoicePaymentStatus = typeof InvoicePaymentStatus[keyof typeof InvoicePaymentStatus];
+
+
+export const InvoicePaymentStatus = {
+  pending: 'pending',
+  paid: 'paid',
 } as const;
 
 export interface VersatInvoiceInput {
@@ -323,6 +336,19 @@ export interface Invoice {
   dueDate: string | null;
   currency: string;
   status: InvoiceStatus;
+  /**
+     * @minimum 1
+     * @maximum 7
+     * @nullable
+     */
+  statusCode?: number | null;
+  paymentStatus: InvoicePaymentStatus;
+  /** @nullable */
+  paidAt: string | null;
+  /** @nullable */
+  acceptedAt?: string | null;
+  /** @nullable */
+  confirmedAt?: string | null;
   /** @nullable */
   notes: string | null;
   versat?: VersatInvoiceSnapshot | null;
@@ -352,14 +378,28 @@ export interface InvoiceInput {
   lines: InvoiceLineInput[];
 }
 
+export type InvoicePaymentInputPaymentStatus = typeof InvoicePaymentInputPaymentStatus[keyof typeof InvoicePaymentInputPaymentStatus];
+
+
+export const InvoicePaymentInputPaymentStatus = {
+  paid: 'paid',
+} as const;
+
+export interface InvoicePaymentInput {
+  paymentStatus: InvoicePaymentInputPaymentStatus;
+}
+
 export type InvoiceStatusInputStatus = typeof InvoiceStatusInputStatus[keyof typeof InvoiceStatusInputStatus];
 
 
 export const InvoiceStatusInputStatus = {
   draft: 'draft',
-  sent: 'sent',
-  paid: 'paid',
+  finished: 'finished',
+  accepted: 'accepted',
+  confirmed: 'confirmed',
+  voided: 'voided',
   cancelled: 'cancelled',
+  error: 'error',
 } as const;
 
 export interface InvoiceStatusInput {
@@ -393,6 +433,9 @@ export interface BillingOverview {
   draftCount: number;
   sentCount: number;
   paidCount: number;
+  finishedCount: number;
+  acceptedCount: number;
+  confirmedCount: number;
   monthTotal: number;
   currency: string;
   recentInvoices: Invoice[];
@@ -482,6 +525,7 @@ search?: string;
 export type ListInvoicesParams = {
 search?: string;
 status?: ListInvoicesStatus;
+paymentStatus?: ListInvoicesPaymentStatus;
 from?: string;
 to?: string;
 };
@@ -491,9 +535,22 @@ export type ListInvoicesStatus = typeof ListInvoicesStatus[keyof typeof ListInvo
 
 export const ListInvoicesStatus = {
   draft: 'draft',
+  finished: 'finished',
+  accepted: 'accepted',
+  confirmed: 'confirmed',
+  voided: 'voided',
+  cancelled: 'cancelled',
+  error: 'error',
   sent: 'sent',
   paid: 'paid',
-  cancelled: 'cancelled',
+} as const;
+
+export type ListInvoicesPaymentStatus = typeof ListInvoicesPaymentStatus[keyof typeof ListInvoicesPaymentStatus];
+
+
+export const ListInvoicesPaymentStatus = {
+  pending: 'pending',
+  paid: 'paid',
 } as const;
 
 export type GetVersatExportFileParams = {

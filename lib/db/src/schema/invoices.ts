@@ -26,9 +26,16 @@ export const invoicesTable = pgTable("invoices", {
   dueDate: date("due_date", { mode: "string" }),
   currency: text("currency").notNull(),
   status: text("status")
-    .$type<"draft" | "sent" | "paid" | "cancelled">()
+    .$type<"draft" | "finished" | "accepted" | "confirmed" | "voided" | "cancelled" | "error" | "sent" | "paid">()
     .notNull()
     .default("draft"),
+  acceptedBy: text("accepted_by"),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  confirmedBy: text("confirmed_by"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  paymentStatus: text("payment_status").$type<"pending" | "paid">().notNull().default("pending"),
+  paidBy: text("paid_by"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
   notes: text("notes"),
   legalDocument: jsonb("legal_document").$type<LegalDocument>(),
   versat: jsonb("versat").$type<VersatInvoiceSnapshot>(),

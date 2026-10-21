@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildFac, encodeFac, getVersatIssues, serialVersatDate, type FacInvoice } from "./versat-file";
+import { facFilename, facTalon } from "./versat-identity";
 
 function fixture(): FacInvoice {
   return {
-    number: "INTERNO-PRUEBA", issueDate: "2026-10-19", status: "sent", currency: "CUP",
+    number: "INTERNO-PRUEBA", issueDate: "2026-10-19", status: "accepted", currency: "CUP",
     notes: "Primera línea\nSegunda línea",
     versat: {
       conceptId: 1, operationId: 2, commercialId: 3, paymentId: 4,
@@ -24,6 +25,23 @@ test("fecha serial coincide con el ejemplo y no depende de la zona horaria", () 
   assert.throws(() => serialVersatDate("2026-02-31"));
 });
 
+test("exporta número compacto y talón corregido sin cambiar la factura ni otros talones", () => {
+  const invoice = fixture();
+  invoice.versat!.number = "HAB-26-091";
+  invoice.versat!.talon = "1005";
+  const original = structuredClone(invoice);
+  const content = buildFac(invoice);
+  assert.ok(content.startsWith("Numero=HAB26091\r\n"));
+  assert.ok(content.includes("\r\nTalon=5\r\n"));
+  assert.equal(facFilename(invoice.versat!.number), "BHAB26091.Fac");
+  assert.deepEqual(invoice, original);
+  assert.equal(facTalon("5"), "5");
+  assert.equal(facTalon("1006"), "1006");
+  assert.equal(facTalon("00009"), "00009");
+  invoice.versat!.number = "---";
+  assert.throws(() => buildFac(invoice), /no admitidos/);
+});
+
 test("preserva las 14 posiciones, la precisión, los CRLF y la nota en una sola línea", () => {
   const value = buildFac(fixture());
   assert.ok(!/(?<!\r)\n/.test(value));
@@ -36,7 +54,7 @@ test("preserva las 14 posiciones, la precisión, los CRLF y la nota en una sola 
 });
 
 test("no exporta borradores, anuladas, mercancías ni líneas sin correspondencia", () => {
-  for (const status of ["draft", "cancelled"]) {
+  for (const status of ["draft", "finished", "confirmed", "voided", "cancelled", "error", "sent", "paid"]) {
     const invoice = fixture(); invoice.status = status;
     assert.throws(() => buildFac(invoice));
   }

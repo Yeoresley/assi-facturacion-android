@@ -1,5 +1,6 @@
 import { eq, ne, and, sql } from "drizzle-orm";
 import { db, invoicesTable, invoiceSeriesTable, invoiceNumberReservationsTable } from "@workspace/db";
+import { facNumber } from "./versat-identity";
 
 export type BillingTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export class NumberingError extends Error {
@@ -22,8 +23,14 @@ export function formatSeries(series: { prefix: string; suffix: string; width: nu
 export async function reserveNumber(tx: BillingTransaction, invoiceId: number, number: string | null, talon: string | null) {
   if (!number) return;
   const [existing] = await tx.select({ id: invoicesTable.id }).from(invoicesTable)
-    .where(and(eq(invoicesTable.versatNumber, number), ne(invoicesTable.id, invoiceId)));
+    .where(and(sql`replace(${invoicesTable.versatNumber}, '-', '') = ${facNumber(number)}`, ne(invoicesTable.id, invoiceId)));
   if (existing) throw new NumberingError("Ese número de Versat ya pertenece a otra factura, incluso si está anulada.");
+  const [compactReservation] = await tx.select({ invoiceId: invoiceNumberReservationsTable.invoiceId })
+    .from(invoiceNumberReservationsTable).where(and(
+      sql`replace(${invoiceNumberReservationsTable.number}, '-', '') = ${facNumber(number)}`,
+      ne(invoiceNumberReservationsTable.invoiceId, invoiceId),
+    ));
+  if (compactReservation) throw new NumberingError("Ese número de Versat ya está reservado, también al quitar los guiones.");
   await tx.insert(invoiceNumberReservationsTable).values({ number, invoiceId, talon }).onConflictDoNothing();
   const [reservation] = await tx.select().from(invoiceNumberReservationsTable)
     .where(eq(invoiceNumberReservationsTable.number, number));

@@ -1,20 +1,22 @@
 import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
 import { customersTable, db, invoiceLinesTable, invoicesTable } from "@workspace/db";
+import { statusCodes, type WorkflowStatus } from "./invoice-status";
+import { paymentStatus } from "./invoice-payment";
 
 export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
   customerName: string;
   lines: Array<typeof invoiceLinesTable.$inferSelect>;
 };
 
-export async function getInvoiceRows(ids?: number[], scope?: SQL): Promise<InvoiceRecord[]> {
+export async function getInvoiceRows(ids?: number[], scope?: SQL, reader: Pick<typeof db, "select"> = db): Promise<InvoiceRecord[]> {
   if (ids && !ids.length) return [];
-  const query = db.select({ invoice: invoicesTable, customerName: customersTable.name })
+  const query = reader.select({ invoice: invoicesTable, customerName: customersTable.name })
     .from(invoicesTable)
     .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
     .orderBy(desc(invoicesTable.createdAt));
   const rows = await query.where(and(ids ? inArray(invoicesTable.id, ids) : undefined, scope));
   if (!rows.length) return [];
-  const lines = await db.select().from(invoiceLinesTable)
+  const lines = await reader.select().from(invoiceLinesTable)
     .where(inArray(invoiceLinesTable.invoiceId, rows.map(({ invoice }) => invoice.id)));
   return rows.map(({ invoice, customerName }) => ({
     ...invoice,
@@ -28,7 +30,15 @@ export async function getInvoiceRow(id: number, scope?: SQL): Promise<InvoiceRec
 }
 
 export function serializeInvoice(invoice: InvoiceRecord) {
-  return { ...invoice, createdAt: invoice.createdAt.toISOString() };
+  return {
+    ...invoice,
+    statusCode: statusCodes[invoice.status as WorkflowStatus] ?? null,
+    paymentStatus: paymentStatus(invoice),
+    paidAt: invoice.paidAt?.toISOString() ?? null,
+    acceptedAt: invoice.acceptedAt?.toISOString() ?? null,
+    confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
+    createdAt: invoice.createdAt.toISOString(),
+  };
 }
 
 export function toDateOnly(date: Date | string) {

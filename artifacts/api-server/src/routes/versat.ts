@@ -8,8 +8,10 @@ import {
 } from "@workspace/api-zod";
 import { customersTable, db, invoicesTable, versatCatalogTable } from "@workspace/db";
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
-import { dateQuery, getInvoiceRow, getInvoiceRows, toDateOnly } from "../services/invoice-records";
+import { dateQuery, getInvoiceRows, toDateOnly } from "../services/invoice-records";
 import { buildFac, encodeFac, facWarnings, getVersatIssues } from "../services/versat-file";
+import type { BillingTransaction } from "../services/invoice-numbering";
+import { facFilename, facNumber } from "../services/versat-identity";
 
 const router: IRouter = Router();
 
@@ -27,13 +29,16 @@ router.get("/versat/catalogs", async (req, res): Promise<void> => {
   }));
 });
 
-async function periodInvoices(from: Date, to: Date) {
-  const ids = await db.select({ id: invoicesTable.id }).from(invoicesTable).where(and(
+async function periodInvoices(from: Date, to: Date, tx?: BillingTransaction) {
+  const reader = tx ?? db;
+  const selection = reader.select({ id: invoicesTable.id }).from(invoicesTable).where(and(
     gte(invoicesTable.issueDate, toDateOnly(from)), lte(invoicesTable.issueDate, toDateOnly(to)),
-    inArray(invoicesTable.status, ["sent", "paid"]),
-  )).limit(501);
+    inArray(invoicesTable.status, ["accepted"]),
+  )).orderBy(invoicesTable.id).limit(501);
+  // Keep acceptance stable while bytes are generated; confirmation/annulment waits.
+  const ids = tx ? await selection.for("share") : await selection;
   if (ids.length > 500) throw new Error("El período supera 500 facturas. Selecciona un rango más corto.");
-  return (await getInvoiceRows(ids.map(({ id }) => id))).sort((a, b) =>
+  return (await getInvoiceRows(ids.map(({ id }) => id), undefined, reader)).sort((a, b) =>
     a.issueDate.localeCompare(b.issueDate) || a.id - b.id);
 }
 
@@ -49,7 +54,7 @@ router.get("/versat/export", async (req, res): Promise<void> => {
     res.json(ExportVersatInvoicesResponse.parse(invoices.map((invoice) => {
       const issues = getVersatIssues(invoice);
       return {
-        id: invoice.id, invoiceNumber: invoice.number, versatNumber: invoice.versat?.number ?? null,
+        id: invoice.id, invoiceNumber: invoice.number, versatNumber: invoice.versat?.number ? facNumber(invoice.versat.number) : null,
         issueDate: invoice.issueDate, customerName: invoice.customerName,
         taxId: invoice.versat?.customerTaxId ?? null, currency: invoice.currency,
         subtotal: invoice.subtotal, total: invoice.total, status: invoice.status,
@@ -65,17 +70,23 @@ router.get("/invoices/:id/versat-file", async (req, res): Promise<void> => {
   if (!await requireOwner(req, res)) return;
   const params = GetInvoiceVersatFileParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Identificador inválido." }); return; }
-  const invoice = await getInvoiceRow(params.data.id);
-  if (!invoice) { res.status(404).json({ error: "Factura no encontrada." }); return; }
-  const issues = getVersatIssues(invoice);
-  if (issues.length) { res.status(422).json({ error: "Completa los datos de Versat antes de descargar.", issues }); return; }
   try {
-    const bytes = encodeFac(buildFac(invoice), "windows-1252");
+    const result = await db.transaction(async (tx) => {
+      const [locked] = await tx.select({ id: invoicesTable.id }).from(invoicesTable)
+        .where(eq(invoicesTable.id, params.data.id)).for("share");
+      if (!locked) return null;
+      const [invoice] = await getInvoiceRows([locked.id], undefined, tx);
+      const issues = getVersatIssues(invoice);
+      if (issues.length) throw new Error(issues.join(" "));
+      const bytes = encodeFac(buildFac(invoice), "windows-1252");
+      return {
+        filename: facFilename(invoice.versat!.number!), base64: bytes.toString("base64"),
+        contentType: "text/plain;charset=windows-1252", invoiceCount: 1, warnings: facWarnings,
+      };
+    });
+    if (!result) { res.status(404).json({ error: "Factura no encontrada." }); return; }
     res.setHeader("Cache-Control", "private, no-store");
-    res.json(GetInvoiceVersatFileResponse.parse({
-      filename: `B${invoice.versat!.number}.Fac`, base64: bytes.toString("base64"),
-      contentType: "text/plain;charset=windows-1252", invoiceCount: 1, warnings: facWarnings,
-    }));
+    res.json(GetInvoiceVersatFileResponse.parse(result));
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "No se pudo generar el archivo." });
   }
@@ -89,20 +100,19 @@ router.get("/versat/export-file", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const invoices = await periodInvoices(parsed.data.from, parsed.data.to);
+    const result = await db.transaction(async (tx) => {
+    const invoices = await periodInvoices(parsed.data.from, parsed.data.to, tx);
     if (!invoices.length) {
-      res.status(422).json({ error: "No hay facturas emitidas o pagadas en el período." });
-      return;
+      throw new Error("No hay facturas Aceptadas pendientes de importar en el período.");
     }
     const invalid = invoices.flatMap((invoice) =>
       getVersatIssues(invoice).map((issue) => `${invoice.number}: ${issue}`));
     if (invalid.length) {
-      res.status(422).json({ error: "El lote contiene facturas incompletas. No se ha exportado ninguna.", issues: invalid });
-      return;
+      throw new Error(`El lote contiene facturas incompletas. No se ha exportado ninguna. ${invalid.join(" ")}`);
     }
     const files: Record<string, Uint8Array> = {};
     for (const invoice of invoices) {
-      const name = `B${invoice.versat!.number}.Fac`;
+      const name = facFilename(invoice.versat!.number!);
       if (files[name]) throw new Error("Hay numeración duplicada en el lote.");
       files[name] = encodeFac(buildFac(invoice), parsed.data.encoding);
     }
@@ -115,12 +125,14 @@ router.get("/versat/export-file", async (req, res): Promise<void> => {
       "No se han generado firmas ni cuños digitales.",
     ].join("\r\n"));
     const bytes = zipSync(files, { level: 6 });
-    res.setHeader("Cache-Control", "private, no-store");
-    res.json(GetVersatExportFileResponse.parse({
+    return {
       filename: `versat-prueba-${toDateOnly(parsed.data.from)}-${toDateOnly(parsed.data.to)}.zip`,
       base64: Buffer.from(bytes).toString("base64"), contentType: "application/zip",
       invoiceCount: invoices.length, warnings: facWarnings,
-    }));
+    };
+    });
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(GetVersatExportFileResponse.parse(result));
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "No se pudo generar el lote." });
   }

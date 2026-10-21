@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   customersTable, db, pool, invoiceLinesTable, invoiceNumberReservationsTable, invoicesTable,
   invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
@@ -10,13 +10,16 @@ import { allocateNumber, formatSeries, lockNumbering, reserveNumber, validateSer
 import { transitionInvoice as scopedTransitionInvoice } from "./issue-invoice";
 import { invoiceScope } from "./invoice-access";
 import { buildFac } from "./versat-file";
+import type { WorkflowStatus } from "./invoice-status";
+import { markInvoicePaid, paymentFilter, paymentStatus } from "./invoice-payment";
 
 // Integration tests use only explicitly created synthetic fixtures, never business invoices.
 const tag = `TEST_${randomUUID().replaceAll("-", "").slice(0, 12)}_`;
 const invoiceIds: number[] = [];
 const seriesIds: number[] = [];
-const transitionInvoice = (id: number, status: "draft" | "sent" | "paid" | "cancelled") =>
-  scopedTransitionInvoice(id, status, sql`true`);
+const specialist = { userId: "test-specialist", role: "specialist" as const, commercialId: 1 };
+const transitionInvoice = (id: number, status: WorkflowStatus) =>
+  scopedTransitionInvoice(id, status, sql`true`, specialist);
 let customerId: number;
 const legal: LegalDocument = {
   confirm: true, useStamp: false, useSignature: false, stampPath: null, signaturePath: null,
@@ -76,11 +79,11 @@ async function counter(id: number) {
 test("parallel specialists persist distinct sequential numbers and the declared talon", async () => {
   const s = await series();
   const drafts = await Promise.all(Array.from({ length: 12 }, () => draft(s.id)));
-  await Promise.all(drafts.map((d) => transitionInvoice(d.id, "sent")));
+  await Promise.all(drafts.map((d) => transitionInvoice(d.id, "finished")));
   const issued = await Promise.all(drafts.map((d) => stored(d.id)));
   assert.equal(new Set(issued.map((d) => d.versatNumber)).size, 12);
   assert.deepEqual(issued.map((d) => d.versatNumber).sort(), Array.from({ length: 12 }, (_, i) => formatSeries({ ...s, nextNumber: i + 1 })).sort());
-  assert.ok(issued.every((d) => d.status === "sent" && d.versat?.talon === "00009"));
+  assert.ok(issued.every((d) => d.status === "finished" && d.versat?.talon === "00009"));
   assert.equal(await counter(s.id), 13);
   // Read on an independent connection: results do not depend on in-memory state.
   const connection = await pool.connect();
@@ -89,7 +92,8 @@ test("parallel specialists persist distinct sequential numbers and the declared 
     assert.equal(result.rows[0].next_number, 13);
   } finally { connection.release(); }
   const lines = await db.select().from(invoiceLinesTable).where(eq(invoiceLinesTable.invoiceId, issued[0].id));
-  const fac = buildFac({ ...issued[0], lines });
+  await transitionInvoice(issued[0].id, "accepted");
+  const fac = buildFac({ ...await stored(issued[0].id), lines });
   assert.ok(fac.includes(`Numero=${issued[0].versatNumber}\r\n`));
   assert.ok(fac.includes("Talon=00009\r\n"));
 });
@@ -97,21 +101,21 @@ test("parallel specialists persist distinct sequential numbers and the declared 
 test("concurrent retries on the same invoice consume only one number", async () => {
   const s = await series();
   const d = await draft(s.id);
-  await Promise.all(Array.from({ length: 10 }, () => transitionInvoice(d.id, "sent")));
+  await Promise.all(Array.from({ length: 10 }, () => transitionInvoice(d.id, "finished")));
   const first = await stored(d.id);
-  await transitionInvoice(d.id, "paid");
+  await transitionInvoice(d.id, "accepted");
   assert.equal((await stored(d.id)).versatNumber, first.versatNumber);
   assert.equal(await counter(s.id), 2);
-  await assert.rejects(transitionInvoice(d.id, "draft"), /borrador/);
+  await assert.rejects(transitionInvoice(d.id, "draft"), /Edición/);
 });
 
 test("commercial scope is checked inside the issuance transaction before allocating", async () => {
   const s = await series();
   const d = await draft(s.id);
-  await assert.rejects(scopedTransitionInvoice(d.id, "sent", invoiceScope({ role: "specialist", commercialId: 2 })), /no encontrada/);
+  await assert.rejects(scopedTransitionInvoice(d.id, "finished", invoiceScope({ role: "specialist", commercialId: 2 }), { ...specialist, commercialId: 2 }), /no encontrada/);
   assert.equal(await counter(s.id), 1);
   assert.equal((await stored(d.id)).status, "draft");
-  await scopedTransitionInvoice(d.id, "sent", invoiceScope({ role: "specialist", commercialId: snapshot.commercialId }));
+  await scopedTransitionInvoice(d.id, "finished", invoiceScope({ role: "specialist", commercialId: snapshot.commercialId }), specialist);
   assert.equal((await stored(d.id)).versatNumber, formatSeries(s));
 });
 
@@ -119,13 +123,13 @@ test("validation failure after allocation rolls back number, reservation, counte
   const s = await series();
   const d = await draft(s.id);
   await db.update(invoiceLinesTable).set({ groupCode: null }).where(eq(invoiceLinesTable.invoiceId, d.id));
-  await assert.rejects(transitionInvoice(d.id, "sent"), /agrupador/);
+  await assert.rejects(transitionInvoice(d.id, "finished"), /agrupador/);
   assert.equal(await counter(s.id), 1);
   assert.equal((await stored(d.id)).status, "draft");
   assert.equal((await stored(d.id)).versatNumber, null);
   assert.equal((await db.select().from(invoiceNumberReservationsTable).where(eq(invoiceNumberReservationsTable.invoiceId, d.id))).length, 0);
   await db.update(invoiceLinesTable).set({ groupCode: "TEST" }).where(eq(invoiceLinesTable.invoiceId, d.id));
-  await transitionInvoice(d.id, "sent");
+  await transitionInvoice(d.id, "finished");
   assert.equal((await stored(d.id)).versatNumber, formatSeries(s));
 });
 
@@ -138,9 +142,9 @@ test("interrupted transaction can retry; committed cancelled invoices cannot rel
     throw new Error("simulated failure");
   }), /simulated/);
   assert.equal(await counter(s.id), 1);
-  await transitionInvoice(d.id, "sent");
+  await transitionInvoice(d.id, "finished");
   await transitionInvoice(d.id, "cancelled");
-  await assert.rejects(transitionInvoice(d.id, "sent"), /reactivarse/);
+  await assert.rejects(transitionInvoice(d.id, "finished"), /reactivarse/);
   const other = await draft(null);
   await assert.rejects(db.transaction(async (tx) => {
     await lockNumbering(tx);
@@ -160,17 +164,17 @@ test("manual draft changes preserve earlier reservations, including against auto
     }).where(eq(invoicesTable.id, manual.id));
   });
   const auto = await draft(s.id);
-  await assert.rejects(transitionInvoice(auto.id, "sent"), /reservado/);
+  await assert.rejects(transitionInvoice(auto.id, "finished"), /reservado/);
   assert.equal(await counter(s.id), 1);
-  await transitionInvoice(manual.id, "sent");
+  await transitionInvoice(manual.id, "finished");
   assert.equal((await stored(manual.id)).versatNumber, `${tag}replacement`);
 });
 
 test("inactive, exhausted and missing series fail explicitly, and automatic input rejects manual values", async () => {
   const inactive = await series({ active: false });
   const exhausted = await series({ width: 1, nextNumber: 10 });
-  await assert.rejects(transitionInvoice((await draft(inactive.id)).id, "sent"), /inactiva/);
-  await assert.rejects(transitionInvoice((await draft(exhausted.id)).id, "sent"), /agotado/);
+  await assert.rejects(transitionInvoice((await draft(inactive.id)).id, "finished"), /inactiva/);
+  await assert.rejects(transitionInvoice((await draft(exhausted.id)).id, "finished"), /agotado/);
   const s = await series();
   await assert.rejects(db.transaction((tx) => validateSeriesSelection(tx, s.id, { number: "MANUAL", talon: null })), /manual/);
   await assert.rejects(db.transaction((tx) => validateSeriesSelection(tx, 2147483647, null)), /no existe/);
@@ -182,13 +186,134 @@ test("overlapping series and historical manual numbers cannot duplicate a number
   const overlap = await series({ prefix: s.prefix });
   const a = await draft(s.id);
   const b = await draft(overlap.id);
-  const results = await Promise.allSettled([transitionInvoice(a.id, "sent"), transitionInvoice(b.id, "sent")]);
+  const results = await Promise.allSettled([transitionInvoice(a.id, "finished"), transitionInvoice(b.id, "finished")]);
   assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
   assert.equal(results.filter((r) => r.status === "rejected").length, 1);
   const history = await series();
   const number = formatSeries(history);
   const historic = await draft(null, { status: "cancelled", versatNumber: number, versat: { ...snapshot, number, talon: history.talon } });
   const original = await stored(historic.id);
-  await assert.rejects(transitionInvoice((await draft(history.id)).id, "sent"), /otra factura/);
+  await assert.rejects(transitionInvoice((await draft(history.id)).id, "finished"), /otra factura/);
   assert.deepEqual(await stored(historic.id), original);
+});
+
+test("acceptance is specialist-only, import confirmation owner-only, with persistent actor and dates", async () => {
+  const s = await series();
+  const d = await draft(s.id);
+  const owner = { userId: "test-owner", role: "owner" as const, commercialId: null };
+  await assert.rejects(transitionInvoice(d.id, "accepted"), /no permitido/);
+  await transitionInvoice(d.id, "finished");
+  await assert.rejects(scopedTransitionInvoice(d.id, "accepted", sql`true`, owner), /especialista/);
+  assert.throws(() => buildFac({ ...d, status: "finished", lines: [] }), /Aceptada/);
+  await Promise.all(Array.from({ length: 4 }, () => transitionInvoice(d.id, "accepted")));
+  const accepted = await stored(d.id);
+  assert.equal(accepted.acceptedBy, specialist.userId);
+  assert.ok(accepted.acceptedAt instanceof Date);
+  await transitionInvoice(d.id, "accepted");
+  assert.deepEqual((await stored(d.id)).acceptedAt, accepted.acceptedAt);
+  await assert.rejects(transitionInvoice(d.id, "confirmed"), /administrador/);
+  await scopedTransitionInvoice(d.id, "confirmed", sql`true`, owner);
+  const confirmed = await stored(d.id);
+  assert.equal(confirmed.confirmedBy, owner.userId);
+  assert.ok(confirmed.confirmedAt instanceof Date);
+  assert.equal(confirmed.status, "confirmed");
+  assert.throws(() => buildFac({ ...confirmed, lines: [] }), /ya está confirmada/);
+  await assert.rejects(transitionInvoice(d.id, "accepted"), /reactivarse/);
+  assert.equal(await counter(s.id), 2);
+});
+
+test("error recovery keeps the same official number, requires acceptance again, and enforces commercial", async () => {
+  const s = await series();
+  const d = await draft(s.id);
+  await transitionInvoice(d.id, "finished");
+  await transitionInvoice(d.id, "accepted");
+  const number = (await stored(d.id)).versatNumber;
+  await transitionInvoice(d.id, "error");
+  await assert.rejects(transitionInvoice(d.id, "accepted"), /no permitido/);
+  await assert.rejects(transitionInvoice(d.id, "draft"), /numerada/);
+  await transitionInvoice(d.id, "finished");
+  assert.equal((await stored(d.id)).versatNumber, number);
+  assert.equal(await counter(s.id), 2);
+  await assert.rejects(scopedTransitionInvoice(d.id, "accepted", sql`true`, { ...specialist, commercialId: 2 }), /no encontrada/);
+  await transitionInvoice(d.id, "accepted");
+  assert.equal((await stored(d.id)).status, "accepted");
+});
+
+test("formatted and compact numbers cannot reserve the same desktop invoice identity", async () => {
+  const a = await draft(null);
+  const b = await draft(null);
+  const formatted = `${tag}HAB-26-091`;
+  const compact = `${tag}HAB26091`;
+  await db.transaction(async (tx) => {
+    await lockNumbering(tx);
+    await reserveNumber(tx, a.id, formatted, "5");
+  });
+  await assert.rejects(db.transaction(async (tx) => {
+    await lockNumbering(tx);
+    await reserveNumber(tx, b.id, compact, "5");
+  }), /reservado/);
+  await db.update(invoicesTable).set({ versatNumber: formatted }).where(eq(invoicesTable.id, a.id));
+  await assert.rejects(db.transaction(async (tx) => {
+    await lockNumbering(tx);
+    await reserveNumber(tx, b.id, compact, "5");
+  }), /otra factura/);
+});
+
+test("only the administrator records payment; retries preserve actor/date and do not accept or import", async () => {
+  const s = await series();
+  const d = await draft(s.id);
+  const owner = { userId: "payment-test-owner", role: "owner" as const };
+  await assert.rejects(markInvoicePaid(d.id, owner), /Solo puedes/);
+  await transitionInvoice(d.id, "finished");
+  const before = await stored(d.id);
+  await assert.rejects(markInvoicePaid(d.id, specialist), /administrador/);
+  await Promise.all(Array.from({ length: 4 }, () => markInvoicePaid(d.id, owner)));
+  const paid = await stored(d.id);
+  assert.equal(paid.paymentStatus, "paid");
+  assert.equal(paid.paidBy, owner.userId);
+  assert.ok(paid.paidAt instanceof Date);
+  assert.equal(paid.status, "finished");
+  assert.equal(paid.acceptedAt, null);
+  assert.equal(paid.confirmedAt, null);
+  assert.deepEqual(paid.legalDocument, before.legalDocument);
+  assert.equal(paid.versatNumber, before.versatNumber);
+  assert.equal(await counter(s.id), 2);
+  assert.throws(() => buildFac({ ...paid, lines: [] }), /Aceptada/);
+  await markInvoicePaid(d.id, { userId: "other-owner", role: "owner" });
+  assert.equal((await stored(d.id)).paidBy, owner.userId);
+  assert.deepEqual((await stored(d.id)).paidAt, paid.paidAt);
+  await transitionInvoice(d.id, "accepted");
+  assert.equal((await stored(d.id)).paymentStatus, "paid");
+});
+
+test("pending-payment filter respects commercial scope and excludes unissued, voided, error and historical paid", async () => {
+  const s = await series();
+  const pending = await draft(s.id);
+  await transitionInvoice(pending.id, "finished");
+  const paid = await draft(s.id);
+  await transitionInvoice(paid.id, "finished");
+  await markInvoicePaid(paid.id, { userId: "test-owner", role: "owner" });
+  const unissued = await draft(s.id);
+  const errored = await draft(s.id, { status: "error" });
+  const cancelled = await draft(s.id, { status: "cancelled" });
+  const voided = await draft(s.id, { status: "voided" });
+  const oldPaid = await draft(null, {
+    status: "paid", versatNumber: `${tag}LEGACY`,
+    versat: { ...snapshot, number: `${tag}LEGACY`, talon: "5" },
+  });
+  const ids = [pending.id, paid.id, unissued.id, errored.id, cancelled.id, voided.id, oldPaid.id];
+  const rows = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), paymentFilter("pending"), invoiceScope(specialist)));
+  assert.deepEqual(rows.map(r => r.id), [pending.id]);
+  const other = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), paymentFilter("pending"), invoiceScope({ role: "specialist", commercialId: 2 })));
+  assert.equal(other.length, 0);
+  assert.equal(paymentStatus(await stored(oldPaid.id)), "paid");
+  await transitionInvoice(oldPaid.id, "accepted");
+  const adopted = await stored(oldPaid.id);
+  assert.equal(adopted.paymentStatus, "paid");
+  assert.equal(adopted.paidAt, null); // Don't fabricate a historical payment date.
+  for (const id of [unissued.id, errored.id, cancelled.id, voided.id]) {
+    await assert.rejects(markInvoicePaid(id, { userId: "owner", role: "owner" }), /Solo puedes/);
+  }
 });

@@ -30,6 +30,7 @@ import type {
   Invoice,
   InvoiceExportRow,
   InvoiceInput,
+  InvoicePaymentInput,
   InvoiceSeries,
   InvoiceSeriesInput,
   InvoiceSeriesUpdate,
@@ -1612,6 +1613,95 @@ export const useUpdateInvoiceStatus = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateInvoiceStatusMutationOptions(options));
+    }
+
+export const getMarkInvoicePaidUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/payment`
+}
+
+/**
+ * @summary Administrator records full payment without changing the invoice lifecycle
+ */
+export const markInvoicePaid = async (id: number,
+    invoicePaymentInput: InvoicePaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Invoice>(getMarkInvoicePaidUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invoicePaymentInput)
+  }
+);}
+
+
+
+
+
+export const getMarkInvoicePaidMutationKey = () => ['markInvoicePaid'] as const;
+
+export const getMarkInvoicePaidMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext> => {
+
+const mutationKey = getMarkInvoicePaidMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInvoicePaid>>, MarkInvoicePaidMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  markInvoicePaid(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkInvoicePaidMutationResult = NonNullable<Awaited<ReturnType<typeof markInvoicePaid>>>
+    export type MarkInvoicePaidMutationBody = BodyType<InvoicePaymentInput>
+    export type MarkInvoicePaidMutationError = ErrorType<void>
+    export type MarkInvoicePaidMutationVariables = {id: number;data: BodyType<InvoicePaymentInput>}
+
+    /**
+ * @summary Administrator records full payment without changing the invoice lifecycle
+ */
+export const useMarkInvoicePaid = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markInvoicePaid>>,
+        TError,
+        MarkInvoicePaidMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkInvoicePaidMutationOptions(options));
     }
 
 export const getCreateInvoiceShareUrl = (id: number,) => {

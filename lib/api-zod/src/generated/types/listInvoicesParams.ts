@@ -5,11 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ListInvoicesPaymentStatus } from './listInvoicesPaymentStatus';
 import type { ListInvoicesStatus } from './listInvoicesStatus';
 
 export type ListInvoicesParams = {
 search?: string;
 status?: ListInvoicesStatus;
+paymentStatus?: ListInvoicesPaymentStatus;
 from?: Date;
 to?: Date;
 };

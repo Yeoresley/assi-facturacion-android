@@ -133,6 +133,11 @@ textarea.field { height:auto; min-height:92px; padding:11px 12px; resize:vertica
 .status-draft { color:#77775e;background:#f0eee1; }
 .status-sent { color:#986821;background:#fbefd7; }
 .status-paid { color:#2b7664;background:#e1f1e9; }
+.status-finished { color:#31606f;background:#e2eef1; }
+.status-accepted { color:#6a5320;background:#f6ecc8; }
+.status-confirmed { color:#2b7664;background:#e1f1e9; }
+.status-voided { color:#6b4a55;background:#efe4e8; }
+.status-error { color:#9a3b2e;background:#fbe3dd; }
 .status-cancelled { color:#a15145;background:#f8e9e5; }
 .skeleton { position:relative;overflow:hidden;background:#e9e7dc;border-radius:7px; }
 .skeleton::after { content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.48),transparent);animation:sheen 1.5s infinite; }
