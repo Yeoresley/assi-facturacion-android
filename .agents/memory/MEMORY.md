@@ -6,3 +6,4 @@
 - [Aceptación y exportación](invoice-acceptance.md) — solo exportar tras aceptación del cliente registrada por el especialista; aceptación no equivale a pago.
 - [Suspensión de accesos](team-suspension-policy.md) — conservar historial y comercial; solo la reactivación explícita levanta la suspensión; enlaces públicos separados.
 - [Contratos y liquidaciones comerciales](sales-contracts-compensation.md) — contratación/ofertas en nombre del propietario y compensación mensual sobre facturas ejecutadas y cobradas, con fórmula aún por definir.
+- [Pruebas de acceso a facturas](invoice-auth-integration-tests.md) — los fixtures deben evitar IDs comerciales ya usados; las listas del propietario pueden incluir otros registros existentes.
