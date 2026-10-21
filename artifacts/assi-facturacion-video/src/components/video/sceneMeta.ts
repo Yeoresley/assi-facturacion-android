@@ -15,4 +15,11 @@ export interface SceneDetails {
   filePath: string;
 }
 
-export const SCENE_DETAILS: Record<string, SceneDetails> = {};
+export const SCENE_DETAILS: Record<string, SceneDetails> = {
+  invoice: { title: 'Del trabajo al cobro', filePath: 'src/components/video/scenes/Scene1.tsx' },
+  share: { title: 'Prepara y comparte', filePath: 'src/components/video/scenes/Scene2.tsx' },
+  payment: { title: 'Aceptación y pago', filePath: 'src/components/video/scenes/Scene3.tsx' },
+  liquidation: { title: 'Liquidaciones del mes', filePath: 'src/components/video/scenes/Scene4.tsx' },
+  export: { title: 'Exportación a Versat', filePath: 'src/components/video/scenes/Scene5.tsx' },
+  brand: { title: 'ASSI', filePath: 'src/components/video/scenes/Scene6.tsx' },
+};
