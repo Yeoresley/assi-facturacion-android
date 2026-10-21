@@ -617,6 +617,250 @@ export interface VersatCatalogs {
   customerCount: number;
 }
 
+export type SettlementSalesType = typeof SettlementSalesType[keyof typeof SettlementSalesType];
+
+
+export const SettlementSalesType = {
+  license: 'license',
+  service: 'service',
+} as const;
+
+export type SettlementExpenseType = typeof SettlementExpenseType[keyof typeof SettlementExpenseType];
+
+
+export const SettlementExpenseType = {
+  license_cost: 'license_cost',
+  operating_expense: 'operating_expense',
+} as const;
+
+export interface SettlementClassificationInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  serviceCode?: string;
+  /** @minimum 1 */
+  invoiceLineId?: number;
+  salesType: SettlementSalesType;
+}
+
+export interface SettlementClassification {
+  id: number;
+  /** @nullable */
+  serviceCode: string | null;
+  /** @nullable */
+  invoiceLineId: number | null;
+  salesType: SettlementSalesType;
+  label: string;
+  updatedAt: string;
+}
+
+export interface SettlementExpenseInput {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  specialistId: string;
+  expenseType: SettlementExpenseType;
+  /**
+     * @maximum 1000000000000
+     * @exclusiveMinimum 0
+     */
+  amount: number;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  currency: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  description: string;
+}
+
+export interface SettlementExpense {
+  id: number;
+  period: string;
+  specialistId: string;
+  expenseType: SettlementExpenseType;
+  amount: number;
+  currency: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  /** @nullable */
+  voidedAt: string | null;
+  /** @nullable */
+  voidReason: string | null;
+}
+
+export interface SettlementVoidInput {
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface SettlementInvoiceInclusionInput {
+  /** @minimum 1 */
+  invoiceId: number;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface SettlementInvoiceInclusion {
+  id: number;
+  invoiceId: number;
+  period: string;
+  reason: string;
+  includedBy: string;
+  includedAt: string;
+  /** @nullable */
+  revokedAt: string | null;
+  /** @nullable */
+  revokeReason: string | null;
+}
+
+export interface SettlementExchangeRateInput {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  currency: string;
+  /**
+     * @maximum 100000000
+     * @exclusiveMinimum 0
+     */
+  rateToCup: number;
+}
+
+export interface SettlementExchangeRate {
+  id: number;
+  period: string;
+  currency: string;
+  rateToCup: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface SettlementLine {
+  invoiceLineId: number;
+  description: string;
+  /** @nullable */
+  serviceCode: string | null;
+  quantity: number;
+  amount: number;
+  salesType: SettlementSalesType | null;
+}
+
+export type SettlementInvoiceInclusionType = typeof SettlementInvoiceInclusionType[keyof typeof SettlementInvoiceInclusionType];
+
+
+export const SettlementInvoiceInclusionType = {
+  paid_in_month: 'paid_in_month',
+  manual: 'manual',
+} as const;
+
+export interface SettlementInvoice {
+  invoiceId: number;
+  invoiceNumber: string;
+  customerName: string;
+  specialistId: string;
+  specialistName: string;
+  issueDate: string;
+  currency: string;
+  total: number;
+  totalPaid: number;
+  balanceDue: number;
+  /** @nullable */
+  paidOn: string | null;
+  inclusionType: SettlementInvoiceInclusionType;
+  /** @nullable */
+  inclusionId: number | null;
+  /** @nullable */
+  inclusionReason: string | null;
+  lines: SettlementLine[];
+}
+
+export interface SettlementTotals {
+  grossLicenses: number;
+  grossServices: number;
+  salesTax: number;
+  licenseCosts: number;
+  operatingExpenses: number;
+  netLicenses: number;
+  netServices: number;
+  distributionBase: number;
+  salaryAccrued: number;
+  cess: number;
+  incomeTax: number;
+  netPayable: number;
+}
+
+export interface SettlementSpecialistResult {
+  specialistId: string;
+  specialistName: string;
+  invoices: SettlementInvoice[];
+  expenses: SettlementExpense[];
+  totals: SettlementTotals;
+  missingServiceCount: number;
+  missingCurrencies: string[];
+}
+
+export interface SettlementServiceCatalogEntry {
+  serviceCode: string;
+  name: string;
+  salesType: SettlementSalesType | null;
+}
+
+export interface SettlementUnpaidCandidate {
+  invoiceId: number;
+  invoiceNumber: string;
+  specialistId: string;
+  specialistName: string;
+  customerName: string;
+  issueDate: string;
+  currency: string;
+  total: number;
+  totalPaid: number;
+  balanceDue: number;
+}
+
+export interface SettlementUnclassifiedLine {
+  invoiceId: number;
+  invoiceNumber: string;
+  customerName: string;
+  specialistId: string;
+  specialistName: string;
+  invoiceLineId: number;
+  /** @nullable */
+  serviceCode: string | null;
+  description: string;
+  amount: number;
+  currency: string;
+}
+
+export interface MonthlySettlement {
+  period: string;
+  baseCurrency: string;
+  results: SettlementSpecialistResult[];
+  serviceCatalog: SettlementServiceCatalogEntry[];
+  unpaidCandidates: SettlementUnpaidCandidate[];
+  exchangeRates: SettlementExchangeRate[];
+  unclassifiedLines: SettlementUnclassifiedLine[];
+}
+
 export interface VersatDownload {
   filename: string;
   base64: string;
@@ -624,6 +868,13 @@ export interface VersatDownload {
   invoiceCount: number;
   warnings: string[];
 }
+
+export type GetMonthlySettlementParams = {
+/**
+ * @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$
+ */
+period: string;
+};
 
 export type ListCustomersParams = {
 search?: string;

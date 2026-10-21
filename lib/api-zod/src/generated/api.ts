@@ -94,6 +94,278 @@ export const UpdateInvoiceSeriesResponse = zod.object({
 })
 
 
+export const getMonthlySettlementQueryPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+
+
+export const GetMonthlySettlementQueryParams = zod.object({
+  "period": zod.coerce.string().regex(getMonthlySettlementQueryPeriodRegExp)
+})
+
+export const GetMonthlySettlementResponse = zod.object({
+  "period": zod.string(),
+  "baseCurrency": zod.string(),
+  "results": zod.array(zod.object({
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "invoices": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number(),
+  "paidOn": zod.coerce.date().nullable(),
+  "inclusionType": zod.enum(['paid_in_month', 'manual']),
+  "inclusionId": zod.number().int().nullable(),
+  "inclusionReason": zod.string().nullable(),
+  "lines": zod.array(zod.object({
+  "invoiceLineId": zod.number().int(),
+  "description": zod.string(),
+  "serviceCode": zod.string().nullable(),
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "salesType": zod.union([zod.enum(['license', 'service']),zod.null()])
+}))
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidReason": zod.string().nullable()
+})),
+  "totals": zod.object({
+  "grossLicenses": zod.number(),
+  "grossServices": zod.number(),
+  "salesTax": zod.number(),
+  "licenseCosts": zod.number(),
+  "operatingExpenses": zod.number(),
+  "netLicenses": zod.number(),
+  "netServices": zod.number(),
+  "distributionBase": zod.number(),
+  "salaryAccrued": zod.number(),
+  "cess": zod.number(),
+  "incomeTax": zod.number(),
+  "netPayable": zod.number()
+}),
+  "missingServiceCount": zod.number().int(),
+  "missingCurrencies": zod.array(zod.string())
+})),
+  "serviceCatalog": zod.array(zod.object({
+  "serviceCode": zod.string(),
+  "name": zod.string(),
+  "salesType": zod.union([zod.enum(['license', 'service']),zod.null()])
+})),
+  "unpaidCandidates": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "customerName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number()
+})),
+  "exchangeRates": zod.array(zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})),
+  "unclassifiedLines": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "invoiceLineId": zod.number().int(),
+  "serviceCode": zod.string().nullable(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string()
+}))
+})
+
+
+export const createSettlementClassificationBodyServiceCodeMax = 80;
+
+
+
+
+export const CreateSettlementClassificationBody = zod.object({
+  "serviceCode": zod.string().min(1).max(createSettlementClassificationBodyServiceCodeMax).optional(),
+  "invoiceLineId": zod.number().int().min(1).optional(),
+  "salesType": zod.enum(['license', 'service'])
+})
+
+export const CreateSettlementClassificationResponse = zod.object({
+  "id": zod.number().int(),
+  "serviceCode": zod.string().nullable(),
+  "invoiceLineId": zod.number().int().nullable(),
+  "salesType": zod.enum(['license', 'service']),
+  "label": zod.string(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+export const createSettlementExpenseBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const createSettlementExpenseBodySpecialistIdMax = 255;
+
+export const createSettlementExpenseBodyAmountExclusiveMin = 0;
+export const createSettlementExpenseBodyAmountMax = 1000000000000;
+
+export const createSettlementExpenseBodyCurrencyMax = 40;
+
+export const createSettlementExpenseBodyDescriptionMax = 200;
+
+
+
+export const CreateSettlementExpenseBody = zod.object({
+  "period": zod.string().regex(createSettlementExpenseBodyPeriodRegExp),
+  "specialistId": zod.string().min(1).max(createSettlementExpenseBodySpecialistIdMax),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number().gt(createSettlementExpenseBodyAmountExclusiveMin).max(createSettlementExpenseBodyAmountMax),
+  "currency": zod.string().min(1).max(createSettlementExpenseBodyCurrencyMax),
+  "description": zod.string().min(1).max(createSettlementExpenseBodyDescriptionMax)
+})
+
+export const CreateSettlementExpenseResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidReason": zod.string().nullable()
+})
+
+
+
+
+
+export const VoidSettlementExpenseParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const voidSettlementExpenseBodyReasonMin = 5;
+export const voidSettlementExpenseBodyReasonMax = 1000;
+
+
+
+export const VoidSettlementExpenseBody = zod.object({
+  "reason": zod.string().min(voidSettlementExpenseBodyReasonMin).max(voidSettlementExpenseBodyReasonMax)
+})
+
+export const VoidSettlementExpenseResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidReason": zod.string().nullable()
+})
+
+
+
+export const createSettlementInvoiceInclusionBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const createSettlementInvoiceInclusionBodyReasonMin = 5;
+export const createSettlementInvoiceInclusionBodyReasonMax = 1000;
+
+
+
+export const CreateSettlementInvoiceInclusionBody = zod.object({
+  "invoiceId": zod.number().int().min(1),
+  "period": zod.string().regex(createSettlementInvoiceInclusionBodyPeriodRegExp),
+  "reason": zod.string().min(createSettlementInvoiceInclusionBodyReasonMin).max(createSettlementInvoiceInclusionBodyReasonMax)
+})
+
+export const CreateSettlementInvoiceInclusionResponse = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "period": zod.string(),
+  "reason": zod.string(),
+  "includedBy": zod.string(),
+  "includedAt": zod.coerce.date(),
+  "revokedAt": zod.coerce.date().nullable(),
+  "revokeReason": zod.string().nullable()
+})
+
+
+
+
+
+export const RevokeSettlementInvoiceInclusionParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const revokeSettlementInvoiceInclusionBodyReasonMin = 5;
+export const revokeSettlementInvoiceInclusionBodyReasonMax = 1000;
+
+
+
+export const RevokeSettlementInvoiceInclusionBody = zod.object({
+  "reason": zod.string().min(revokeSettlementInvoiceInclusionBodyReasonMin).max(revokeSettlementInvoiceInclusionBodyReasonMax)
+})
+
+export const RevokeSettlementInvoiceInclusionResponse = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "period": zod.string(),
+  "reason": zod.string(),
+  "includedBy": zod.string(),
+  "includedAt": zod.coerce.date(),
+  "revokedAt": zod.coerce.date().nullable(),
+  "revokeReason": zod.string().nullable()
+})
+
+
+export const updateSettlementExchangeRateBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const updateSettlementExchangeRateBodyCurrencyMax = 40;
+
+export const updateSettlementExchangeRateBodyRateToCupExclusiveMin = 0;
+export const updateSettlementExchangeRateBodyRateToCupMax = 100000000;
+
+
+
+export const UpdateSettlementExchangeRateBody = zod.object({
+  "period": zod.string().regex(updateSettlementExchangeRateBodyPeriodRegExp),
+  "currency": zod.string().min(1).max(updateSettlementExchangeRateBodyCurrencyMax),
+  "rateToCup": zod.number().gt(updateSettlementExchangeRateBodyRateToCupExclusiveMin).max(updateSettlementExchangeRateBodyRateToCupMax)
+})
+
+export const UpdateSettlementExchangeRateResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})
+
+
 export const getIssuerResponseProfileOneNameMax = 200;
 
 export const getIssuerResponseProfileOneNitMax = 40;

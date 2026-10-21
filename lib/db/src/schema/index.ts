@@ -25,3 +25,4 @@ export * from "./team";
 export * from "./versat-catalog";
 export * from "./issuer";
 export * from "./numbering";
+export * from "./settlements";

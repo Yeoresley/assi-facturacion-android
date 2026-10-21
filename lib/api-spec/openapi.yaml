@@ -57,6 +57,108 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/InvoiceSeries" }
+  /settlements:
+    get:
+      operationId: getMonthlySettlement
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+      responses:
+        "200":
+          description: Cálculo mensual por especialista, con alcance por propietario o especialista.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonthlySettlement" }
+  /settlements/classifications:
+    post:
+      operationId: createSettlementClassification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementClassificationInput" }
+      responses:
+        "201":
+          description: Clasificación de licencia o servicio.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementClassification" }
+  /settlements/expenses:
+    post:
+      operationId: createSettlementExpense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementExpenseInput" }
+      responses:
+        "201":
+          description: Gasto mensual asociado al especialista.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementExpense" }
+  /settlements/expenses/{id}/void:
+    post:
+      operationId: voidSettlementExpense
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementVoidInput" }
+      responses:
+        "200":
+          description: Gasto anulado conservando el historial.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementExpense" }
+  /settlements/inclusions:
+    post:
+      operationId: createSettlementInvoiceInclusion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementInvoiceInclusionInput" }
+      responses:
+        "201":
+          description: Excepción autorizada para incluir una factura no cobrada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementInvoiceInclusion" }
+  /settlements/inclusions/{id}/revoke:
+    post:
+      operationId: revokeSettlementInvoiceInclusion
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementVoidInput" }
+      responses:
+        "200":
+          description: Excepción revocada conservando el historial.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementInvoiceInclusion" }
+  /settlements/exchange-rates:
+    put:
+      operationId: updateSettlementExchangeRate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementExchangeRateInput" }
+      responses:
+        "200":
+          description: Tasa de conversión del período guardada por el propietario.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementExchangeRate" }
   /issuer:
     get:
       operationId: getIssuer
@@ -947,6 +1049,197 @@ components:
       properties:
         entries: { type: array, items: { $ref: "#/components/schemas/VersatCatalogEntry" } }
         customerCount: { type: integer }
+    SettlementSalesType:
+      type: string
+      enum: [license, service]
+    SettlementExpenseType:
+      type: string
+      enum: [license_cost, operating_expense]
+    SettlementClassificationInput:
+      type: object
+      required: [salesType]
+      properties:
+        serviceCode: { type: string, minLength: 1, maxLength: 80 }
+        invoiceLineId: { type: integer, minimum: 1 }
+        salesType: { $ref: "#/components/schemas/SettlementSalesType" }
+    SettlementClassification:
+      type: object
+      required: [id, serviceCode, invoiceLineId, salesType, label, updatedAt]
+      properties:
+        id: { type: integer }
+        serviceCode: { type: ["string", "null"] }
+        invoiceLineId: { type: ["integer", "null"] }
+        salesType: { $ref: "#/components/schemas/SettlementSalesType" }
+        label: { type: string }
+        updatedAt: { type: string, format: date-time }
+    SettlementExpenseInput:
+      type: object
+      required: [period, specialistId, expenseType, amount, currency, description]
+      properties:
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        specialistId: { type: string, minLength: 1, maxLength: 255 }
+        expenseType: { $ref: "#/components/schemas/SettlementExpenseType" }
+        amount: { type: number, exclusiveMinimum: 0, maximum: 1000000000000 }
+        currency: { type: string, minLength: 1, maxLength: 40 }
+        description: { type: string, minLength: 1, maxLength: 200 }
+    SettlementExpense:
+      type: object
+      required: [id, period, specialistId, expenseType, amount, currency, description, createdBy, createdAt, voidedAt, voidReason]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        specialistId: { type: string }
+        expenseType: { $ref: "#/components/schemas/SettlementExpenseType" }
+        amount: { type: number }
+        currency: { type: string }
+        description: { type: string }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        voidedAt: { type: ["string", "null"], format: date-time }
+        voidReason: { type: ["string", "null"] }
+    SettlementVoidInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+    SettlementInvoiceInclusionInput:
+      type: object
+      required: [invoiceId, period, reason]
+      properties:
+        invoiceId: { type: integer, minimum: 1 }
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+    SettlementInvoiceInclusion:
+      type: object
+      required: [id, invoiceId, period, reason, includedBy, includedAt, revokedAt, revokeReason]
+      properties:
+        id: { type: integer }
+        invoiceId: { type: integer }
+        period: { type: string }
+        reason: { type: string }
+        includedBy: { type: string }
+        includedAt: { type: string, format: date-time }
+        revokedAt: { type: ["string", "null"], format: date-time }
+        revokeReason: { type: ["string", "null"] }
+    SettlementExchangeRateInput:
+      type: object
+      required: [period, currency, rateToCup]
+      properties:
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        currency: { type: string, minLength: 1, maxLength: 40 }
+        rateToCup: { type: number, exclusiveMinimum: 0, maximum: 100000000 }
+    SettlementExchangeRate:
+      type: object
+      required: [id, period, currency, rateToCup, updatedBy, updatedAt]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        currency: { type: string }
+        rateToCup: { type: number }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+    SettlementLine:
+      type: object
+      required: [invoiceLineId, description, serviceCode, quantity, amount, salesType]
+      properties:
+        invoiceLineId: { type: integer }
+        description: { type: string }
+        serviceCode: { type: ["string", "null"] }
+        quantity: { type: number }
+        amount: { type: number }
+        salesType: { oneOf: [{ $ref: "#/components/schemas/SettlementSalesType" }, { type: "null" }] }
+    SettlementInvoice:
+      type: object
+      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, issueDate, currency, total, totalPaid, balanceDue, paidOn, inclusionType, inclusionId, inclusionReason, lines]
+      properties:
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        customerName: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        issueDate: { type: string, format: date }
+        currency: { type: string }
+        total: { type: number }
+        totalPaid: { type: number }
+        balanceDue: { type: number }
+        paidOn: { type: ["string", "null"], format: date }
+        inclusionType: { type: string, enum: [paid_in_month, manual] }
+        inclusionId: { type: ["integer", "null"] }
+        inclusionReason: { type: ["string", "null"] }
+        lines: { type: array, items: { $ref: "#/components/schemas/SettlementLine" } }
+    SettlementTotals:
+      type: object
+      required: [grossLicenses, grossServices, salesTax, licenseCosts, operatingExpenses, netLicenses, netServices, distributionBase, salaryAccrued, cess, incomeTax, netPayable]
+      properties:
+        grossLicenses: { type: number }
+        grossServices: { type: number }
+        salesTax: { type: number }
+        licenseCosts: { type: number }
+        operatingExpenses: { type: number }
+        netLicenses: { type: number }
+        netServices: { type: number }
+        distributionBase: { type: number }
+        salaryAccrued: { type: number }
+        cess: { type: number }
+        incomeTax: { type: number }
+        netPayable: { type: number }
+    SettlementSpecialistResult:
+      type: object
+      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies]
+      properties:
+        specialistId: { type: string }
+        specialistName: { type: string }
+        invoices: { type: array, items: { $ref: "#/components/schemas/SettlementInvoice" } }
+        expenses: { type: array, items: { $ref: "#/components/schemas/SettlementExpense" } }
+        totals: { $ref: "#/components/schemas/SettlementTotals" }
+        missingServiceCount: { type: integer }
+        missingCurrencies: { type: array, items: { type: string } }
+    SettlementServiceCatalogEntry:
+      type: object
+      required: [serviceCode, name, salesType]
+      properties:
+        serviceCode: { type: string }
+        name: { type: string }
+        salesType: { oneOf: [{ $ref: "#/components/schemas/SettlementSalesType" }, { type: "null" }] }
+    SettlementUnpaidCandidate:
+      type: object
+      required: [invoiceId, invoiceNumber, specialistId, specialistName, customerName, issueDate, currency, total, totalPaid, balanceDue]
+      properties:
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        customerName: { type: string }
+        issueDate: { type: string, format: date }
+        currency: { type: string }
+        total: { type: number }
+        totalPaid: { type: number }
+        balanceDue: { type: number }
+    SettlementUnclassifiedLine:
+      type: object
+      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, invoiceLineId, serviceCode, description, amount, currency]
+      properties:
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        customerName: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        invoiceLineId: { type: integer }
+        serviceCode: { type: ["string", "null"] }
+        description: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+    MonthlySettlement:
+      type: object
+      required: [period, baseCurrency, results, serviceCatalog, unpaidCandidates, exchangeRates, unclassifiedLines]
+      properties:
+        period: { type: string }
+        baseCurrency: { type: string }
+        results: { type: array, items: { $ref: "#/components/schemas/SettlementSpecialistResult" } }
+        serviceCatalog: { type: array, items: { $ref: "#/components/schemas/SettlementServiceCatalogEntry" } }
+        unpaidCandidates: { type: array, items: { $ref: "#/components/schemas/SettlementUnpaidCandidate" } }
+        exchangeRates: { type: array, items: { $ref: "#/components/schemas/SettlementExchangeRate" } }
+        unclassifiedLines: { type: array, items: { $ref: "#/components/schemas/SettlementUnclassifiedLine" } }
     VersatInvoiceInput:
       type: object
       required: [conceptId, operationId, commercialId, paymentId]

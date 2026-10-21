@@ -17,7 +17,7 @@ import type { ListInvoicesPaymentStatus, ListInvoicesStatus, Customer, CustomerI
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, BookOpen, CalendarDays,
   Check, ChevronDown, CircleHelp, Clipboard, FilePlus2, FileText, Filter, HandCoins, LayoutDashboard,
-  LogOut, Mail, Printer, Search, Settings2, ShieldAlert, Users, X,
+  LogOut, Mail, Printer, Search, Settings2, ShieldAlert, Users, WalletCards, X,
 } from 'lucide-react';
 import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation, useParams } from 'wouter';
 import { BrandMark, EmptyState, PageHeading, QueryError, Status, statusLabels, date, money } from '@/lib/shared';
@@ -29,6 +29,7 @@ import InvoiceDetailPage from '@/pages/invoice-detail';
 import InvoiceFormPage from '@/pages/invoice-form';
 import SharedInvoicePage from '@/pages/shared-invoice';
 import TeamMembers from '@/pages/team-members';
+import SettlementsPage from '@/pages/settlements';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -91,6 +92,7 @@ const navItems = [
   { href: '/invoices', label: 'Facturas', icon: FileText },
   { href: '/customers', label: 'Clientes', icon: Users },
   { href: '/catalogs', label: 'Catálogos', icon: BookOpen },
+  { href: '/settlements', label: 'Liquidación', icon: WalletCards },
   { href: '/export', label: 'Exportar', icon: ArrowDownToLine },
   { href: '/settings', label: 'Ajustes', icon: Settings2 },
 ];
@@ -238,7 +240,7 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
     </div>
-    <nav className="mobile-nav">{navItems.slice(0, 5).map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
+    <nav className="mobile-nav">{navItems.slice(0, 6).map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
   </div>;
 }
 
@@ -341,6 +343,7 @@ function AppRoutes() {
         <Route path="/customers"><AuthenticatedRoute><CustomersPage /></AuthenticatedRoute></Route>
         <Route path="/customers/:id"><AuthenticatedRoute><Customer360Page /></AuthenticatedRoute></Route>
         <Route path="/export"><AuthenticatedRoute><ExportPage /></AuthenticatedRoute></Route>
+        <Route path="/settlements"><AuthenticatedRoute><SettlementsPage /></AuthenticatedRoute></Route>
         <Route path="/settings"><AuthenticatedRoute><Settings /></AuthenticatedRoute></Route>
         <Route path="/team/members"><AuthenticatedRoute><TeamMembers /></AuthenticatedRoute></Route>
         <Route><NotFound /></Route>
