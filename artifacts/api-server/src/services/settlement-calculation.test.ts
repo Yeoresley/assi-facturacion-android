@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applySettlementPaymentCorrections,
   calculateIncomeTax,
   calculateSettlementTotals,
   convertToCup,
@@ -54,4 +55,42 @@ test("uses the final active receipt date and excludes reversed payments", () => 
   assert.equal(settlementPaymentCompletionDate(100, payments), "2026-10-04");
   assert.equal(settlementPaymentCompletionDate(100, payments, [2]), null);
   assert.equal(settlementPaymentCompletionDate(100, payments.slice(0, 1)), null);
+});
+
+test("a corrected receipt date moves settlement month without changing original receipt data", () => {
+  const originalPayments = [
+    { id: 1, amount: 60, paidOn: "2026-09-29" },
+    { id: 2, amount: 40, paidOn: "2026-10-01" },
+  ];
+  const corrections = [
+    {
+      id: 1,
+      targetPaymentId: 1,
+      reversedPaymentId: null,
+      afterPaymentAmount: 55,
+      afterPaidOn: "2026-09-29",
+    },
+    {
+      id: 2,
+      targetPaymentId: 2,
+      reversedPaymentId: null,
+      afterPaymentAmount: 45,
+      afterPaidOn: "2026-09-30",
+    },
+  ];
+  const originalCompletionDate = settlementPaymentCompletionDate(100, originalPayments);
+  const { payments: effectivePayments, reversedPaymentIds } =
+    applySettlementPaymentCorrections(originalPayments, corrections);
+  const effectiveCompletionDate =
+    settlementPaymentCompletionDate(100, effectivePayments, reversedPaymentIds);
+  const effectivePaidAmount = effectivePayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+  assert.equal(originalCompletionDate, "2026-10-01");
+  assert.equal(effectiveCompletionDate, "2026-09-30");
+  assert.equal(effectiveCompletionDate?.slice(0, 7), "2026-09");
+  assert.equal(effectivePaidAmount, 100);
+  assert.deepEqual(originalPayments, [
+    { id: 1, amount: 60, paidOn: "2026-09-29" },
+    { id: 2, amount: 40, paidOn: "2026-10-01" },
+  ]);
 });

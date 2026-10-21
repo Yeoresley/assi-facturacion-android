@@ -27,6 +27,41 @@ export type SettlementCalculationInput = {
   operatingExpenses: Decimal.Value;
 };
 
+export function applySettlementPaymentCorrections(
+  payments: Array<{ id: number; amount: Decimal.Value; paidOn: string }>,
+  corrections: Array<{
+    id: number;
+    targetPaymentId: number | null;
+    reversedPaymentId: number | null;
+    afterPaymentAmount: Decimal.Value | null;
+    afterPaidOn: string | null;
+  }>,
+): {
+  payments: Array<{ id: number; amount: Decimal.Value; paidOn: string }>;
+  reversedPaymentIds: number[];
+} {
+  const reversedPaymentIds = corrections.flatMap(({ reversedPaymentId }) =>
+    reversedPaymentId === null ? [] : [reversedPaymentId]);
+  const correctedPayments = new Map<number, (typeof corrections)[number]>();
+  for (const correction of [...corrections].sort((a, b) => a.id - b.id)) {
+    if (correction.targetPaymentId !== null) {
+      correctedPayments.set(correction.targetPaymentId, correction);
+    }
+  }
+
+  return {
+    payments: payments.map((payment) => {
+      const correction = correctedPayments.get(payment.id);
+      return {
+        ...payment,
+        amount: correction?.afterPaymentAmount ?? payment.amount,
+        paidOn: correction?.afterPaidOn ?? payment.paidOn,
+      };
+    }),
+    reversedPaymentIds,
+  };
+}
+
 export function settlementPaymentCompletionDate(
   total: Decimal.Value,
   payments: Array<{ id: number; amount: Decimal.Value; paidOn: string }>,

@@ -1,5 +1,5 @@
 kind = "video"
-videoAspectRatio = "16:9"
+videoAspectRatio = "9:16"
 previewPath = "/assi-facturacion-video/"
 title = "Facturación ASSI — Video"
 description = "Video animado de presentación de la aplicación de facturación del equipo ASSI, para especialistas y administradores, con exportación compatible con Versat."

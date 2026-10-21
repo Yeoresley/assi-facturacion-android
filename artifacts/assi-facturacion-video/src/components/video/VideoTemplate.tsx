@@ -23,7 +23,7 @@ export const SCENE_DURATIONS = {
   brand: 4000,
 };
 
-const VIDEO_ASPECT_RATIO: VideoAspectRatio = '16:9';
+const VIDEO_ASPECT_RATIO: VideoAspectRatio = '9:16';
 const SCENE_COMPONENTS: Record<string, ComponentType> = {
   invoice: Scene1,
   share: Scene2,
