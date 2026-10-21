@@ -50,38 +50,38 @@ const clerkAppearance = {
   options: {
     logoPlacement: 'inside' as const,
     logoLinkUrl: basePath || '/',
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/brand/assi-wordmark.png`,
   },
   variables: {
-    colorPrimary: '#28665e', colorForeground: '#213d39', colorMutedForeground: '#71817c',
-    colorDanger: '#b84f40', colorBackground: '#fffefa', colorInput: '#fffefa',
-    colorInputForeground: '#213d39', colorNeutral: '#dfdfd4', fontFamily: 'DM Sans, sans-serif',
+    colorPrimary: '#087eaf', colorForeground: '#12365a', colorMutedForeground: '#617887',
+    colorDanger: '#a33f39', colorBackground: '#ffffff', colorInput: '#ffffff',
+    colorInputForeground: '#173d5d', colorNeutral: '#c9d9e1', fontFamily: 'DM Sans, sans-serif',
     borderRadius: '0.65rem',
   },
   elements: {
     rootBox: 'w-full flex justify-center',
-    cardBox: 'bg-[#fffefa] rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl',
+    cardBox: 'bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl',
     card: '!shadow-none !border-0 !bg-transparent !rounded-none',
     footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
-    headerTitle: 'text-[#213d39] font-bold',
-    headerSubtitle: 'text-[#71817c]',
-    socialButtonsBlockButtonText: 'text-[#294b46] font-semibold',
-    formFieldLabel: 'text-[#415c57] font-semibold',
-    footerActionLink: 'text-[#28665e] font-semibold',
-    footerActionText: 'text-[#71817c]',
-    dividerText: 'text-[#71817c]',
-    identityPreviewEditButton: 'text-[#28665e]',
-    formFieldSuccessText: 'text-[#28665e]',
-    alertText: 'text-[#9e443a]',
+    headerTitle: 'text-[#12365a] font-bold',
+    headerSubtitle: 'text-[#617887]',
+    socialButtonsBlockButtonText: 'text-[#204b68] font-semibold',
+    formFieldLabel: 'text-[#375b73] font-semibold',
+    footerActionLink: 'text-[#087eaf] font-semibold',
+    footerActionText: 'text-[#617887]',
+    dividerText: 'text-[#617887]',
+    identityPreviewEditButton: 'text-[#087eaf]',
+    formFieldSuccessText: 'text-[#176d55]',
+    alertText: 'text-[#a33f39]',
     logoBox: 'mb-3',
-    logoImage: 'h-9',
-    socialButtonsBlockButton: 'border-[#dfdfd4] bg-[#fbfaf4] hover:bg-[#f3f1e7]',
-    formButtonPrimary: 'bg-[#28665e] hover:bg-[#21564f] text-white',
-    formFieldInput: 'border-[#dcded3] bg-[#fffefa] text-[#213d39]',
-    footerAction: 'text-[#71817c]',
-    dividerLine: 'bg-[#e4e2d8]',
-    alert: 'bg-[#fbefeb] border-[#efd2cc]',
-    otpCodeFieldInput: 'border-[#dcded3] bg-[#fffefa] text-[#213d39]',
+    logoImage: 'h-10',
+    socialButtonsBlockButton: 'border-[#c9d9e1] bg-[#f5fafc] hover:bg-[#eaf5f8]',
+    formButtonPrimary: 'bg-[#087eaf] hover:bg-[#086d99] text-white',
+    formFieldInput: 'border-[#c9d9e1] bg-white text-[#173d5d]',
+    footerAction: 'text-[#617887]',
+    dividerLine: 'bg-[#dce8ed]',
+    alert: 'bg-[#fff1ef] border-[#efd0cc]',
+    otpCodeFieldInput: 'border-[#c9d9e1] bg-white text-[#173d5d]',
     formFieldRow: 'mb-4',
     main: 'text-[#213d39]',
   },
@@ -115,7 +115,7 @@ function RoutedBoundary({ children }: { children: ReactNode }) {
 }
 
 function Home() {
-  return <div className="min-h-[100dvh] bg-[#f6f4eb] text-[#213d39]">
+  return <div className="min-h-[100dvh] bg-[#f6f4eb] text-[#12365a]">
     <Show when="signed-in"><Redirect to="/dashboard" /></Show>
     <header className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-5 md:px-10">
       <BrandMark />
@@ -127,8 +127,8 @@ function Home() {
     <main>
       <section className="mx-auto grid min-h-[640px] max-w-[1240px] items-center gap-12 px-6 pb-16 pt-10 md:grid-cols-[1.02fr_.98fr] md:px-10 md:pb-24 md:pt-12">
         <div className="fade-in relative z-10">
-          <div className="eyebrow mb-6 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#dca54d]" /> Facturación compartida, sin perseguir PDFs</div>
-          <h1 className="font-display max-w-[660px] text-[clamp(48px,7vw,88px)] font-extrabold leading-[.98] tracking-[-.075em]">Cada factura,<br /><span className="text-[#377b70]">en su sitio.</span></h1>
+          <div className="eyebrow mb-6 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#19a9ca]" /> Facturación compartida, sin perseguir PDFs</div>
+          <h1 className="font-display max-w-[660px] text-[clamp(48px,7vw,88px)] font-extrabold leading-[.98] tracking-[-.075em]">Cada factura,<br /><span className="text-[#087eaf]">en su sitio.</span></h1>
           <p className="mt-7 max-w-[490px] text-[17px] leading-7 text-[#687a74]">Un solo escritorio para que especialistas preparen las facturas y quien lleva el negocio cierre el mes con claridad.</p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/sign-up" className="button button-primary !min-h-12 !px-6">Empezar a facturar <ArrowRight size={16} /></Link>
@@ -137,14 +137,14 @@ function Home() {
           <div className="mt-9 flex items-center gap-3 text-[12px] text-[#78847e]"><div className="flex -space-x-2"><span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#f6f4eb] bg-[#c5dbce] text-[10px] font-bold text-[#31564d]">AN</span><span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#f6f4eb] bg-[#edcf9e] text-[10px] font-bold text-[#765929]">LM</span><span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#f6f4eb] bg-[#d7d8c7] text-[10px] font-bold text-[#46554c]">+T</span></div><span>Hecho para equipos pequeños que trabajan en remoto.</span></div>
         </div>
         <div className="relative mx-auto w-full max-w-[550px] fade-in" style={{ animationDelay: '.12s' }}>
-          <div className="absolute -right-5 -top-10 h-36 w-36 rounded-full bg-[#edcd94] opacity-40 blur-3xl" />
-          <div className="relative rounded-[22px] border border-[#e3e0d4] bg-[#e9e7db] p-3 shadow-[0_28px_75px_rgba(43,65,56,.13)]">
+          <div className="absolute -right-5 -top-10 h-36 w-36 rounded-full bg-[#19a9ca] opacity-25 blur-3xl" />
+          <div className="relative rounded-[22px] border border-[#dce8ed] bg-[#eaf5f8] p-3 shadow-[0_28px_75px_rgba(18,54,90,.13)]">
             <div className="overflow-hidden rounded-[15px] bg-[#fffefa]">
-              <div className="flex items-center justify-between border-b border-[#eeece4] px-5 py-4">
+              <div className="flex items-center justify-between border-b border-[#e5edf1] px-5 py-4">
                 <div><div className="eyebrow">Ejemplo ilustrativo · cifras en CUP</div><div className="mt-1 font-display text-[16px] font-bold">Panel de facturación</div></div><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e9f2ec] text-[#347165]"><BadgeCheck size={16} /></span>
               </div>
               <div className="grid grid-cols-2 gap-3 p-4">
-                <div className="rounded-xl bg-[#f4f3eb] p-4"><div className="eyebrow">Facturado este mes</div><div className="mt-2 font-display text-[25px] font-bold tracking-[-.05em]">8.420 CUP</div><div className="mt-2 text-[11px] text-[#71817b]">Todo el equipo, una vista</div></div>
+                <div className="rounded-xl bg-[#eaf5f8] p-4"><div className="eyebrow">Facturado este mes</div><div className="mt-2 font-display text-[25px] font-bold tracking-[-.05em]">8.420 CUP</div><div className="mt-2 text-[11px] text-[#71817b]">Todo el equipo, una vista</div></div>
                 <div className="rounded-xl bg-[#f7edda] p-4"><div className="eyebrow">Pendiente de cobro</div><div className="mt-2 font-display text-[25px] font-bold tracking-[-.05em]">2.180 CUP</div><div className="mt-2 text-[11px] text-[#8a724b]">3 facturas enviadas</div></div>
               </div>
               <div className="px-4 pb-4">
@@ -153,18 +153,18 @@ function Home() {
                   ['F-2025-018', 'Estudio Norte', 'Pagada', '1.240 CUP'],
                   ['F-2025-017', 'Marta Soler', 'Enviada', '680 CUP'],
                   ['F-2025-016', 'Taller Orbital', 'Borrador', '940 CUP'],
-                ].map(([number, name, status, amount], i) => <div key={number} className="flex items-center justify-between border-t border-[#f0eee7] py-3">
+                ].map(([number, name, status, amount], i) => <div key={number} className="flex items-center justify-between border-t border-[#e9f0f3] py-3">
                   <div className="flex items-center gap-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${i === 0 ? 'bg-[#e2f0e8] text-[#347765]' : i === 1 ? 'bg-[#fbefd8] text-[#9d762d]' : 'bg-[#f0eee3] text-[#817d64]'}`}><FileText size={14} /></span><div><div className="font-mono text-[10px] text-[#78837e]">{number}</div><div className="mt-0.5 text-[12px] font-semibold">{name}</div></div></div>
                   <div className="text-right"><div className="text-[12px] font-bold">{amount}</div><div className="mt-0.5 text-[10px] text-[#78837e]">{status}</div></div>
                 </div>)}
               </div>
-              <div className="flex items-center gap-2 bg-[#244843] px-5 py-3 text-[11px] text-[#e9eee6]"><ArrowDownToLine size={14} className="text-[#edbb65]" /> Cierre del mes listo para revisar y exportar</div>
+              <div className="flex items-center gap-2 bg-[#12365a] px-5 py-3 text-[11px] text-[#e9f1f5]"><ArrowDownToLine size={14} className="text-[#56c9df]" /> Cierre del mes listo para revisar y exportar</div>
             </div>
           </div>
           <div className="absolute -bottom-6 -left-7 hidden items-center gap-3 rounded-xl border border-[#e7e3d7] bg-[#fffefa] px-4 py-3 shadow-lg sm:flex"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e7f1e9] text-[#347765]"><Check size={16} /></span><div><div className="text-[12px] font-bold">Una factura menos por perseguir</div><div className="mt-0.5 text-[10px] text-[#78837e]">Compartida y lista para el cliente</div></div></div>
         </div>
       </section>
-      <section className="border-y border-[#e5e1d5] bg-[#efeee5]">
+      <section className="border-y border-[#dce8ed] bg-[#eaf5f8]">
         <div className="mx-auto grid max-w-[1240px] gap-8 px-6 py-12 md:grid-cols-[.7fr_1.3fr] md:px-10 md:py-16">
           <div><div className="eyebrow">Menos administración. Más control.</div><h2 className="font-display mt-4 max-w-[360px] text-[32px] font-bold leading-tight tracking-[-.055em]">De preparar a cerrar el mes.</h2></div>
           <div className="grid gap-8 sm:grid-cols-3">
@@ -172,7 +172,7 @@ function Home() {
               ['01', 'Prepara en equipo', 'Cada especialista crea facturas para clientes compartidos, sin archivos sueltos.'],
               ['02', 'Revisa con contexto', 'Estados y actividad se entienden de un vistazo. El propietario ve el mes completo.'],
               ['03', 'Comparte y exporta', 'Envía un enlace al cliente y prepara el período para revisar en Versat Sarasola.'],
-            ].map(([n, title, text]) => <div key={n} className="border-t border-[#d8d7cc] pt-4"><div className="font-mono text-[11px] text-[#b0833e]">{n}</div><h3 className="mt-3 font-display text-[16px] font-bold">{title}</h3><p className="mt-2 text-[13px] leading-5 text-[#71807a]">{text}</p></div>)}
+            ].map(([n, title, text]) => <div key={n} className="border-t border-[#cfe2e9] pt-4"><div className="font-mono text-[11px] text-[#087eaf]">{n}</div><h3 className="mt-3 font-display text-[16px] font-bold">{title}</h3><p className="mt-2 text-[13px] leading-5 text-[#71807a]">{text}</p></div>)}
           </div>
         </div>
       </section>
@@ -181,7 +181,7 @@ function Home() {
         <Link href="/sign-up" className="button button-primary !min-h-12 !px-6">Crear mi espacio de trabajo <ArrowUpRight size={16} /></Link>
       </section>
     </main>
-    <footer className="border-t border-[#e5e1d5] px-6 py-6 text-center text-[11px] text-[#78847e]">cuentaclara desk <span className="mx-2">·</span> Facturación de equipo, con los pies en la tierra.</footer>
+    <footer className="border-t border-[#e5e1d5] px-6 py-6 text-center text-[11px] text-[#78847e]">ASSI <span className="mx-2">·</span> Facturación de equipo</footer>
   </div>;
 }
 
@@ -374,7 +374,7 @@ function AppRoutes() {
   </ClerkProvider>;
 }
 function NotFound() {
-  return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb] px-5"><div className="panel max-w-[400px] p-8 text-center"><div className="font-mono text-[12px] text-[#a88343]">404 · PÁGINA NO ENCONTRADA</div><h1 className="font-display mt-3 text-2xl font-bold">No hay nada aquí.</h1><p className="mt-2 text-[13px] text-[#77847e]">Vuelve al escritorio para seguir con tu trabajo.</p><Link href="/" className="button button-primary mt-5">Ir al inicio</Link></div></div>;
+  return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb] px-5"><div className="panel max-w-[420px] p-8 text-center"><div className="mb-3 flex justify-center"><BrandMark /></div><div className="font-mono text-[12px] text-[#087eaf]">404 · PÁGINA NO ENCONTRADA</div><h1 className="font-display mt-3 text-2xl font-bold">No hay nada aquí.</h1><p className="mt-2 text-[13px] text-[#617887]">Vuelve al escritorio para seguir con tu trabajo.</p><Link href="/" className="button button-primary mt-5">Ir al inicio</Link></div></div>;
 }
 
 function App() {

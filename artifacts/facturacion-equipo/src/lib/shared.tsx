@@ -2,11 +2,10 @@ import type { ReactNode } from 'react';
 import { CircleHelp, FileText, TriangleAlert } from 'lucide-react';
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <div className="flex items-center gap-3" data-testid="brand-factura-clara">
-    <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#eab45c] text-[#23423d]">
-      <FileText size={19} strokeWidth={2.4} />
-    </div>
-    {!compact && <div className="font-display text-[15px] font-extrabold tracking-[-.04em]">cuenta<span className="text-[#d89e45]">clara</span><span className="ml-1 text-[10px] font-semibold tracking-normal opacity-50">desk</span></div>}
+  return <div className="flex items-center gap-3" data-testid="brand-assi">
+    {compact
+      ? <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="ASSI" className="brand-emblem" />
+      : <><img src={`${import.meta.env.BASE_URL}brand/assi-wordmark.png`} alt="ASSI" className="brand-image" /><span className="sr-only">Facturación de equipo</span></>}
   </div>;
 }
 

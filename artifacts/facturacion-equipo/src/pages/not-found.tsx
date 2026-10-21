@@ -1,23 +1,18 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { Link } from 'wouter';
+import { BrandMark } from '@/lib/shared';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grain grid min-h-[100dvh] w-full place-items-center bg-[#f1f6f8] px-5">
+      <section className="panel w-full max-w-md p-8 text-center">
+        <div className="mb-5 flex justify-center"><BrandMark /></div>
+        <AlertCircle className="mx-auto h-9 w-9 text-[#087eaf]" />
+        <p className="eyebrow mt-4">404 · ASSI</p>
+        <h1 className="font-display mt-2 text-2xl font-bold text-[#12365a]">Esta página no está disponible</h1>
+        <p className="mt-3 text-sm leading-6 text-[#617887]">La dirección puede haber cambiado. Regresa al inicio del escritorio.</p>
+        <Link href="/" className="button button-primary mt-6"><ArrowLeft size={15} />Volver al inicio</Link>
+      </section>
     </div>
   );
 }

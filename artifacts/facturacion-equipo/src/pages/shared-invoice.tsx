@@ -19,18 +19,18 @@ export default function SharedInvoicePage() {
     refetchInterval: 15000, refetchOnMount: 'always', refetchOnWindowFocus: 'always', retry: false,
   }, request: { cache: 'no-store' } });
   if (invoice.isLoading) return <div className="min-h-[100dvh] bg-[#f6f4eb] p-6"><div className="mx-auto max-w-[760px] space-y-4"><div className="skeleton h-10 w-40" /><div className="panel space-y-5 p-10"><div className="skeleton h-8 w-52" /><div className="skeleton h-20" /><div className="skeleton h-40" /></div></div></div>;
-  if (invoice.isError || !invoice.data) return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb] px-5"><div className="panel max-w-[430px] p-8 text-center"><div className="eyebrow">Cuenta Clara</div><h1 className="font-display mt-4 text-2xl font-bold">Este enlace no está disponible</h1><p className="mt-2 text-[13px] leading-6 text-[#77847e]">Puede haber caducado o ya no estar activo. Pide al equipo que te comparta un enlace nuevo.</p><button className="button button-plain mt-5" onClick={() => invoice.refetch()}>Intentar de nuevo</button></div></div>;
+  if (invoice.isError || !invoice.data) return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb] px-5"><div className="panel max-w-[430px] p-8 text-center"><div className="mb-3 flex justify-center"><BrandMark /></div><div className="eyebrow">ASSI · Facturación de equipo</div><h1 className="font-display mt-4 text-2xl font-bold">Este enlace no está disponible</h1><p className="mt-2 text-[13px] leading-6 text-[#77847e]">Puede haber caducado o ya no estar activo. Pide al equipo que te comparta un enlace nuevo.</p><button className="button button-plain mt-5" onClick={() => invoice.refetch()}>Intentar de nuevo</button></div></div>;
   const receipt = receiptId ? getPaymentReceiptInfo(invoice.data, receiptId) : null;
   if (receiptParam) return <div className="shared-invoice-page min-h-[100dvh] bg-[#f6f4eb] px-4 py-8 md:px-8 md:py-12"><div className="mx-auto max-w-[820px]">
     {receipt && <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3"><BrandMark /><button onClick={() => printInvoice().catch(err => setNotice(err.message))} className="button button-primary"><Printer size={15} />Imprimir / Guardar PDF</button></div>}
     {notice && <p className="no-print mb-4 text-xs" role="alert">{notice}</p>}
-    {receipt ? <PaymentReceiptPaper invoice={invoice.data} paymentId={receiptId!} /> : <div className="panel mx-auto max-w-[520px] p-8 text-center"><div className="eyebrow">Cuenta Clara</div><h1 className="font-display mt-4 text-2xl font-bold">Este comprobante no está disponible</h1><p className="mt-2 text-[13px] leading-6 text-[#77847e]">El abono no existe o ya no está vigente. Pide al equipo que te comparta un comprobante actualizado.</p></div>}
-    {receipt && <footer className="no-print mt-5 text-center text-[10px] text-[#87928b]">Enlace temporal de comprobante · Cuenta Clara desk</footer>}
+     {receipt ? <PaymentReceiptPaper invoice={invoice.data} paymentId={receiptId!} /> : <div className="panel mx-auto max-w-[520px] p-8 text-center"><BrandMark /><div className="eyebrow mt-3">ASSI · Facturación de equipo</div><h1 className="font-display mt-4 text-2xl font-bold">Este comprobante no está disponible</h1><p className="mt-2 text-[13px] leading-6 text-[#77847e]">El abono no existe o ya no está vigente. Pide al equipo que te comparta un comprobante actualizado.</p></div>}
+     {receipt && <footer className="no-print mt-5 text-center text-[10px] text-[#87928b]">Enlace temporal de comprobante · ASSI</footer>}
   </div></div>;
   return <div className="shared-invoice-page min-h-[100dvh] bg-[#f6f4eb] px-4 py-8 md:px-8 md:py-12"><div className="mx-auto max-w-[820px]">
     <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3"><BrandMark /><button onClick={() => printInvoice().catch(err => setNotice(err.message))} className="button button-primary"><Printer size={15} />Imprimir / Guardar PDF</button></div>
     {notice && <p className="no-print mb-4 text-xs" role="alert">{notice}</p>}
     <InvoiceDocument invoice={invoice.data} shareToken={token} />
-    <footer className="no-print mt-5 text-center text-[10px] text-[#87928b]">Enlace temporal de factura · Cuenta Clara desk</footer>
+     <footer className="no-print mt-5 text-center text-[10px] text-[#87928b]">Enlace temporal de factura · ASSI</footer>
   </div></div>;
 }
