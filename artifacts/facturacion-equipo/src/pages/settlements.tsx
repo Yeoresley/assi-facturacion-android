@@ -12,6 +12,7 @@ import {
   FileText, LockKeyhole, RefreshCw, ShieldCheck, WalletCards, X,
 } from 'lucide-react';
 import { EmptyState, PageHeading, QueryError, date, errorDetail, money } from '@/lib/shared';
+import { buildPayrollCsv } from '@/lib/payroll-report';
 
 const currentPeriod = () => {
   const now = new Date();
@@ -142,9 +143,29 @@ export default function SettlementsPage() {
   const rateFor = (currency: string) => currency.toUpperCase() === 'CUP' ? 1 : data?.exchangeRates.find((rate) => rate.currency.toUpperCase() === currency.toUpperCase())?.rateToCup;
   const blockers = (activeResult?.missingServiceCount ?? 0) + (activeResult?.missingCurrencies.length ?? 0);
   const inclusionCandidates = useMemo(() => data?.unpaidCandidates.filter((candidate) => !results.some((result) => result.invoices.some((invoice) => invoice.invoiceId === candidate.invoiceId && invoice.inclusionType === 'manual'))) ?? [], [data, results]);
+  const salesResults = useMemo(() => results.filter((result) => result.invoices.length > 0), [results]);
+  const reportBlockers = salesResults.filter((result) => result.missingServiceCount > 0 || result.missingCurrencies.length > 0);
+
+  function downloadPayrollReport() {
+    if (!owner || salesResults.length === 0 || reportBlockers.length > 0) return;
+    const csv = buildPayrollCsv(period, salesResults.map((result) => ({
+      specialistName: result.specialistName,
+      includedInvoiceCount: result.invoices.length,
+      manualInclusionCount: result.invoices.filter((invoice) => invoice.inclusionType === 'manual').length,
+      ...result.totals,
+    })));
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nomina-${period}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   return <div className="fade-in mx-auto max-w-[1180px]">
-    <PageHeading eyebrow="Cierre y transparencia" title="Liquidación mensual" description="Misma plantilla y fórmula para todo el equipo; solo varían los datos de cada especialista. Estimación preliminar de compensación a partir de los cobros y ajustes del período." action={<label className="flex items-center gap-2 rounded-xl border border-[#e1ded2] bg-[#fffefa] px-3 py-2"><CalendarDays size={15} className="text-[#688078]" /><span className="sr-only">Período mensual</span><input type="month" className="border-0 bg-transparent text-[12px] font-semibold text-[#29443e] outline-none" value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Período mensual" data-testid="input-settlement-period" /></label>} />
+    <PageHeading eyebrow="Cierre y transparencia" title="Liquidación mensual" description="Misma plantilla para todos. Cada especialista ve solo su cálculo; el administrador puede consultar todo el equipo y descargar la nómina del mes." action={<label className="flex items-center gap-2 rounded-xl border border-[#e1ded2] bg-[#fffefa] px-3 py-2"><CalendarDays size={15} className="text-[#688078]" /><span className="sr-only">Período mensual</span><input type="month" className="border-0 bg-transparent text-[12px] font-semibold text-[#29443e] outline-none" value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Período mensual" data-testid="input-settlement-period" /></label>} />
     <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#e8d8b2] bg-[#fbf2df] px-4 py-3.5 text-[#725b2c]" role="note">
       <ShieldCheck size={17} className="mt-0.5 shrink-0" /><p className="text-[11px] leading-5"><strong className="font-bold">Importante:</strong> el importe payable es una estimación preliminar, no un registro de pago. La aplicación todavía no registra la transferencia bancaria al especialista.</p>
     </div>
@@ -154,7 +175,31 @@ export default function SettlementsPage() {
     {settlement.isLoading ? <div className="space-y-5" aria-label="Cargando liquidación"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0,1,2,3].map((item) => <div className="panel p-5" key={item}><div className="skeleton h-3 w-24" /><div className="skeleton mt-4 h-8 w-32" /></div>)}</div><div className="panel space-y-3 p-5">{[0,1,2,3].map((item) => <div key={item} className="skeleton h-10" />)}</div></div> :
       settlement.isError || !data ? <QueryError retry={() => settlement.refetch()} message="No se pudo cargar la liquidación." detail={errorDetail(settlement.error, 'Comprueba la conexión e inténtalo otra vez. Si recibes un error 403, el servidor no autorizó la consulta.')} /> :
       <>
-        {owner && results.length > 1 && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] p-3.5"><div><div className="eyebrow">Vista del propietario</div><div className="mt-1 text-[11px] text-[#74817b]">Selecciona un registro para revisar su detalle.</div></div><label className="min-w-[220px]"><span className="sr-only">Especialista</span><select className="field !h-10" value={activeResult?.specialistId ?? ''} onChange={(event) => setSelectedSpecialist(event.target.value)} aria-label="Seleccionar especialista" data-testid="select-settlement-specialist">{results.map((result) => <option key={result.specialistId} value={result.specialistId}>{result.specialistName}</option>)}</select></label></div>}
+         {owner && results.length > 1 && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] p-3.5"><div><div className="eyebrow">Vista del propietario</div><div className="mt-1 text-[11px] text-[#74817b]">Selecciona un registro para revisar su detalle.</div></div><label className="min-w-[220px]"><span className="sr-only">Especialista</span><select className="field !h-10" value={activeResult?.specialistId ?? ''} onChange={(event) => setSelectedSpecialist(event.target.value)} aria-label="Seleccionar especialista" data-testid="select-settlement-specialist">{results.map((result) => <option key={result.specialistId} value={result.specialistId}>{result.specialistName}</option>)}</select></label></div>}
+         {owner && <section className="panel mb-5 overflow-hidden" aria-labelledby="payroll-roster-title">
+           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4">
+             <div><div className="eyebrow">{monthLabel(period)} · Nóminas</div><h2 id="payroll-roster-title" className="font-display mt-1 text-lg font-bold">Especialistas con ventas</h2><p className="mt-1 text-[10px] text-[#78847d]">Incluye especialistas con facturas participantes en el cálculo del mes.</p></div>
+             <button type="button" className="button button-primary" onClick={downloadPayrollReport} disabled={!salesResults.length || reportBlockers.length > 0} title={reportBlockers.length ? 'Completa las clasificaciones y tasas antes de descargar.' : undefined} data-testid="button-export-payroll"><FileText size={15} />Descargar nómina CSV</button>
+           </div>
+           {reportBlockers.length > 0 && <div className="border-b border-[#e6c69f] bg-[#fbf0df] px-5 py-3 text-[10px] leading-5 text-[#77551d]" role="alert">No se puede descargar todavía: faltan clasificaciones o tasas para {reportBlockers.map((result) => result.specialistName).join(', ')}.</div>}
+           {!salesResults.length ? <EmptyState title="Sin ventas incluidas" text="No hay facturas participantes en el cálculo de este período." /> :
+             <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left">
+               <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Especialista</th><th className="px-4 py-3 text-right font-medium">Facturas</th><th className="px-4 py-3 text-right font-medium">Base de distribución</th><th className="px-4 py-3 text-right font-medium">Salario devengado</th><th className="px-4 py-3 text-right font-medium">CESS</th><th className="px-4 py-3 text-right font-medium">Impuesto personal</th><th className="px-4 py-3 text-right font-medium">Neto estimado</th><th className="px-5 py-3 font-medium">Detalle</th></tr></thead>
+               <tbody>{salesResults.map((result) => {
+                 const incomplete = result.missingServiceCount > 0 || result.missingCurrencies.length > 0;
+                 return <tr key={result.specialistId} className="table-row" data-testid={`payroll-row-${result.specialistId}`}>
+                   <td className="px-5 py-3 text-[11px] font-semibold">{result.specialistName}<div className="mt-1 text-[9px] font-normal text-[#7c8982]">{result.invoices.filter((invoice) => invoice.inclusionType === 'manual').length} excepción(es) manual(es)</div></td>
+                   <td className="px-4 py-3 text-right font-mono text-[11px]">{result.invoices.length}</td>
+                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.distributionBase)}</td>
+                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.salaryAccrued)}</td>
+                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.cess)}</td>
+                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.incomeTax)}</td>
+                   <td className="px-4 py-3 text-right font-mono text-[10px]">{incomplete ? <span className="font-sans text-[#9c6a27]">Incompleto</span> : amount(result.totals.netPayable)}</td>
+                   <td className="px-5 py-3"><button type="button" className="button button-soft !min-h-8 !px-3 text-[10px]" onClick={() => setSelectedSpecialist(result.specialistId)} aria-label={`Ver cálculo de ${result.specialistName}`}>Ver cálculo</button></td>
+                 </tr>;
+               })}</tbody>
+             </table></div>}
+         </section>}
         {!activeResult ? <div className="panel"><EmptyState title="Sin liquidaciones para este período" text="Cuando haya facturas incluidas en el mes, el resumen de compensación aparecerá aquí." /></div> : <>
           <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={`Resumen de ${activeResult.specialistName}`}>
             <Metric label="Licencias brutas" value={activeResult.totals.grossLicenses} note="Ingresos clasificados como licencia" />
