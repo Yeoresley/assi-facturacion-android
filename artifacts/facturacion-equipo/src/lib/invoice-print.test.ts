@@ -53,3 +53,57 @@ test('la impresión del comprobante activa y limpia su modo aislado', async () =
     else Reflect.deleteProperty(globalThis, 'window');
   }
 });
+
+test('la impresión de la factura espera a que carguen las imágenes autorizadas', async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  let imageComplete = false;
+  let printCalled = false;
+  const image = { get complete() { return imageComplete; }, naturalWidth: 120 } as HTMLImageElement;
+  const fakeDocument = {
+    fonts: { ready: Promise.resolve() },
+    querySelector: (selector: string) => selector === '[data-testid="invoice-document"]' ? {} : null,
+    querySelectorAll: (selector: string) => selector === '[data-authorized-image]' ? [image] : [],
+  };
+  const fakeWindow = { addEventListener: () => {}, print: () => { printCalled = true; } };
+
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: fakeDocument as unknown as Document });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow as unknown as Window & typeof globalThis });
+  try {
+    const printing = printInvoice();
+    await new Promise(resolve => setTimeout(resolve, 75));
+    assert.equal(printCalled, false);
+    imageComplete = true;
+    await printing;
+    assert.equal(printCalled, true);
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+});
+
+test('la impresión de la factura rechaza imágenes autorizadas fallidas', async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  let printCalled = false;
+  const fakeDocument = {
+    fonts: { ready: Promise.resolve() },
+    querySelector: (selector: string) => selector === '[data-testid="invoice-document"]' ? {} : selector === '[data-image-error]' ? {} : null,
+    querySelectorAll: () => [],
+  };
+  const fakeWindow = { addEventListener: () => {}, print: () => { printCalled = true; } };
+
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: fakeDocument as unknown as Document });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow as unknown as Window & typeof globalThis });
+  try {
+    await assert.rejects(printInvoice(), /No se pudo cargar el cuño o la firma autorizados/);
+    assert.equal(printCalled, false);
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+});

@@ -18,7 +18,7 @@ function AuthorizedImage({ invoiceId, token, kind }: { invoiceId: number; token?
     setUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [query.data]);
-  if (!url || query.isError) return <div data-image-pending className="legal-image-error" role={query.isError ? 'alert' : 'status'}>
+  if (!url || query.isError) return <div data-image-pending={!query.isError || undefined} data-image-error={query.isError || undefined} className="legal-image-error" role={query.isError ? 'alert' : 'status'}>
     {query.isError ? 'No se pudo cargar la imagen autorizada.' : 'Cargando imagen autorizada…'}
     {query.isError && <button className="no-print" onClick={() => query.refetch()}>Reintentar</button>}
   </div>;

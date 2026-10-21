@@ -19,6 +19,26 @@ export function amountInWords(value: number): string {
   return `${integerWords(Number(whole))} CON ${cents}/100`;
 }
 
+const AUTHORIZED_IMAGES_TIMEOUT_MS = 20_000;
+const IMAGE_CHECK_INTERVAL_MS = 50;
+
+async function waitForAuthorizedImages() {
+  const deadline = Date.now() + AUTHORIZED_IMAGES_TIMEOUT_MS;
+  while (true) {
+    if (document.querySelector('[data-image-error]')) {
+      throw new Error('No se pudo cargar el cuño o la firma autorizados. Reintenta la carga antes de imprimir.');
+    }
+
+    const pending = document.querySelector('[data-image-pending]');
+    const images = [...document.querySelectorAll<HTMLImageElement>('[data-authorized-image]')];
+    if (!pending && images.every(img => img.complete && img.naturalWidth > 0)) return;
+    if (Date.now() >= deadline) {
+      throw new Error('El cuño o la firma no terminaron de cargarse. Reintenta la carga antes de imprimir.');
+    }
+    await new Promise(resolve => setTimeout(resolve, IMAGE_CHECK_INTERVAL_MS));
+  }
+}
+
 export async function printInvoice(options: { documentType?: 'invoice' | 'receipt' } = {}) {
   const documentType = options.documentType ?? 'invoice';
   await document.fonts.ready;
@@ -27,10 +47,10 @@ export async function printInvoice(options: { documentType?: 'invoice' | 'receip
       throw new Error('No se encontró el comprobante que quieres imprimir.');
     }
   } else {
-    const images = [...document.querySelectorAll<HTMLImageElement>('[data-authorized-image]')];
-    if (document.querySelector('[data-image-pending]') || images.some(img => !img.complete || !img.naturalWidth)) {
-      throw new Error('El cuño o la firma aún no se han cargado. Reintenta la carga antes de imprimir.');
+    if (!document.querySelector('[data-testid="invoice-document"]')) {
+      throw new Error('No se encontró la factura que quieres imprimir.');
     }
+    await waitForAuthorizedImages();
   }
 
   const cleanup = () => document.body.classList.remove('printing-payment-receipt');
