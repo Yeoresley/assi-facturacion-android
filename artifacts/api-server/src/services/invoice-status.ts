@@ -9,14 +9,14 @@ export const statusCodes: Record<WorkflowStatus, number> = {
 // New payments and successful Versat exports are acceptance signals; legacy statuses stay unchanged.
 const transitions: Record<InvoiceStatus, readonly WorkflowStatus[]> = {
   draft: ["finished", "cancelled", "error"],
-  finished: ["accepted", "voided", "cancelled", "error"],
+  finished: ["accepted", "confirmed", "voided", "cancelled", "error"],
   accepted: ["confirmed", "voided", "cancelled", "error"],
   confirmed: [],
   voided: [],
   cancelled: [],
   error: ["draft", "finished", "voided", "cancelled"],
-  sent: ["accepted", "voided", "cancelled", "error"],
-  paid: ["accepted", "voided", "cancelled", "error"],
+  sent: ["accepted", "confirmed", "voided", "cancelled", "error"],
+  paid: ["accepted", "confirmed", "voided", "cancelled", "error"],
 };
 
 export function acceptanceFromWorkflowEvent(
@@ -24,12 +24,22 @@ export function acceptanceFromWorkflowEvent(
   actorUserId: string,
   acceptedAt = new Date(),
 ): Partial<Pick<Invoice, "status" | "acceptedBy" | "acceptedAt">> {
-  if (current.status !== "finished" && current.status !== "sent") return {};
-  return {
-    status: "accepted",
-    acceptedBy: current.acceptedBy ?? actorUserId,
-    acceptedAt: current.acceptedAt ?? acceptedAt,
-  };
+  if (current.status === "accepted" || current.status === "confirmed") {
+    if (current.acceptedBy && current.acceptedAt) return {};
+    return {
+      status: current.status,
+      acceptedBy: current.acceptedBy ?? actorUserId,
+      acceptedAt: current.acceptedAt ?? acceptedAt,
+    };
+  }
+  if (current.status === "finished" || current.status === "sent" || current.status === "paid") {
+    return {
+      status: "accepted",
+      acceptedBy: current.acceptedBy ?? actorUserId,
+      acceptedAt: current.acceptedAt ?? acceptedAt,
+    };
+  }
+  return {};
 }
 
 export function transitionIssue(

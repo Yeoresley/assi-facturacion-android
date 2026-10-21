@@ -254,6 +254,16 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   assert.throws(() => buildFac({ ...confirmed, lines: [] }), /ya está confirmada/);
   await assert.rejects(transitionInvoice(d.id, "accepted"), /reactivarse/);
   assert.equal(await counter(s.id), 2);
+
+  const forgottenAcceptance = await draft(s.id);
+  await transitionInvoice(forgottenAcceptance.id, "finished");
+  await scopedTransitionInvoice(forgottenAcceptance.id, "confirmed", sql`true`, owner);
+  const autoAccepted = await stored(forgottenAcceptance.id);
+  assert.equal(autoAccepted.status, "confirmed");
+  assert.equal(autoAccepted.acceptedBy, owner.userId);
+  assert.ok(autoAccepted.acceptedAt instanceof Date);
+  assert.equal(autoAccepted.confirmedBy, owner.userId);
+  assert.ok(autoAccepted.confirmedAt instanceof Date);
 });
 
 test("error recovery keeps the same official number, requires acceptance again, and enforces commercial", async () => {

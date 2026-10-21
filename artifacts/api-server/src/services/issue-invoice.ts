@@ -32,16 +32,20 @@ export async function transitionInvoice(
       const lines = await tx.select().from(invoiceLinesTable).where(eq(invoiceLinesTable.invoiceId, current.id));
       const issues = getVersatDataIssues({ ...current, versat, lines, status });
       if (issues.length) throw new NumberingError(issues.join(" "), 422);
-      if (status === "confirmed" && (!current.acceptedAt || !current.acceptedBy)) {
-        throw new NumberingError("Falta la aceptación del cliente registrada por el especialista.", 422);
-      }
     }
+    const transitionAt = new Date();
     await tx.update(invoicesTable).set({
       status, versat, versatNumber: versat?.number ?? null,
       // Historical "paid" was a lifecycle status. Preserve that fact when adopting the new workflow.
       ...(current.status === "paid" ? { paymentStatus: "paid" as const } : {}),
-      ...(status === "accepted" ? { acceptedBy: actor.userId, acceptedAt: new Date() } : {}),
-      ...(status === "confirmed" ? { confirmedBy: actor.userId, confirmedAt: new Date() } : {}),
+      ...(status === "accepted" ? { acceptedBy: actor.userId, acceptedAt: transitionAt } : {}),
+      ...(status === "confirmed" ? {
+        // Import confirmation is also an acceptance signal if the specialist missed the one-click action.
+        acceptedBy: current.acceptedBy ?? actor.userId,
+        acceptedAt: current.acceptedAt ?? transitionAt,
+        confirmedBy: actor.userId,
+        confirmedAt: transitionAt,
+      } : {}),
     })
       .where(eq(invoicesTable.id, current.id));
   });

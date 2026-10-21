@@ -11,3 +11,4 @@
 - [Desarrollo autónomo](autonomous-development.md) — avanzar por iniciativa propia y detenerse solo cuando falte una decisión o dato imprescindible del propietario.
 - [Acceso a módulos por rol](module-role-access.md) — especialistas no deben entrar en Exportar ni Ajustes; proteger también las rutas directas.
 - [Identidad visual ASSI](assi-brand.md) — usar los logotipos ASSI y una paleta azul/cian; mantener los PDF contables compatibles con Versat.
+- [Datos de prueba antes de producción](test-data-before-production.md) — las facturas actuales son de prueba y deben eliminarse antes de iniciar producción.

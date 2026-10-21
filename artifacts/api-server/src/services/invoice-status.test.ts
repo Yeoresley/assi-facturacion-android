@@ -21,6 +21,16 @@ test("un pago o una exportación aceptan una factura terminada sin reemplazar un
   assert.deepEqual(acceptanceFromWorkflowEvent({
     status: "confirmed", acceptedBy: "owner-1", acceptedAt,
   }, "owner-2", new Date()), {});
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "confirmed", acceptedBy: null, acceptedAt: null,
+  }, "owner-2", acceptedAt), {
+    status: "confirmed", acceptedBy: "owner-2", acceptedAt,
+  });
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "paid", acceptedBy: null, acceptedAt: null,
+  }, "owner-2", acceptedAt), {
+    status: "accepted", acceptedBy: "owner-2", acceptedAt,
+  });
 });
 
 test("el flujo exige terminar, aceptar como especialista y confirmar como administrador", () => {
@@ -30,7 +40,9 @@ test("el flujo exige terminar, aceptar como especialista y confirmar como admini
   assert.equal(transitionIssue({ status: "finished", versatNumber: "TEST" }, "accepted", "specialist"), null);
   assert.match(transitionIssue({ status: "accepted", versatNumber: "TEST" }, "confirmed", "specialist")!, /administrador/);
   assert.equal(transitionIssue({ status: "accepted", versatNumber: "TEST" }, "confirmed", "owner"), null);
-  assert.match(transitionIssue({ status: "finished", versatNumber: "TEST" }, "confirmed", "owner")!, /no permitido/);
+  assert.equal(transitionIssue({ status: "finished", versatNumber: "TEST" }, "confirmed", "owner"), null);
+  assert.equal(transitionIssue({ status: "sent", versatNumber: "TEST" }, "confirmed", "owner"), null);
+  assert.equal(transitionIssue({ status: "paid", versatNumber: "TEST" }, "confirmed", "owner"), null);
 });
 
 test("anuladas, canceladas e importadas no pueden reactivarse", () => {
@@ -47,10 +59,10 @@ test("el error bloquea la aceptación directa y nunca devuelve una numerada a ed
   assert.match(transitionIssue({ status: "error", versatNumber: "TEST" }, "accepted", "specialist")!, /no permitido/);
 });
 
-test("enviadas y pagadas históricas requieren aceptación explícita; repetir no cambia estado", () => {
+test("el propietario puede confirmar facturas enviadas o pagadas aunque falte la aceptación explícita", () => {
   for (const status of ["sent", "paid"] as const) {
     assert.equal(transitionIssue({ status, versatNumber: "TEST" }, "accepted", "specialist"), null);
-    assert.match(transitionIssue({ status, versatNumber: "TEST" }, "confirmed", "owner")!, /no permitido/);
+    assert.equal(transitionIssue({ status, versatNumber: "TEST" }, "confirmed", "owner"), null);
   }
   assert.equal(transitionIssue({ status: "accepted", versatNumber: "TEST" }, "accepted", "specialist"), null);
 });
