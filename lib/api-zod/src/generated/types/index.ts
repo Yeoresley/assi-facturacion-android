@@ -7,6 +7,7 @@
  */
 
 export * from './billingOverview';
+export * from './currencyBalance';
 export * from './customer';
 export * from './customerInput';
 export * from './documentAuthorization';

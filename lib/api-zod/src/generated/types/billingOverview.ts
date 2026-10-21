@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CurrencyBalance } from './currencyBalance';
 import type { Invoice } from './invoice';
 
 export interface BillingOverview {
@@ -17,5 +18,6 @@ export interface BillingOverview {
   confirmedCount: number;
   monthTotal: number;
   currency: string;
+  outstandingByCurrency: CurrencyBalance[];
   recentInvoices: Invoice[];
 }

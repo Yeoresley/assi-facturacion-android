@@ -63,6 +63,7 @@ import { transitionInvoice } from "../services/issue-invoice";
 import {
   correctInvoicePayment, recordInvoicePayment, InvoicePaymentError, paymentFilter,
 } from "../services/invoice-payment";
+import { outstandingByCurrency } from "../services/invoice-outstanding";
 
 const router: IRouter = Router();
 router.use(seriesRouter);
@@ -107,6 +108,7 @@ router.get("/billing/overview", async (req, res): Promise<void> => {
     confirmedCount: invoices.filter((invoice) => invoice.status === "confirmed").length,
     monthTotal: roundMoney(monthTotal),
     currency,
+    outstandingByCurrency: outstandingByCurrency(invoices),
     recentInvoices: invoices.slice(0, 6).map(serializeInvoice),
   };
   res.json(GetBillingOverviewResponse.parse(counts));

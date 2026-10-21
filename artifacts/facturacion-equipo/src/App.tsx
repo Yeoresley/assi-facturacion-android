@@ -273,6 +273,16 @@ function Dashboard() {
           { label: 'En edición', value: overview.data.draftCount, note: `${overview.data.finishedCount} terminadas · ${overview.data.confirmedCount} confirmadas`, icon: Clipboard, tint: 'bg-[#efeee4] text-[#837f65]' },
         ].map(({ label, value, note, icon: Icon, tint }) => <div key={label} className="panel p-5"><div className="flex items-start justify-between"><div className="eyebrow">{label}</div><span className={`grid h-9 w-9 place-items-center rounded-xl ${tint}`}><Icon size={17} /></span></div><div className="font-display mt-4 text-[27px] font-bold tracking-[-.06em]">{value}</div><div className="mt-1 text-[11px] text-[#7c8881]">{note}</div></div>)}
       </div>}
+    <section className="panel mt-5 p-5" aria-labelledby="outstanding-title" data-testid="outstanding-summary">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div><div className="eyebrow">Seguimiento de cobros</div><h2 id="outstanding-title" className="font-display mt-1 text-lg font-bold tracking-[-.04em]">Saldo pendiente por moneda</h2></div>
+        <span className="text-[11px] text-[#7c8881]">Facturas emitidas con saldo por cobrar</span>
+      </div>
+      {overview.isLoading ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0,1].map((i) => <div className="rounded-xl border border-[#e8e5da] p-4" key={i}><div className="skeleton h-3 w-12" /><div className="skeleton mt-3 h-7 w-28" /></div>)}</div> :
+       overview.isError || !overview.data ? <div className="mt-4"><QueryError retry={() => overview.refetch()} message="No se pudieron consultar los saldos pendientes." /></div> :
+       overview.data.outstandingByCurrency.length === 0 ? <div className="mt-4"><EmptyState title="No hay saldos pendientes" text="Las facturas emitidas del equipo están cobradas o todavía no tienen saldo pendiente." /></div> :
+       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{overview.data.outstandingByCurrency.map(({ currency, amount }) => <div className="rounded-xl border border-[#e8e5da] bg-[#fffefa] p-4" key={currency} data-testid={`outstanding-${currency}`}><div className="eyebrow">{currency}</div><div className="font-display mt-2 text-[24px] font-bold tabular-nums tracking-[-.05em]">{money(amount, currency)}</div></div>)}</div>}
+    </section>
     <div className="mt-8 grid gap-5 xl:grid-cols-[1fr_300px]">
       <section className="panel overflow-hidden"><div className="flex items-center justify-between px-5 py-5"><div><div className="eyebrow">Trabajo reciente</div><h2 className="font-display mt-1 text-lg font-bold tracking-[-.04em]">Últimas facturas</h2></div><Link href="/invoices" className="flex items-center gap-1 text-[12px] font-bold text-[#387368]">Ver todas <ArrowRight size={14} /></Link></div>
         {overview.isLoading ? <div className="space-y-4 p-5">{[0,1,2].map((x) => <div className="skeleton h-9" key={x} />)}</div> : (overview.isError || !overview.data) ? <div className="p-5"><QueryError retry={() => overview.refetch()} /></div> : <InvoiceTable invoices={overview.data.recentInvoices || []} />}

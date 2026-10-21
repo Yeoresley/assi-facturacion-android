@@ -993,7 +993,7 @@ components:
         status: { type: string }
     BillingOverview:
       type: object
-      required: [invoiceCount, draftCount, sentCount, paidCount, finishedCount, acceptedCount, confirmedCount, monthTotal, currency, recentInvoices]
+      required: [invoiceCount, draftCount, sentCount, paidCount, finishedCount, acceptedCount, confirmedCount, monthTotal, currency, outstandingByCurrency, recentInvoices]
       properties:
         invoiceCount: { type: integer }
         draftCount: { type: integer }
@@ -1004,9 +1004,18 @@ components:
         confirmedCount: { type: integer }
         monthTotal: { type: number }
         currency: { type: string }
+        outstandingByCurrency:
+          type: array
+          items: { $ref: "#/components/schemas/CurrencyBalance" }
         recentInvoices:
           type: array
           items: { $ref: "#/components/schemas/Invoice" }
+    CurrencyBalance:
+      type: object
+      required: [currency, amount]
+      properties:
+        currency: { type: string }
+        amount: { type: number, minimum: 0 }
     TeamMember:
       type: object
       required: [userId, name, email, role, commercialId, suspended]

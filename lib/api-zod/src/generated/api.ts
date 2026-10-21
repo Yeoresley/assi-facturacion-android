@@ -737,6 +737,8 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get invoice dashboard summary
  */
+export const getBillingOverviewResponseOutstandingByCurrencyItemAmountMin = 0;
+
 export const getBillingOverviewResponseRecentInvoicesItemStatusCodeMax = 7;
 
 export const getBillingOverviewResponseRecentInvoicesItemTotalPaidMin = 0;
@@ -813,6 +815,10 @@ export const GetBillingOverviewResponse = zod.object({
   "confirmedCount": zod.number().int(),
   "monthTotal": zod.number(),
   "currency": zod.string(),
+  "outstandingByCurrency": zod.array(zod.object({
+  "currency": zod.string(),
+  "amount": zod.number().min(getBillingOverviewResponseOutstandingByCurrencyItemAmountMin)
+})),
   "recentInvoices": zod.array(zod.object({
   "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),

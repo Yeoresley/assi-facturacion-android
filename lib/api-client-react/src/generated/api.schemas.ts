@@ -534,6 +534,12 @@ export interface InvoiceExportRow {
   status: string;
 }
 
+export interface CurrencyBalance {
+  currency: string;
+  /** @minimum 0 */
+  amount: number;
+}
+
 export interface BillingOverview {
   invoiceCount: number;
   draftCount: number;
@@ -544,6 +550,7 @@ export interface BillingOverview {
   confirmedCount: number;
   monthTotal: number;
   currency: string;
+  outstandingByCurrency: CurrencyBalance[];
   recentInvoices: Invoice[];
 }
 
