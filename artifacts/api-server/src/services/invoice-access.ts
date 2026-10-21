@@ -12,7 +12,10 @@ export function activeInvoiceShare() {
 /** Shared by public data and image routes: a revoked capability grants neither. */
 export async function getActiveInvoiceShare(token: string) {
   const hash = createHash("sha256").update(token).digest("hex");
-  const [share] = await db.select({ invoiceId: invoiceSharesTable.invoiceId })
+  const [share] = await db.select({
+    invoiceId: invoiceSharesTable.invoiceId,
+    paymentId: invoiceSharesTable.paymentId,
+  })
     .from(invoiceSharesTable)
     .where(and(eq(invoiceSharesTable.tokenHash, hash), activeInvoiceShare())).limit(1);
   return share;

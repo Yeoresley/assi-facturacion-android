@@ -13,7 +13,7 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import {
   db, pool, customersTable, invoicesTable, invoicePaymentCorrectionsTable, invoiceSharesTable, invoiceSeriesTable,
-  teamMembersTable, teamInvitationsTable, versatCatalogTable, type LegalDocument,
+  invoicePaymentsTable, teamMembersTable, teamInvitationsTable, versatCatalogTable, type LegalDocument,
   type VersatInvoiceSnapshot,
 } from "@workspace/db";
 import billingRouter from "../routes/billing";
@@ -30,6 +30,7 @@ const identities = [owner, specialist, other, unassigned, pending];
 const email = (id: string) => `${id}@example.invalid`;
 const token = randomUUID();
 const expiredToken = randomUUID();
+const expiredReceiptToken = randomUUID();
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 let server: Server;
 let base: string;
@@ -39,6 +40,7 @@ let otherCommercialId: number;
 let invoiceId: number;
 let otherInvoiceId: number;
 let shareId: number;
+let paymentId: number;
 let downloads = 0;
 
 before(async () => {
@@ -89,11 +91,18 @@ before(async () => {
   ]).returning();
   invoiceId = invoice.id;
   otherInvoiceId = foreign.id;
+  const [payment] = await db.insert(invoicePaymentsTable).values([
+    { invoiceId, idempotencyKey: `${tag}-payment`, amount: 25, currency: "CUP", paidOn: "2026-10-20", reference: `${tag}-reference`, paidBy: owner },
+  ]).returning();
+  paymentId = payment.id;
   const [share] = await db.insert(invoiceSharesTable).values([
     { invoiceId, tokenHash: hash(token), expiresAt: new Date(Date.now() + 3600_000) },
     { invoiceId, tokenHash: hash(expiredToken), expiresAt: new Date(Date.now() - 1000) },
   ]).returning();
   shareId = share.id;
+  await db.insert(invoiceSharesTable).values({
+    invoiceId, paymentId, tokenHash: hash(expiredReceiptToken), expiresAt: new Date(Date.now() - 1000),
+  });
   await db.insert(invoicePaymentCorrectionsTable).values({
     invoiceId,
     idempotencyKey: `${tag}-correction`,
@@ -195,6 +204,34 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.equal(Object.hasOwn(sharedBody, "paymentCorrections"), false);
   assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-correction-reason`), false);
   assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-corrector`), false);
+  assert.equal((await request(`/shared-invoices/${token}/receipts/${paymentId}`, "")).status, 404);
+  const receiptShareResponse = await request(`/invoices/${invoiceId}/payments/${paymentId}/share`, specialist, "POST");
+  assert.equal(receiptShareResponse.status, 200);
+  assert.match(receiptShareResponse.headers.get("cache-control")!, /no-store/);
+  const receiptLink = CreateInvoiceShareResponse.parse(await receiptShareResponse.json());
+  const receiptUrl = new URL(receiptLink.url);
+  assert.equal(receiptUrl.searchParams.get("receipt"), String(paymentId));
+  const receiptToken = receiptUrl.pathname.split("/").at(-1)!;
+  assert.equal((await request(`/shared-invoices/${receiptToken}`, "")).status, 404);
+  const receiptResponse = await request(`/shared-invoices/${receiptToken}/receipts/${paymentId}`, "");
+  assert.equal(receiptResponse.status, 200);
+  assert.match(receiptResponse.headers.get("cache-control")!, /no-store/);
+  const receiptBody = await receiptResponse.json() as Record<string, unknown>;
+  assert.deepEqual(Object.keys(receiptBody).sort(), [
+    "amount", "currency", "customerName", "invoiceNumber", "paidOn", "paymentCurrency", "reference", "remainingBalance",
+  ]);
+  assert.deepEqual(receiptBody, {
+    invoiceNumber: tag,
+    customerName: tag,
+    currency: "CUP",
+    amount: 25,
+    paidOn: "2026-10-20T00:00:00.000Z",
+    paymentCurrency: "CUP",
+    reference: `${tag}-reference`,
+    remainingBalance: 0,
+  });
+  assert.equal(JSON.stringify(receiptBody).includes(tag + "-internal-correction-reason"), false);
+  assert.equal((await request(`/shared-invoices/${receiptToken}/receipts/999999`, "")).status, 404);
   const teamDetail = GetInvoiceResponse.parse(await (await request(`/invoices/${invoiceId}`, owner)).json());
   assert.equal(teamDetail.paymentCorrections?.length, 1);
   assert.equal(teamDetail.paymentCorrections?.[0].reason, `${tag}-internal-correction-reason`);
@@ -204,6 +241,7 @@ test("public shares omit internal correction audit while team detail preserves i
     assert.equal(image.status, 200);
     assert.match(image.headers.get("cache-control")!, /no-store/);
     assert.equal(await image.text(), "synthetic-image");
+    assert.equal((await request(`/shared-invoices/${receiptToken}/images/${kind}`, "")).status, 404);
   }
   const created = await request(`/invoices/${invoiceId}/share`, specialist, "POST");
   assert.match(created.headers.get("cache-control")!, /no-store/);
@@ -212,6 +250,13 @@ test("public shares omit internal correction audit while team detail preserves i
   const newToken = new URL(newLink.url).pathname.split("/").at(-1)!;
   assert.notEqual(newToken, token);
   assert.equal((await request(list)).status, 200);
+  assert.deepEqual(ListInvoiceSharesResponse.parse(await (await request(list)).json()).map(link => link.id).sort((a, b) => a - b), [shareId, receiptLink.id, newLink.id].sort((a, b) => a - b));
+  const receiptRevoke = `${list}/${receiptLink.id}`;
+  assert.equal((await request(receiptRevoke, specialist, "DELETE")).status, 204);
+  const [revokedReceipt] = await db.select().from(invoiceSharesTable).where(eq(invoiceSharesTable.id, receiptLink.id));
+  assert.ok(revokedReceipt.revokedAt);
+  assert.equal(revokedReceipt.paymentId, paymentId);
+  assert.equal((await request(`/shared-invoices/${receiptToken}/receipts/${paymentId}`, "")).status, 404);
   assert.equal((await request(revoke, specialist, "DELETE")).status, 204);
   const [revoked] = await db.select().from(invoiceSharesTable).where(eq(invoiceSharesTable.id, shareId));
   assert.ok(revoked.revokedAt);
@@ -221,8 +266,8 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.deepEqual((await db.select().from(invoiceSharesTable).where(eq(invoiceSharesTable.id, shareId)))[0], revoked);
 
   const previousDownloads = downloads;
-  for (const invalidToken of [token, expiredToken, "unknown-token"]) {
-    for (const suffix of ["", "/images/stamp", "/images/signature"]) {
+  for (const invalidToken of [token, expiredToken, expiredReceiptToken, receiptToken, "unknown-token"]) {
+    for (const suffix of ["", "/images/stamp", "/images/signature", `/receipts/${paymentId}`]) {
       const response = await request(`/shared-invoices/${invalidToken}${suffix}`, "");
       assert.equal(response.status, 404);
       assert.match(response.headers.get("cache-control")!, /no-store/);

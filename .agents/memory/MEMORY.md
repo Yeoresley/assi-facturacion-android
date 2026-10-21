@@ -16,3 +16,4 @@
 - [Secuencia web y Android](android-roadmap.md) — terminar y estabilizar la aplicación web antes de comenzar la APK para Android.
 - [Auditoría de catálogos](catalog-audit-history.md) — registrar actor y snapshots al cambiar; no inventar responsables para entradas anteriores al historial.
 - [Desfase del esquema de desarrollo](dev-schema-drift.md) — no asumir que las tablas declaradas en Drizzle ya existen en la base compartida de desarrollo.
+- [Alcance de enlaces de comprobante](receipt-share-scope.md) — una URL de recibo debe usar una capacidad distinta y limitada, nunca el token que autoriza la factura completa.

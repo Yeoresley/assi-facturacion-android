@@ -5,6 +5,7 @@ import {
   CreateCustomerBody,
   CreateCustomerResponse,
   CreateInvoiceBody,
+  CreateInvoiceReceiptShareParams,
   CreateInvoiceResponse,
   CreateInvoiceShareParams,
   CreateInvoiceShareResponse,
@@ -16,6 +17,8 @@ import {
   GetInvoiceResponse,
   GetSharedInvoiceParams,
   GetSharedInvoiceResponse,
+  GetSharedInvoiceReceiptParams,
+  GetSharedInvoiceReceiptResponse,
   InviteTeamMemberBody,
   GetBillingOverviewResponse,
   ListCustomersQueryParams,
@@ -619,6 +622,40 @@ router.post("/invoices/:id/share", async (req, res): Promise<void> => {
   res.json(CreateInvoiceShareResponse.parse({ id: share.id, url: publicUrl, expiresAt: expiresAt.toISOString() }));
 });
 
+router.post("/invoices/:id/payments/:paymentId/share", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  const params = CreateInvoiceReceiptShareParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const invoice = await getInvoiceRow(params.data.id, invoiceScope(member));
+  if (!invoice) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  if (!activeInvoicePayments(invoice.payments, invoice.paymentCorrections)
+    .some(({ id }) => id === params.data.paymentId)) {
+    res.status(404).json({ error: "Active payment not found" });
+    return;
+  }
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + shareTtlMs);
+  const [share] = await db.insert(invoiceSharesTable).values({
+    invoiceId: invoice.id,
+    paymentId: params.data.paymentId,
+    tokenHash: createHash("sha256").update(token).digest("hex"),
+    expiresAt,
+    createdAt: new Date(),
+  }).returning({ id: invoiceSharesTable.id });
+  const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() ?? req.get("host");
+  const protocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? req.protocol;
+  const publicUrl = `${protocol}://${host}/share/${token}?receipt=${params.data.paymentId}`;
+  res.json(CreateInvoiceShareResponse.parse({ id: share.id, url: publicUrl, expiresAt: expiresAt.toISOString() }));
+});
+
 router.get("/invoices/:id/shares", async (req, res): Promise<void> => {
   res.set("Cache-Control", "private, no-store");
   const member = await resolveTeamMember(req, res);
@@ -666,7 +703,7 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
     return;
   }
   const share = await getActiveInvoiceShare(params.data.token);
-  if (!share) {
+  if (!share || share.paymentId !== null) {
     res.status(404).json({ error: "This invoice link is expired or unavailable" });
     return;
   }
@@ -679,6 +716,44 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
   // Public receipt links must not continue to present a corrected/reversed payment as active.
   sharedInvoice.payments = activeInvoicePayments(sharedInvoice.payments, invoice.paymentCorrections);
   res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(sharedInvoice));
+});
+
+router.get("/shared-invoices/:token/receipts/:paymentId", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const params = GetSharedInvoiceReceiptParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const share = await getActiveInvoiceShare(params.data.token);
+  if (!share || share.paymentId !== params.data.paymentId) {
+    res.status(404).json({ error: "This invoice link is expired or unavailable" });
+    return;
+  }
+  const invoice = await getInvoiceRow(share.invoiceId);
+  if (!invoice) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  const activePayments = activeInvoicePayments(invoice.payments, invoice.paymentCorrections);
+  const selectedIndex = activePayments.findIndex(({ id }) => id === params.data.paymentId);
+  if (selectedIndex < 0) {
+    res.status(404).json({ error: "Payment receipt not found" });
+    return;
+  }
+  const payment = activePayments[selectedIndex];
+  const paidThroughCents = activePayments.slice(0, selectedIndex + 1)
+    .reduce((sum, item) => sum + Math.round(item.amount * 100), 0);
+  res.json(GetSharedInvoiceReceiptResponse.parse({
+    invoiceNumber: invoice.versat?.number || invoice.number,
+    customerName: invoice.versat?.customerName || invoice.customerName,
+    currency: invoice.currency,
+    amount: payment.amount,
+    paidOn: payment.paidOn,
+    paymentCurrency: payment.currency,
+    reference: payment.reference,
+    remainingBalance: Math.max(0, Math.round(invoice.total * 100) - paidThroughCents) / 100,
+  }));
 });
 
 router.get("/team/me", async (req, res): Promise<void> => {

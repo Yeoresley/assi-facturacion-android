@@ -588,6 +588,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/InvoiceShare" }
+  /invoices/{id}/payments/{paymentId}/share:
+    post:
+      operationId: createInvoiceReceiptShare
+      tags: [invoices]
+      summary: Create a public link limited to one payment receipt
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Receipt-only share link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceShare" }
+        "404": { description: Invoice or active payment not found }
   /invoices/{id}/shares:
     get:
       operationId: listInvoiceShares
@@ -642,6 +663,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
         "404": { description: Link not found or expired }
+  /shared-invoices/{token}/receipts/{paymentId}:
+    get:
+      operationId: getSharedInvoiceReceipt
+      tags: [invoices]
+      summary: View one payment receipt using a private share token
+      security: []
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Minimal details for the selected shared payment receipt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SharedInvoiceReceipt" }
+        "404": { description: Link or payment not found or expired }
   /versat/catalogs:
     get:
       operationId: getVersatCatalogs
@@ -1037,6 +1080,18 @@ components:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLine" }
         createdAt: { type: string, format: date-time }
+    SharedInvoiceReceipt:
+      type: object
+      required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, remainingBalance]
+      properties:
+        invoiceNumber: { type: string }
+        customerName: { type: string }
+        currency: { type: string }
+        amount: { type: number, minimum: 0 }
+        paidOn: { type: string, format: date }
+        paymentCurrency: { type: string }
+        reference: { type: ["string", "null"], maxLength: 120 }
+        remainingBalance: { type: number, minimum: 0 }
     InvoiceInput:
       type: object
       required: [customerId, issueDate, currency, lines]

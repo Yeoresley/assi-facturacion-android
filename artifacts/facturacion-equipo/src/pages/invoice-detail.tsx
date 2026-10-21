@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey,
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListInvoiceSeriesQueryKey,
-  useCreateInvoiceShare, useDownloadInvoiceVersatFile, useGetCurrentTeamMember, useGetInvoice, useUpdateInvoiceStatus,
+  useCreateInvoiceReceiptShare, useCreateInvoiceShare, useDownloadInvoiceVersatFile, useGetCurrentTeamMember, useGetInvoice, useUpdateInvoiceStatus,
   getListInvoiceSharesQueryKey, useListInvoiceShares,
 } from '@workspace/api-client-react';
 import type { InvoiceStatusInputStatus } from '@workspace/api-client-react';
@@ -28,6 +28,7 @@ export default function InvoiceDetailPage() {
   const file = useDownloadInvoiceVersatFile();
   const updateStatus = useUpdateInvoiceStatus();
   const createShare = useCreateInvoiceShare();
+  const createReceiptShare = useCreateInvoiceReceiptShare();
   const shares = useListInvoiceShares(id, { query: { queryKey: getListInvoiceSharesQueryKey(id), enabled: valid, staleTime: 0, refetchInterval: 15000, retry: false } });
   const client = useQueryClient();
   const [share, setShare] = useState<{ id: number; url: string; expiresAt: string } | null>(null);
@@ -59,10 +60,8 @@ export default function InvoiceDetailPage() {
     createShare.mutate({ id }, { onSuccess: (value) => { setShare(value); client.invalidateQueries({ queryKey: getListInvoiceSharesQueryKey(id) }); setNotice(`Enlace #${value.id} listo para compartir.`); }, onError: () => setNotice('No se pudo crear el enlace público.') });
   }
   function makeReceiptShare(paymentId: number) {
-    createShare.mutate({ id }, { onSuccess: (value) => {
-      const url = new URL(value.url, window.location.origin);
-      url.searchParams.set('receipt', String(paymentId));
-      setReceiptShare({ paymentId, url: url.toString(), expiresAt: value.expiresAt });
+    createReceiptShare.mutate({ id, paymentId }, { onSuccess: (value) => {
+      setReceiptShare({ paymentId, url: new URL(value.url, window.location.origin).toString(), expiresAt: value.expiresAt });
       client.invalidateQueries({ queryKey: getListInvoiceSharesQueryKey(id) });
       setNotice('Enlace del comprobante listo para compartir. No se ha enviado ningún mensaje.');
     }, onError: () => setNotice('No se pudo crear el enlace del comprobante.') });
@@ -122,10 +121,10 @@ export default function InvoiceDetailPage() {
     if (!isOwner || !receiptInfo) return <div className="mx-auto max-w-[620px]"><div className="panel p-7"><Link href={`/invoices/${inv.id}`} className="button button-plain !min-h-9"><ArrowLeft size={14} />Volver a la factura</Link><h1 className="font-display mt-5 text-xl font-bold">{isOwner ? 'Comprobante no disponible' : 'Acceso no permitido'}</h1><p className="mt-2 text-sm leading-6 text-[#71817b]">{isOwner ? 'El abono no existe o fue corregido. Actualiza la factura antes de generar un comprobante.' : 'Solo el administrador puede generar comprobantes de abono.'}</p></div></div>;
     const receiptUrl = receiptShare?.paymentId === receiptId ? receiptShare.url : '';
     return <div className="receipt-print-page fade-in mx-auto max-w-[980px]">
-      <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3"><Link href={`/invoices/${inv.id}`} className="button button-plain"><ArrowLeft size={14} />Volver a la factura</Link><div className="flex flex-wrap gap-2"><button className="button button-primary" onClick={() => printInvoice({ documentType: 'receipt' }).catch(err => setNotice(err.message))}><Printer size={15} />Imprimir / Guardar PDF</button><button className="button button-soft" onClick={() => makeReceiptShare(receiptId!)} disabled={createShare.isPending}><ArrowUpRight size={15} />{createShare.isPending ? 'Creando enlace…' : 'Crear enlace para compartir'}</button></div></div>
+      <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3"><Link href={`/invoices/${inv.id}`} className="button button-plain"><ArrowLeft size={14} />Volver a la factura</Link><div className="flex flex-wrap gap-2"><button className="button button-primary" onClick={() => printInvoice({ documentType: 'receipt' }).catch(err => setNotice(err.message))}><Printer size={15} />Imprimir / Guardar PDF</button><button className="button button-soft" onClick={() => makeReceiptShare(receiptId!)} disabled={createReceiptShare.isPending}><ArrowUpRight size={15} />{createReceiptShare.isPending ? 'Creando enlace…' : 'Crear enlace para compartir'}</button></div></div>
       {notice && <p className="no-print mb-3 text-xs text-[#377668]" role="status">{notice}</p>}
       {receiptUrl && <div className="no-print panel mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[12px] font-bold text-[#315b52]">Enlace temporal del comprobante</div><input className="field mt-2 !h-9 font-mono text-[11px]" readOnly value={receiptUrl} onClick={(event) => event.currentTarget.select()} /><div className="mt-1 text-[10px] text-[#818c85]">Caduca: {date(receiptShare?.expiresAt)}</div><p className="mt-1 text-[10px] text-[#818c85]">El mensaje no se envía automáticamente.</p></div><div className="flex gap-2"><button className="button button-soft !min-h-9" onClick={() => { navigator.clipboard?.writeText(receiptUrl); setNotice('Enlace del comprobante copiado.'); }}><Clipboard size={14} />Copiar</button><a className="button button-plain !min-h-9" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Comprobante del abono de la factura ${inv.number}: ${receiptUrl}`)}`}><ArrowUpRight size={14} />WhatsApp</a><a className="button button-plain !min-h-9" href={`mailto:?subject=${encodeURIComponent(`Comprobante de abono · ${inv.number}`)}&body=${encodeURIComponent(`Hola, aquí tienes el comprobante del abono de la factura ${inv.number}: ${receiptUrl}`)}`}><Mail size={14} />Correo</a></div></div>}
-      <PaymentReceiptPaper invoice={inv} paymentId={receiptId!} />
+      <PaymentReceiptPaper receipt={receiptInfo} />
     </div>;
   }
 

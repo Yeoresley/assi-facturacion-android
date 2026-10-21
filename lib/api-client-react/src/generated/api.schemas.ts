@@ -427,6 +427,23 @@ export interface Invoice {
   createdAt: string;
 }
 
+export interface SharedInvoiceReceipt {
+  invoiceNumber: string;
+  customerName: string;
+  currency: string;
+  /** @minimum 0 */
+  amount: number;
+  paidOn: string;
+  paymentCurrency: string;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  reference: string | null;
+  /** @minimum 0 */
+  remainingBalance: number;
+}
+
 export interface InvoiceInput {
   /**
      * @minimum 1

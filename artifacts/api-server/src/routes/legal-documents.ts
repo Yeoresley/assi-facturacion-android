@@ -90,7 +90,7 @@ router.get("/invoices/:id/images/:kind", async (req, res) => {
 router.get("/shared-invoices/:token/images/:kind", async (req, res) => {
   res.set("Cache-Control", "private, no-store");
   const share = await getActiveInvoiceShare(req.params.token);
-  if (!share) { res.sendStatus(404); return; }
+  if (!share || share.paymentId !== null) { res.sendStatus(404); return; }
   await sendImage(share.invoiceId, req.params.kind, res);
 });
 

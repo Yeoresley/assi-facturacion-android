@@ -1,8 +1,8 @@
-import type { Invoice } from '@workspace/api-client-react';
+import type { Invoice, SharedInvoiceReceipt } from '@workspace/api-client-react';
 
-type ReceiptSource = Pick<Invoice, 'payments' | 'paymentCorrections' | 'total'>;
+type ReceiptSource = Pick<Invoice, 'payments' | 'paymentCorrections' | 'total' | 'currency' | 'number' | 'customerName' | 'versat'>;
 
-export function getPaymentReceiptInfo(invoice: ReceiptSource, paymentId: number) {
+export function getPaymentReceiptInfo(invoice: ReceiptSource, paymentId: number): SharedInvoiceReceipt | null {
   const reversedIds = new Set((invoice.paymentCorrections ?? []).flatMap((entry) =>
     entry.reversedPaymentId == null ? [] : [entry.reversedPaymentId]));
   const payments = [...invoice.payments]
@@ -13,5 +13,15 @@ export function getPaymentReceiptInfo(invoice: ReceiptSource, paymentId: number)
   const paidThroughCents = payments.slice(0, index + 1)
     .reduce((sum, payment) => sum + Math.round(payment.amount * 100), 0);
   const remainingCents = Math.max(0, Math.round(invoice.total * 100) - paidThroughCents);
-  return { payment: payments[index], remainingBalance: remainingCents / 100 };
+  const payment = payments[index];
+  return {
+    invoiceNumber: invoice.versat?.number || invoice.number,
+    customerName: invoice.versat?.customerName || invoice.customerName,
+    currency: invoice.currency,
+    amount: payment.amount,
+    paidOn: payment.paidOn,
+    paymentCurrency: payment.currency,
+    reference: payment.reference,
+    remainingBalance: remainingCents / 100,
+  };
 }

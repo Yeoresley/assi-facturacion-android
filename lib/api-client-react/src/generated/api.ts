@@ -61,6 +61,7 @@ import type {
   SettlementPayment,
   SettlementPaymentInput,
   SettlementVoidInput,
+  SharedInvoiceReceipt,
   TeamInvitation,
   TeamInvitationInput,
   TeamMember,
@@ -2791,6 +2792,82 @@ export const useCreateInvoiceShare = <TError = ErrorType<unknown>,
       return useMutation(getCreateInvoiceShareMutationOptions(options));
     }
 
+export const getCreateInvoiceReceiptShareUrl = (id: number,
+    paymentId: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/payments/${paymentId}/share`
+}
+
+/**
+ * @summary Create a public link limited to one payment receipt
+ */
+export const createInvoiceReceiptShare = async (id: number,
+    paymentId: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceShare> => {
+
+  return customFetch<InvoiceShare>(getCreateInvoiceReceiptShareUrl(id,paymentId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateInvoiceReceiptShareMutationKey = () => ['createInvoiceReceiptShare'] as const;
+
+export const getCreateInvoiceReceiptShareMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoiceReceiptShare>>, TError,CreateInvoiceReceiptShareMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createInvoiceReceiptShare>>, TError,CreateInvoiceReceiptShareMutationVariables, TContext> => {
+
+const mutationKey = getCreateInvoiceReceiptShareMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoiceReceiptShare>>, CreateInvoiceReceiptShareMutationVariables> = (props) => {
+          const {id,paymentId} = props ?? {};
+
+          return  createInvoiceReceiptShare(id,paymentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateInvoiceReceiptShareMutationResult = NonNullable<Awaited<ReturnType<typeof createInvoiceReceiptShare>>>
+
+    export type CreateInvoiceReceiptShareMutationError = ErrorType<void>
+    export type CreateInvoiceReceiptShareMutationVariables = {id: number;paymentId: number}
+
+    /**
+ * @summary Create a public link limited to one payment receipt
+ */
+export const useCreateInvoiceReceiptShare = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoiceReceiptShare>>, TError,CreateInvoiceReceiptShareMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createInvoiceReceiptShare>>,
+        TError,
+        CreateInvoiceReceiptShareMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateInvoiceReceiptShareMutationOptions(options));
+    }
+
 export const getListInvoiceSharesUrl = (id: number,) => {
 
 
@@ -3009,6 +3086,88 @@ export function useGetSharedInvoice<TData = Awaited<ReturnType<typeof getSharedI
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSharedInvoiceQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSharedInvoiceReceiptUrl = (token: string,
+    paymentId: number,) => {
+
+
+
+
+  return `/api/shared-invoices/${token}/receipts/${paymentId}`
+}
+
+/**
+ * @summary View one payment receipt using a private share token
+ */
+export const getSharedInvoiceReceipt = async (token: string,
+    paymentId: number, options?: Parameters<typeof customFetch>[1]): Promise<SharedInvoiceReceipt> => {
+
+  return customFetch<SharedInvoiceReceipt>(getGetSharedInvoiceReceiptUrl(token,paymentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSharedInvoiceReceiptQueryKey = (token: string,
+    paymentId: number,) => {
+    return [
+    `/api/shared-invoices/${token}/receipts/${paymentId}`
+    ] as const;
+    }
+
+
+export const getGetSharedInvoiceReceiptQueryOptions = <TData = Awaited<ReturnType<typeof getSharedInvoiceReceipt>>, TError = ErrorType<void>>(token: string,
+    paymentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceReceipt>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSharedInvoiceReceiptQueryKey(token,paymentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedInvoiceReceipt>>> = ({ signal }) => getSharedInvoiceReceipt(token,paymentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && paymentId !== null && paymentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceReceipt>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSharedInvoiceReceiptQueryResult = NonNullable<Awaited<ReturnType<typeof getSharedInvoiceReceipt>>>
+export type GetSharedInvoiceReceiptQueryError = ErrorType<void>
+
+
+/**
+ * @summary View one payment receipt using a private share token
+ */
+
+export function useGetSharedInvoiceReceipt<TData = Awaited<ReturnType<typeof getSharedInvoiceReceipt>>, TError = ErrorType<void>>(
+ token: string,
+    paymentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceReceipt>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSharedInvoiceReceiptQueryOptions(token,paymentId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

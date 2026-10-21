@@ -82,6 +82,7 @@ export * from './settlementTotals';
 export * from './settlementUnclassifiedLine';
 export * from './settlementUnpaidCandidate';
 export * from './settlementVoidInput';
+export * from './sharedInvoiceReceipt';
 export * from './teamInvitation';
 export * from './teamInvitationInput';
 export * from './teamMember';

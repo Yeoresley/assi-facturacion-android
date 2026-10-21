@@ -2718,6 +2718,25 @@ export const CreateInvoiceShareResponse = zod.object({
 
 
 /**
+ * @summary Create a public link limited to one payment receipt
+ */
+
+
+
+
+export const CreateInvoiceReceiptShareParams = zod.object({
+  "id": zod.coerce.number().int().min(1),
+  "paymentId": zod.coerce.number().int().min(1)
+})
+
+export const CreateInvoiceReceiptShareResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string().url(),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List active links without exposing tokens or hashes
  */
 
@@ -2942,6 +2961,37 @@ export const GetSharedInvoiceResponse = zod.object({
   "amount": zod.number()
 })),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary View one payment receipt using a private share token
+ */
+
+
+
+export const GetSharedInvoiceReceiptParams = zod.object({
+  "token": zod.coerce.string(),
+  "paymentId": zod.coerce.number().int().min(1)
+})
+
+export const getSharedInvoiceReceiptResponseAmountMin = 0;
+
+export const getSharedInvoiceReceiptResponseReferenceMax = 120;
+
+export const getSharedInvoiceReceiptResponseRemainingBalanceMin = 0;
+
+
+
+export const GetSharedInvoiceReceiptResponse = zod.object({
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "currency": zod.string(),
+  "amount": zod.number().min(getSharedInvoiceReceiptResponseAmountMin),
+  "paidOn": zod.coerce.date(),
+  "paymentCurrency": zod.string(),
+  "reference": zod.string().max(getSharedInvoiceReceiptResponseReferenceMax).nullable(),
+  "remainingBalance": zod.number().min(getSharedInvoiceReceiptResponseRemainingBalanceMin)
 })
 
 
