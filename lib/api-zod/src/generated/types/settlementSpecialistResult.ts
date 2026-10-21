@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SettlementClosure } from './settlementClosure';
 import type { SettlementExpense } from './settlementExpense';
 import type { SettlementInvoice } from './settlementInvoice';
 import type { SettlementPayment } from './settlementPayment';
@@ -23,4 +24,6 @@ export interface SettlementSpecialistResult {
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: SettlementPaymentStatus;
+  closure: SettlementClosure | null;
+  closureHistory: SettlementClosure[];
 }

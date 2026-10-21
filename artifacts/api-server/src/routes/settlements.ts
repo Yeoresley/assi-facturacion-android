@@ -1,15 +1,19 @@
 import Decimal from "decimal.js";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateSettlementClassificationBody,
   CreateSettlementClassificationResponse,
+  CreateSettlementClosureBody,
+  CreateSettlementClosureResponse,
   CreateSettlementExpenseBody,
   CreateSettlementExpenseResponse,
   CreateSettlementInvoiceInclusionBody,
   CreateSettlementInvoiceInclusionResponse,
   CreateSettlementPaymentBody,
   CreateSettlementPaymentResponse,
+  CorrectSettlementClosureBody,
+  CorrectSettlementClosureParams,
   GetMonthlySettlementQueryParams,
   GetMonthlySettlementResponse,
   RevokeSettlementInvoiceInclusionBody,
@@ -26,6 +30,7 @@ import {
   invoicesTable,
   invoiceLinesTable,
   settlementClassificationsTable,
+  settlementClosuresTable,
   settlementExchangeRatesTable,
   settlementExpensesTable,
   settlementInvoiceInclusionsTable,
@@ -39,6 +44,7 @@ import {
   calculateSettlementPaymentBalance, convertToCup, calculateSettlementTotals,
   settlementPaymentCompletionDate, settlementRules,
 } from "../services/settlement-calculation";
+import { buildSettlementClosureSnapshot } from "../services/settlement-snapshot";
 
 const router: IRouter = Router();
 const roundedMoney = (value: number) => new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
@@ -95,7 +101,17 @@ function serializedSettlementPayment(payment: typeof settlementPaymentsTable.$in
   return { ...payment, recordedAt: payment.recordedAt.toISOString() };
 }
 
+function serializedSettlementClosure(closure: typeof settlementClosuresTable.$inferSelect) {
+  return { ...closure, approvedAt: closure.approvedAt.toISOString() };
+}
+
 async function settlementNetPayableForPayment(period: string, specialistId: string): Promise<number> {
+  const [closure] = await db.select().from(settlementClosuresTable).where(and(
+    eq(settlementClosuresTable.period, period),
+    eq(settlementClosuresTable.specialistId, specialistId),
+  )).orderBy(desc(settlementClosuresTable.version)).limit(1);
+  if (closure) return closure.snapshot.totals.netPayable;
+
   const invoiceScope = and(
     eq(invoicesTable.status, "confirmed"),
     eq(invoicesTable.specialistId, specialistId),
@@ -184,7 +200,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     eq(invoicesTable.status, "confirmed"),
     owner ? undefined : eq(invoicesTable.specialistId, member.userId),
   );
-  const [invoices, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments] =
+  const [invoices, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments, closures] =
     await Promise.all([
       getInvoiceRows(undefined, invoiceScope),
       db.select().from(settlementClassificationsTable),
@@ -212,7 +228,19 @@ router.get("/settlements", async (req, res): Promise<void> => {
         eq(settlementPaymentsTable.period, period),
         owner ? undefined : eq(settlementPaymentsTable.specialistId, member.userId),
       )),
+      db.select().from(settlementClosuresTable).where(and(
+        eq(settlementClosuresTable.period, period),
+        owner ? undefined : eq(settlementClosuresTable.specialistId, member.userId),
+      )).orderBy(desc(settlementClosuresTable.version)),
     ]);
+  const closureBySpecialist = new Map<string, typeof closures[number]>();
+  const closureHistoryBySpecialist = new Map<string, typeof closures>();
+  for (const closure of closures) {
+    if (!closureBySpecialist.has(closure.specialistId)) closureBySpecialist.set(closure.specialistId, closure);
+    const history = closureHistoryBySpecialist.get(closure.specialistId) ?? [];
+    history.push(closure);
+    closureHistoryBySpecialist.set(closure.specialistId, history);
+  }
 
   const byServiceCode = new Map(classifications.flatMap((entry) =>
     entry.serviceCode ? [[entry.serviceCode, entry] as const] : []));
@@ -373,7 +401,8 @@ router.get("/settlements", async (req, res): Promise<void> => {
     });
     const payments = (paymentsBySpecialist.get(result.specialistId) ?? [])
       .sort((a, b) => a.paidOn.localeCompare(b.paidOn) || a.id - b.id);
-    const balance = calculateSettlementPaymentBalance(totals.netPayable, payments);
+    const closure = closureBySpecialist.get(result.specialistId) ?? null;
+    const balance = calculateSettlementPaymentBalance(closure?.snapshot.totals.netPayable ?? totals.netPayable, payments);
     return {
       specialistId: result.specialistId,
       specialistName: result.specialistName,
@@ -383,6 +412,9 @@ router.get("/settlements", async (req, res): Promise<void> => {
       missingServiceCount: result.missingServiceCount,
       missingCurrencies: [...result.missingCurrencies].sort(),
       payments,
+      closure: closure ? serializedSettlementClosure(closure) : null,
+      closureHistory: (closureHistoryBySpecialist.get(result.specialistId) ?? [])
+        .slice().reverse().map(serializedSettlementClosure),
       ...balance,
     };
   }).sort((a, b) => a.specialistName.localeCompare(b.specialistName));
@@ -623,6 +655,126 @@ router.put("/settlements/exchange-rates", async (req, res): Promise<void> => {
   res.json(UpdateSettlementExchangeRateResponse.parse(serializedRate(saved)));
 });
 
+router.post("/settlements/closures", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "owner") {
+    res.status(403).json({ error: "Solo el propietario puede aprobar y cerrar liquidaciones." });
+    return;
+  }
+  const parsed = CreateSettlementClosureBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Revisa el período y el especialista de la liquidación." });
+    return;
+  }
+  const { period, specialistId } = parsed.data;
+  const [specialist] = await db.select({ userId: teamMembersTable.userId }).from(teamMembersTable)
+    .where(and(eq(teamMembersTable.userId, specialistId), eq(teamMembersTable.role, "specialist"))).limit(1);
+  if (!specialist) {
+    res.status(404).json({ error: "No se encontró el especialista." });
+    return;
+  }
+  const { snapshot, missingServiceCount, missingCurrencies } =
+    await buildSettlementClosureSnapshot(period, specialistId);
+  if (missingServiceCount || missingCurrencies.length) {
+    const missing: string[] = [];
+    if (missingServiceCount) missing.push(`${missingServiceCount} clasificación(es)`);
+    if (missingCurrencies.length) missing.push(`tasas para ${missingCurrencies.join(", ")}`);
+    res.status(422).json({
+      error: `No se puede cerrar: faltan ${missing.join(" y ")}.`,
+    });
+    return;
+  }
+  try {
+    const created = await db.transaction(async (tx) => {
+      const lockKey = `${period}:${specialistId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      const [latest] = await tx.select().from(settlementClosuresTable).where(and(
+        eq(settlementClosuresTable.period, period),
+        eq(settlementClosuresTable.specialistId, specialistId),
+      )).orderBy(desc(settlementClosuresTable.version)).limit(1);
+      if (latest) throw new SettlementRequestError("Esta liquidación ya está cerrada. Usa la opción de corrección.", 409);
+      const [closure] = await tx.insert(settlementClosuresTable).values({
+        period,
+        specialistId,
+        version: 1,
+        snapshot,
+        approvedBy: member.userId,
+      }).returning();
+      return closure;
+    });
+    res.status(201).json(CreateSettlementClosureResponse.parse(serializedSettlementClosure(created)));
+  } catch (error) {
+    const knownError = error instanceof SettlementRequestError;
+    res.status(knownError ? error.status : 500).json({
+      error: knownError ? error.message : "No se pudo cerrar la liquidación.",
+    });
+  }
+});
+
+router.post("/settlements/closures/:id/corrections", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "owner") {
+    res.status(403).json({ error: "Solo el propietario puede corregir una liquidación cerrada." });
+    return;
+  }
+  const params = CorrectSettlementClosureParams.safeParse(req.params);
+  const parsed = CorrectSettlementClosureBody.safeParse(req.body);
+  if (!params.success || !parsed.success) {
+    res.status(400).json({ error: "Indica un motivo válido para la corrección." });
+    return;
+  }
+  const reason = parsed.data.reason.trim();
+  if (reason.length < 5) {
+    res.status(400).json({ error: "El motivo de la corrección debe tener al menos cinco caracteres." });
+    return;
+  }
+  const [previous] = await db.select().from(settlementClosuresTable)
+    .where(eq(settlementClosuresTable.id, params.data.id)).limit(1);
+  if (!previous) {
+    res.status(404).json({ error: "No se encontró el cierre que quieres corregir." });
+    return;
+  }
+  const { snapshot, missingServiceCount, missingCurrencies } =
+    await buildSettlementClosureSnapshot(previous.period, previous.specialistId);
+  if (missingServiceCount || missingCurrencies.length) {
+    res.status(422).json({
+      error: "No se puede guardar la corrección mientras haya clasificaciones o tasas pendientes.",
+    });
+    return;
+  }
+  try {
+    const created = await db.transaction(async (tx) => {
+      const lockKey = `${previous.period}:${previous.specialistId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      const [latest] = await tx.select().from(settlementClosuresTable).where(and(
+        eq(settlementClosuresTable.period, previous.period),
+        eq(settlementClosuresTable.specialistId, previous.specialistId),
+      )).orderBy(desc(settlementClosuresTable.version)).limit(1);
+      if (!latest || latest.id !== previous.id) {
+        throw new SettlementRequestError("La liquidación cambió en otra sesión. Actualiza la página.", 409);
+      }
+      const [closure] = await tx.insert(settlementClosuresTable).values({
+        period: previous.period,
+        specialistId: previous.specialistId,
+        version: previous.version + 1,
+        supersedesId: previous.id,
+        snapshot,
+        approvedBy: member.userId,
+        correctionReason: reason,
+      }).returning();
+      return closure;
+    });
+    res.status(201).json(CreateSettlementClosureResponse.parse(serializedSettlementClosure(created)));
+  } catch (error) {
+    const knownError = error instanceof SettlementRequestError;
+    res.status(knownError ? error.status : 500).json({
+      error: knownError ? error.message : "No se pudo guardar la corrección.",
+    });
+  }
+});
+
 router.post("/settlements/payments", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
@@ -671,7 +823,12 @@ router.post("/settlements/payments", async (req, res): Promise<void> => {
         eq(settlementPaymentsTable.period, input.period),
         eq(settlementPaymentsTable.specialistId, input.specialistId),
       ));
-      const balance = calculateSettlementPaymentBalance(netPayable, previousPayments);
+      const [latestClosure] = await tx.select().from(settlementClosuresTable).where(and(
+        eq(settlementClosuresTable.period, input.period),
+        eq(settlementClosuresTable.specialistId, input.specialistId),
+      )).orderBy(desc(settlementClosuresTable.version)).limit(1);
+      const approvedNetPayable = latestClosure?.snapshot.totals.netPayable ?? netPayable;
+      const balance = calculateSettlementPaymentBalance(approvedNetPayable, previousPayments);
       if (balance.pendingAmount <= 0 || new Decimal(input.amount).gt(balance.pendingAmount)) {
         throw new SettlementRequestError(
           "El importe supera el saldo pendiente de la liquidación. Actualiza la página y revisa el cálculo.",

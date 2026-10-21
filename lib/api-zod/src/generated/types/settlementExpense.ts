@@ -20,5 +20,7 @@ export interface SettlementExpense {
   /** @nullable */
   voidedAt: Date | null;
   /** @nullable */
+  voidedBy: string | null;
+  /** @nullable */
   voidReason: string | null;
 }

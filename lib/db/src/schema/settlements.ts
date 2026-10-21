@@ -1,8 +1,10 @@
 import {
   check,
   date,
+  type AnyPgColumn,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   serial,
@@ -15,6 +17,79 @@ import { invoiceLinesTable, invoicesTable } from "./invoices";
 
 export type SettlementSalesType = "license" | "service";
 export type SettlementExpenseType = "license_cost" | "operating_expense";
+
+export type SettlementClosureSnapshot = {
+  invoices: Array<{
+    invoiceId: number;
+    invoiceNumber: string;
+    customerName: string;
+    specialistId: string;
+    specialistName: string;
+    issueDate: string;
+    currency: string;
+    total: number;
+    totalPaid: number;
+    balanceDue: number;
+    paidOn: string | null;
+    inclusionType: "paid_in_month" | "manual";
+    inclusionReason: string | null;
+    lines: Array<{
+      invoiceLineId: number;
+      description: string;
+      serviceCode: string | null;
+      quantity: number;
+      amount: number;
+      salesType: SettlementSalesType;
+      rateToCup: number;
+      amountInCup: number;
+    }>;
+  }>;
+  expenses: Array<{
+    id: number;
+    expenseType: SettlementExpenseType;
+    amount: number;
+    currency: string;
+    description: string;
+    createdBy: string;
+    createdAt: string;
+    voidedAt: string | null;
+    voidedBy: string | null;
+    voidReason: string | null;
+    rateToCup: number;
+    amountInCup: number;
+  }>;
+  exchangeRates: Array<{
+    currency: string;
+    rateToCup: number;
+    updatedBy: string;
+    updatedAt: string;
+  }>;
+  rules: {
+    calculationVersion: string;
+    calculationSteps: string[];
+    baseCurrency: string;
+    salesTaxRate: number;
+    licenseShare: number;
+    serviceShare: number;
+    salaryCoefficient: number;
+    cessBrackets: Array<{ limit: number | null; rate: number }>;
+    incomeTaxBrackets: Array<{ limit: number | null; rate: number }>;
+  };
+  totals: {
+    grossLicenses: number;
+    grossServices: number;
+    salesTax: number;
+    licenseCosts: number;
+    operatingExpenses: number;
+    netLicenses: number;
+    netServices: number;
+    distributionBase: number;
+    salaryAccrued: number;
+    cess: number;
+    incomeTax: number;
+    netPayable: number;
+  };
+};
 
 export const settlementClassificationsTable = pgTable("settlement_classifications", {
   id: serial("id").primaryKey(),
@@ -110,8 +185,32 @@ export const settlementPaymentsTable = pgTable("settlement_payments", {
   index("settlement_payments_period_specialist_idx").on(table.period, table.specialistId),
 ]);
 
+export const settlementClosuresTable = pgTable("settlement_closures", {
+  id: serial("id").primaryKey(),
+  period: text("period").notNull(),
+  specialistId: text("specialist_id").notNull(),
+  version: integer("version").notNull(),
+  supersedesId: integer("supersedes_id").references((): AnyPgColumn => settlementClosuresTable.id, { onDelete: "restrict" }),
+  snapshot: jsonb("snapshot").$type<SettlementClosureSnapshot>().notNull(),
+  approvedBy: text("approved_by").notNull(),
+  approvedAt: timestamp("approved_at", { withTimezone: true }).notNull().defaultNow(),
+  correctionReason: text("correction_reason"),
+}, (table) => [
+  check("settlement_closures_period_check", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  check("settlement_closures_version_check", sql`${table.version} > 0`),
+  check(
+    "settlement_closures_correction_check",
+    sql`(${table.version} = 1 AND ${table.supersedesId} IS NULL AND ${table.correctionReason} IS NULL)
+      OR (${table.version} > 1 AND ${table.supersedesId} IS NOT NULL AND ${table.correctionReason} IS NOT NULL)`,
+  ),
+  uniqueIndex("settlement_closures_period_specialist_version_uq")
+    .on(table.period, table.specialistId, table.version),
+  index("settlement_closures_period_specialist_idx").on(table.period, table.specialistId, table.version),
+]);
+
 export type SettlementClassification = typeof settlementClassificationsTable.$inferSelect;
 export type SettlementExpense = typeof settlementExpensesTable.$inferSelect;
 export type SettlementInvoiceInclusion = typeof settlementInvoiceInclusionsTable.$inferSelect;
 export type SettlementExchangeRate = typeof settlementExchangeRatesTable.$inferSelect;
 export type SettlementPayment = typeof settlementPaymentsTable.$inferSelect;
+export type SettlementClosure = typeof settlementClosuresTable.$inferSelect;

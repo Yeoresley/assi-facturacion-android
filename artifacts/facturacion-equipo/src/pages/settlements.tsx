@@ -2,7 +2,8 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetCurrentTeamMemberQueryKey, getGetMonthlySettlementQueryKey, useCreateSettlementClassification,
-  useCreateSettlementExpense, useCreateSettlementInvoiceInclusion, useGetCurrentTeamMember,
+  useCreateSettlementClosure, useCorrectSettlementClosure, useCreateSettlementExpense,
+  useCreateSettlementInvoiceInclusion, useGetCurrentTeamMember,
   useCreateSettlementPayment, useGetMonthlySettlement, useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
   useVoidSettlementExpense,
 } from '@workspace/api-client-react';
@@ -65,7 +66,7 @@ function ErrorNotice({ children }: { children: ReactNode }) {
 export default function SettlementsPage() {
   const [period, setPeriod] = useState(currentPeriod);
   const [selectedSpecialist, setSelectedSpecialist] = useState('');
-  const [auditAction, setAuditAction] = useState<{ kind: 'expense' | 'inclusion'; id: number } | null>(null);
+  const [auditAction, setAuditAction] = useState<{ kind: 'expense' | 'inclusion' | 'closure'; id: number } | null>(null);
   const [mutationError, setMutationError] = useState('');
   const queryClient = useQueryClient();
   const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
@@ -79,7 +80,9 @@ export default function SettlementsPage() {
   const revokeInclusion = useRevokeSettlementInvoiceInclusion();
   const updateRate = useUpdateSettlementExchangeRate();
   const createPayment = useCreateSettlementPayment();
-  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending;
+  const createClosure = useCreateSettlementClosure();
+  const correctClosure = useCorrectSettlementClosure();
+  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending || createClosure.isPending || correctClosure.isPending;
   const data = settlement.data;
   const results = data?.results ?? [];
   const activeResult = useMemo(() => results.find((result) => result.specialistId === selectedSpecialist) ?? results[0], [results, selectedSpecialist]);
@@ -148,6 +151,24 @@ export default function SettlementsPage() {
       },
     }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
   }
+  function closeSettlement() {
+    if (!owner || !activeResult || blockers > 0) return;
+    if (!window.confirm(`¿Aprobar y cerrar la liquidación de ${activeResult.specialistName} por ${amount(activeResult.totals.netPayable)}? El desglose quedará guardado como versión 1.`)) return;
+    runMutation(() => createClosure.mutate({
+      data: { period, specialistId: activeResult.specialistId },
+    }, { onSuccess: refreshPeriod, onError: handleMutationError }));
+  }
+  function correctSettlement(reason: string) {
+    if (!activeResult?.closure) return;
+    const closureId = activeResult.closure.id;
+    runMutation(() => correctClosure.mutate({
+      id: closureId,
+      data: { reason },
+    }, {
+      onSuccess: () => { setAuditAction(null); refreshPeriod(); },
+      onError: handleMutationError,
+    }));
+  }
   const currencies = useMemo(() => {
     const values = new Set<string>(['CUP']);
     for (const result of results) {
@@ -161,16 +182,23 @@ export default function SettlementsPage() {
   const rateFor = (currency: string) => currency.toUpperCase() === 'CUP' ? 1 : data?.exchangeRates.find((rate) => rate.currency.toUpperCase() === currency.toUpperCase())?.rateToCup;
   const blockers = (activeResult?.missingServiceCount ?? 0) + (activeResult?.missingCurrencies.length ?? 0);
   const inclusionCandidates = useMemo(() => data?.unpaidCandidates.filter((candidate) => !results.some((result) => result.invoices.some((invoice) => invoice.invoiceId === candidate.invoiceId && invoice.inclusionType === 'manual'))) ?? [], [data, results]);
-  const salesResults = useMemo(() => results.filter((result) => result.invoices.length > 0), [results]);
-  const reportBlockers = salesResults.filter((result) => result.missingServiceCount > 0 || result.missingCurrencies.length > 0);
+  const salesResults = useMemo(
+    () => results.filter((result) => (result.closure?.snapshot.invoices ?? result.invoices).length > 0),
+    [results],
+  );
+  const reportBlockers = salesResults.filter((result) => !result.closure && (result.missingServiceCount > 0 || result.missingCurrencies.length > 0));
+  const displayedTotals = activeResult?.closure?.snapshot.totals ?? activeResult?.totals;
+  const displayedInvoices = activeResult?.closure?.snapshot.invoices ?? activeResult?.invoices ?? [];
+  const displayedExpenses = activeResult?.closure?.snapshot.expenses ?? activeResult?.expenses ?? [];
+  const paymentBlockers = activeResult?.closure ? 0 : blockers;
 
   function downloadPayrollReport() {
     if (!owner || salesResults.length === 0 || reportBlockers.length > 0) return;
     const csv = buildPayrollCsv(period, salesResults.map((result) => ({
       specialistName: result.specialistName,
-      includedInvoiceCount: result.invoices.length,
-      manualInclusionCount: result.invoices.filter((invoice) => invoice.inclusionType === 'manual').length,
-      ...result.totals,
+      includedInvoiceCount: (result.closure?.snapshot.invoices ?? result.invoices).length,
+      manualInclusionCount: (result.closure?.snapshot.invoices ?? result.invoices).filter((invoice) => invoice.inclusionType === 'manual').length,
+      ...(result.closure?.snapshot.totals ?? result.totals),
     })));
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -204,15 +232,16 @@ export default function SettlementsPage() {
              <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left">
                <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Especialista</th><th className="px-4 py-3 text-right font-medium">Facturas</th><th className="px-4 py-3 text-right font-medium">Base de distribución</th><th className="px-4 py-3 text-right font-medium">Salario devengado</th><th className="px-4 py-3 text-right font-medium">CESS</th><th className="px-4 py-3 text-right font-medium">Impuesto personal</th><th className="px-4 py-3 text-right font-medium">Neto estimado</th><th className="px-5 py-3 font-medium">Detalle</th></tr></thead>
                <tbody>{salesResults.map((result) => {
-                 const incomplete = result.missingServiceCount > 0 || result.missingCurrencies.length > 0;
+                  const incomplete = !result.closure && (result.missingServiceCount > 0 || result.missingCurrencies.length > 0);
+                  const payrollTotals = result.closure?.snapshot.totals ?? result.totals;
                  return <tr key={result.specialistId} className="table-row" data-testid={`payroll-row-${result.specialistId}`}>
                    <td className="px-5 py-3 text-[11px] font-semibold">{result.specialistName}<div className="mt-1 text-[9px] font-normal text-[#7c8982]">{result.invoices.filter((invoice) => invoice.inclusionType === 'manual').length} excepción(es) manual(es)</div></td>
                    <td className="px-4 py-3 text-right font-mono text-[11px]">{result.invoices.length}</td>
-                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.distributionBase)}</td>
-                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.salaryAccrued)}</td>
-                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.cess)}</td>
-                   <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(result.totals.incomeTax)}</td>
-                   <td className="px-4 py-3 text-right font-mono text-[10px]">{incomplete ? <span className="font-sans text-[#9c6a27]">Incompleto</span> : amount(result.totals.netPayable)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(payrollTotals.distributionBase)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(payrollTotals.salaryAccrued)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(payrollTotals.cess)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">{amount(payrollTotals.incomeTax)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">{incomplete ? <span className="font-sans text-[#9c6a27]">Incompleto</span> : amount(payrollTotals.netPayable)}</td>
                    <td className="px-5 py-3"><button type="button" className="button button-soft !min-h-8 !px-3 text-[10px]" onClick={() => setSelectedSpecialist(result.specialistId)} aria-label={`Ver cálculo de ${result.specialistName}`}>Ver cálculo</button></td>
                  </tr>;
                })}</tbody>
@@ -220,22 +249,28 @@ export default function SettlementsPage() {
          </section>}
         {!activeResult ? <div className="panel"><EmptyState title="Sin liquidaciones para este período" text="Cuando haya facturas incluidas en el mes, el resumen de compensación aparecerá aquí." /></div> : <>
           <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={`Resumen de ${activeResult.specialistName}`}>
-            <Metric label="Licencias brutas" value={activeResult.totals.grossLicenses} note="Ingresos clasificados como licencia" />
-            <Metric label="Servicios brutos" value={activeResult.totals.grossServices} note="Ingresos clasificados como servicio" />
-            <Metric label="Base de distribución" value={activeResult.totals.distributionBase} note="Tras impuestos y costos aplicables" />
-            <Metric label="Neto estimado" value={activeResult.totals.netPayable} note="Preliminar · no es un pago registrado" emphasis />
+            <Metric label="Licencias brutas" value={displayedTotals?.grossLicenses ?? 0} note="Ingresos clasificados como licencia" />
+            <Metric label="Servicios brutos" value={displayedTotals?.grossServices ?? 0} note="Ingresos clasificados como servicio" />
+            <Metric label="Base de distribución" value={displayedTotals?.distributionBase ?? 0} note="Tras impuestos y costos aplicables" />
+            <Metric label={activeResult.closure ? "Neto aprobado" : "Neto estimado"} value={displayedTotals?.netPayable ?? 0} note={activeResult.closure ? `Cierre aprobado · versión ${activeResult.closure.version}` : "Preliminar · no es un pago registrado"} emphasis />
           </section>
           <section className="panel mb-5 overflow-hidden" aria-labelledby="settlement-payment-title">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4">
               <div><div className="eyebrow">{monthLabel(period)} · Pago al especialista</div><h2 id="settlement-payment-title" className="font-display mt-1 text-lg font-bold">Estado de la liquidación</h2></div>
-              <span className={`status-pill ${activeResult.paymentStatus === 'paid' ? 'status-paid' : activeResult.paymentStatus === 'partial' ? 'status-sent' : 'status-draft'}`}>
-                {activeResult.paymentStatus === 'paid' ? 'Pagada' : activeResult.paymentStatus === 'partial' ? 'Pago parcial' : 'Pendiente'}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`status-pill ${activeResult.closure ? 'status-paid' : 'status-draft'}`}>{activeResult.closure ? `Cerrada · v${activeResult.closure.version}` : 'Preliminar'}</span>
+                <span className={`status-pill ${activeResult.paymentStatus === 'paid' ? 'status-paid' : activeResult.paymentStatus === 'partial' ? 'status-sent' : 'status-draft'}`}>
+                  {activeResult.paymentStatus === 'paid' ? 'Pagada' : activeResult.paymentStatus === 'partial' ? 'Pago parcial' : 'Pendiente'}
+                </span>
+                {owner && (activeResult.closure
+                  ? <button type="button" className="button button-soft !min-h-8 !px-3 text-[10px]" onClick={() => setAuditAction({ kind: 'closure', id: activeResult.closure!.id })} disabled={busy} data-testid="button-correct-settlement-closure">Registrar corrección</button>
+                  : <button type="button" className="button button-primary !min-h-8 !px-3 text-[10px]" onClick={closeSettlement} disabled={busy || blockers > 0} title={blockers ? 'Resuelve las clasificaciones y tasas pendientes antes de cerrar.' : undefined} data-testid="button-close-settlement">{createClosure.isPending ? 'Cerrando…' : 'Aprobar y cerrar'}</button>)}
+              </div>
             </div>
             <div className="grid gap-3 border-b border-[#eeece4] p-5 sm:grid-cols-3">
-              <Metric label="Neto estimado" value={activeResult.totals.netPayable} note="El cálculo sigue siendo preliminar" />
+              <Metric label={activeResult.closure ? "Neto aprobado" : "Neto estimado"} value={displayedTotals?.netPayable ?? 0} note={activeResult.closure ? "Importe congelado en el cierre" : "El cálculo sigue siendo preliminar"} />
               <Metric label="Pagado" value={activeResult.paidAmount} note={activeResult.payments.length ? `${activeResult.payments.length} transferencia(s) registrada(s)` : 'Sin transferencias registradas'} />
-              <Metric label="Pendiente estimado" value={activeResult.pendingAmount} note={blockers ? 'Estimación incompleta; revisa los bloqueos antes de usarla' : 'Saldo calculado después de los pagos registrados'} emphasis />
+              <Metric label={activeResult.closure ? "Saldo aprobado" : "Pendiente estimado"} value={activeResult.pendingAmount} note={paymentBlockers ? 'Estimación incompleta; revisa los bloqueos antes de usarla' : 'Saldo calculado después de los pagos registrados'} emphasis />
             </div>
             {activeResult.payments.length > 0 && <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left">
@@ -249,55 +284,62 @@ export default function SettlementsPage() {
               </table>
             </div>}
             {owner && <form key={`${activeResult.specialistId}-${activeResult.pendingAmount}`} className="grid gap-3 border-t border-[#eeece4] bg-[#fbfaf5] p-5 md:grid-cols-[1fr_1fr_1.4fr_auto]" onSubmit={addSettlementPayment}>
-              <label><span className="field-label">Importe transferido (CUP)</span><input name="amount" className="field" type="number" min="0.01" max={activeResult.pendingAmount} step="0.01" required defaultValue={activeResult.pendingAmount > 0 ? activeResult.pendingAmount.toFixed(2) : ''} disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-amount" /></label>
-              <label><span className="field-label">Fecha del pago</span><input name="paidOn" className="field" type="date" required max={todayISO()} defaultValue={todayISO()} disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-date" /></label>
-              <label><span className="field-label">Referencia de transferencia</span><input name="reference" className="field" required maxLength={200} placeholder="Número de operación o comprobante" disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-reference" /></label>
-              <div className="flex items-end"><button className="button button-primary w-full" type="submit" disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="button-record-settlement-payment">{createPayment.isPending ? 'Registrando…' : 'Registrar pago'}</button></div>
-              <label className="flex items-start gap-2 text-[10px] leading-4 text-[#68776f] md:col-span-4"><input name="confirmReview" type="checkbox" required disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} className="mt-0.5 accent-[#28665e]" data-testid="checkbox-confirm-settlement-review" /><span>Confirmo que revisé este cálculo antes de registrar el pago.</span></label>
+              <label><span className="field-label">Importe transferido (CUP)</span><input name="amount" className="field" type="number" min="0.01" max={activeResult.pendingAmount} step="0.01" required defaultValue={activeResult.pendingAmount > 0 ? activeResult.pendingAmount.toFixed(2) : ''} disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-amount" /></label>
+              <label><span className="field-label">Fecha del pago</span><input name="paidOn" className="field" type="date" required max={todayISO()} defaultValue={todayISO()} disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-date" /></label>
+              <label><span className="field-label">Referencia de transferencia</span><input name="reference" className="field" required maxLength={200} placeholder="Número de operación o comprobante" disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-reference" /></label>
+              <div className="flex items-end"><button className="button button-primary w-full" type="submit" disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="button-record-settlement-payment">{createPayment.isPending ? 'Registrando…' : 'Registrar pago'}</button></div>
+              <label className="flex items-start gap-2 text-[10px] leading-4 text-[#68776f] md:col-span-4"><input name="confirmReview" type="checkbox" required disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} className="mt-0.5 accent-[#28665e]" data-testid="checkbox-confirm-settlement-review" /><span>Confirmo que revisé este cálculo antes de registrar el pago.</span></label>
               {blockers > 0 && <p className="text-[10px] leading-4 text-[#9c6a27] md:col-span-4">Completa las clasificaciones y tasas pendientes antes de registrar el pago.</p>}
             </form>}
           </section>
+          {activeResult.closure && <section className="panel mb-5 overflow-hidden" aria-labelledby="closure-history-title">
+            <div className="border-b border-[#eeece4] px-5 py-4"><div className="eyebrow">Importe aprobado · {amount(activeResult.closure.snapshot.totals.netPayable)}</div><h2 id="closure-history-title" className="font-display mt-1 text-lg font-bold">Cierre y correcciones</h2><p className="mt-1 text-[11px] leading-5 text-[#77847e]">El desglose aprobado no cambia si se editan después las facturas, gastos o tasas. Una corrección crea una versión nueva y conserva las anteriores.</p></div>
+            <div className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr]">
+              <div><div className="eyebrow mb-2">Versiones conservadas</div><ol className="space-y-2">{activeResult.closureHistory.map((closure) => <li key={closure.id} className="rounded-lg border border-[#e9e6dc] bg-[#fbfaf5] px-3 py-2.5 text-[10px] leading-5" data-testid={`settlement-closure-version-${closure.version}`}><strong className="text-[#29443e]">Versión {closure.version}</strong><span className="ml-2 text-[#78847d]">{amount(closure.snapshot.totals.netPayable)} · {date(closure.approvedAt)}</span><div className="text-[#78847d]">Aprobó: {closure.approvedBy}</div>{closure.correctionReason && <div className="mt-1 text-[#766747]">Motivo: {closure.correctionReason}</div>}</li>)}</ol></div>
+              <div><div className="eyebrow mb-2">Tasas y reglas guardadas</div><div className="rounded-lg border border-[#e9e6dc] bg-[#fbfaf5] px-3 py-2.5 text-[10px] leading-5 text-[#68776f]"><div>{activeResult.closure.snapshot.exchangeRates.length ? activeResult.closure.snapshot.exchangeRates.map((rate) => `${rate.currency}: ${Number(rate.rateToCup).toLocaleString('es')} CUP (actualizada ${date(rate.updatedAt)} por ${rate.updatedBy})`).join(' · ') : 'Solo CUP; tasa fija 1:1.'}</div><div className="mt-1">Modelo {activeResult.closure.snapshot.rules.calculationVersion} · Impuesto sobre ventas: {activeResult.closure.snapshot.rules.salesTaxRate * 100}% · Licencias: {activeResult.closure.snapshot.rules.licenseShare * 100}% · Servicios: {activeResult.closure.snapshot.rules.serviceShare * 100}% · Coeficiente salarial: {activeResult.closure.snapshot.rules.salaryCoefficient}</div><div className="mt-1">CESS: {activeResult.closure.snapshot.rules.cessBrackets.map((bracket) => `${bracket.rate * 100}%${bracket.limit ? ` hasta ${amount(bracket.limit)}` : ' sobre el excedente'}`).join(' y ')}</div><div className="mt-1">Escala de impuesto personal: {activeResult.closure.snapshot.rules.incomeTaxBrackets.map((bracket) => `${bracket.rate * 100}%${bracket.limit ? ` hasta ${amount(bracket.limit)}` : ' sobre el excedente'}`).join(' · ')}</div><ol className="mt-2 list-decimal space-y-1 pl-4">{activeResult.closure.snapshot.rules.calculationSteps.map((step) => <li key={step}>{step}</li>)}</ol></div></div>
+            </div>
+          </section>}
           {blockers > 0 && <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#e6c69f] bg-[#fbf0df] px-4 py-3 text-[#77551d]" role="alert"><LockKeyhole size={16} className="mt-0.5 shrink-0" /><div className="text-[11px] leading-5"><strong className="font-bold">Cálculo incompleto: hay bloqueos que no se excluyen en silencio.</strong><br />{activeResult.missingServiceCount > 0 && `${activeResult.missingServiceCount} línea(s) sin clasificación.`} {activeResult.missingCurrencies.length > 0 && `Falta la tasa de cambio para ${activeResult.missingCurrencies.join(', ')}.`} Revisa las alertas del detalle antes de usar esta estimación.</div></div>}
           <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
             <section className="panel overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4"><div><div className="eyebrow">{monthLabel(period)} · {data.baseCurrency}</div><h2 className="font-display mt-1 text-lg font-bold">Desglose de la estimación</h2></div><span className={`status-pill ${blockers ? 'status-sent' : 'status-paid'}`}>{blockers ? `${blockers} bloqueos` : 'Sin bloqueos'}</span></div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4"><div><div className="eyebrow">{monthLabel(period)} · {data.baseCurrency}</div><h2 className="font-display mt-1 text-lg font-bold">{activeResult.closure ? 'Desglose guardado del cierre' : 'Desglose de la estimación'}</h2></div><span className={`status-pill ${blockers && !activeResult.closure ? 'status-sent' : 'status-paid'}`}>{blockers && !activeResult.closure ? `${blockers} bloqueos` : activeResult.closure ? `Versión aprobada ${activeResult.closure.version}` : 'Sin bloqueos'}</span></div>
               <div className="divide-y divide-[#eeece4]">
                 {([
-                  { label: 'Ingresos por licencias', value: activeResult.totals.grossLicenses, icon: ArrowUpRight },
-                  { label: 'Ingresos por servicios', value: activeResult.totals.grossServices, icon: ArrowUpRight },
-                  { label: 'Impuesto sobre ventas', value: -activeResult.totals.salesTax, icon: ArrowDownRight },
-                  { label: 'Costos de licencias', value: -activeResult.totals.licenseCosts, icon: ArrowDownRight },
-                  { label: 'Gastos operativos', value: -activeResult.totals.operatingExpenses, icon: ArrowDownRight },
-                  { label: 'Neto de licencias', value: activeResult.totals.netLicenses, icon: null },
-                  { label: 'Neto de servicios', value: activeResult.totals.netServices, icon: null },
-                  { label: 'Salario devengado', value: activeResult.totals.salaryAccrued, icon: null },
-                  { label: 'CESS', value: -activeResult.totals.cess, icon: ArrowDownRight },
-                  { label: 'Impuesto sobre ingresos', value: -activeResult.totals.incomeTax, icon: ArrowDownRight },
+                   { label: 'Ingresos por licencias', value: displayedTotals?.grossLicenses ?? 0, icon: ArrowUpRight },
+                   { label: 'Ingresos por servicios', value: displayedTotals?.grossServices ?? 0, icon: ArrowUpRight },
+                   { label: 'Impuesto sobre ventas', value: -(displayedTotals?.salesTax ?? 0), icon: ArrowDownRight },
+                   { label: 'Costos de licencias', value: -(displayedTotals?.licenseCosts ?? 0), icon: ArrowDownRight },
+                   { label: 'Gastos operativos', value: -(displayedTotals?.operatingExpenses ?? 0), icon: ArrowDownRight },
+                   { label: 'Neto de licencias', value: displayedTotals?.netLicenses ?? 0, icon: null },
+                   { label: 'Neto de servicios', value: displayedTotals?.netServices ?? 0, icon: null },
+                   { label: 'Salario devengado', value: displayedTotals?.salaryAccrued ?? 0, icon: null },
+                   { label: 'CESS', value: -(displayedTotals?.cess ?? 0), icon: ArrowDownRight },
+                   { label: 'Impuesto sobre ingresos', value: -(displayedTotals?.incomeTax ?? 0), icon: ArrowDownRight },
                 ] as const).map(({ label, value, icon: Icon }) => <div key={label} className="flex items-center justify-between gap-4 px-5 py-3"><span className="flex items-center gap-2 text-[12px] text-[#62736c]">{Icon && <Icon size={13} className={value < 0 ? 'text-[#aa6b4f]' : 'text-[#528274]'} />}{label}</span><span className="font-mono text-[12px] font-semibold tabular-nums">{amount(Math.abs(value))}{value < 0 ? ' −' : ''}</span></div>)}
-                <div className="flex items-center justify-between gap-4 bg-[#f3f3e9] px-5 py-4"><span className="font-display text-[13px] font-bold">Neto estimado · preliminar</span><span className="font-display text-[19px] font-extrabold tracking-[-.04em] text-[#28665e]">{amount(activeResult.totals.netPayable)}</span></div>
+                 <div className="flex items-center justify-between gap-4 bg-[#f3f3e9] px-5 py-4"><span className="font-display text-[13px] font-bold">{activeResult.closure ? 'Neto aprobado · congelado' : 'Neto estimado · preliminar'}</span><span className="font-display text-[19px] font-extrabold tracking-[-.04em] text-[#28665e]">{amount(displayedTotals?.netPayable ?? 0)}</span></div>
               </div>
-              <div className="border-t border-[#eeece4] bg-[#fbfaf5] px-5 py-3 text-[10px] leading-5 text-[#78847d]">Todos los valores del cálculo se convierten a CUP. La tasa CUP es fija en 1; las demás tasas corresponden a este período.</div>
+               <div className="border-t border-[#eeece4] bg-[#fbfaf5] px-5 py-3 text-[10px] leading-5 text-[#78847d]">{activeResult.closure ? 'El total conserva las tasas y reglas guardadas al aprobar; cada línea incluye su conversión original a CUP.' : 'Todos los valores del cálculo se convierten a CUP. La tasa CUP es fija en 1; las demás tasas corresponden a este período.'}</div>
             </section>
             <section className="panel overflow-hidden">
               <div className="border-b border-[#eeece4] px-5 py-4"><div className="eyebrow">Actividad incluida</div><h2 className="font-display mt-1 text-lg font-bold">Facturas del período</h2></div>
-              {!activeResult.invoices.length ? <EmptyState title="No hay facturas incluidas" text="No se han registrado cobros del período ni inclusiones excepcionales para este especialista." /> :
-                <div className="divide-y divide-[#eeece4]">{activeResult.invoices.map((invoice) => <article key={`${invoice.invoiceId}-${invoice.inclusionId ?? 'paid'}`} className="px-5 py-4" data-testid={`settlement-invoice-${invoice.invoiceId}`}>
+               {!displayedInvoices.length ? <EmptyState title="No hay facturas incluidas" text="No se han registrado cobros del período ni inclusiones excepcionales para este especialista." /> :
+                 <div className="divide-y divide-[#eeece4]">{displayedInvoices.map((invoice) => <article key={`${invoice.invoiceId}-${'inclusionId' in invoice ? invoice.inclusionId ?? 'paid' : 'closed'}`} className="px-5 py-4" data-testid={`settlement-invoice-${invoice.invoiceId}`}>
                   <div className="flex items-start justify-between gap-3"><div><div className="font-mono text-[11px] font-semibold text-[#39746a]">{invoice.invoiceNumber}</div><div className="mt-1 text-[12px] font-bold">{invoice.customerName}</div></div><div className="text-right"><div className="text-[12px] font-bold">{money(invoice.total, invoice.currency)}</div><div className="mt-1 text-[10px] text-[#829087]">Importe original · {invoice.inclusionType === 'manual' ? 'Excepción' : 'Cobro del mes'}</div></div></div>
                   <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-[#7b8780]"><span>Emisión {date(invoice.issueDate)}{invoice.paidOn ? ` · Cobro ${date(invoice.paidOn)}` : ''}</span><span>Saldo pendiente: {money(invoice.balanceDue, invoice.currency)}</span></div>
                   {invoice.inclusionReason && <div className="mt-2 rounded-lg bg-[#f4f2e9] px-3 py-2 text-[10px] leading-4 text-[#766747]">Motivo de inclusión: {invoice.inclusionReason}</div>}
                   {invoice.lines.map((line) => <div key={line.invoiceLineId} className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#f0eee7] pt-2 text-[10px]">
                     <span className="min-w-[120px] flex-1 text-[#64746d]">{line.description}<span className="ml-1 text-[#98a098]">× {line.quantity}</span></span>
-                    <span className="font-mono text-[10px]">{line.salesType ? salesLabels[line.salesType] : 'Sin clasificar'} · {rateFor(invoice.currency) === undefined ? 'Tasa pendiente' : amount(line.amount * (rateFor(invoice.currency) ?? 0))}</span>
-                    {owner && <select className="field !h-8 !w-[128px] !px-2 text-[10px]" value={line.salesType ?? ''} aria-label={`Clasificar ${line.description}`} disabled={busy} onChange={(event) => event.target.value && onClassify(line.invoiceLineId, event.target.value as SettlementSalesType)} data-testid={`select-line-classification-${line.invoiceLineId}`}><option value="" disabled>Clasificar como…</option><option value="license">Licencia</option><option value="service">Servicio</option></select>}
+                     <span className="font-mono text-[10px]">{line.salesType ? salesLabels[line.salesType] : 'Sin clasificar'} · {('amountInCup' in line) ? amount(line.amountInCup) : rateFor(invoice.currency) === undefined ? 'Tasa pendiente' : amount(line.amount * (rateFor(invoice.currency) ?? 0))}</span>
+                     {owner && !activeResult.closure && <select className="field !h-8 !w-[128px] !px-2 text-[10px]" value={line.salesType ?? ''} aria-label={`Clasificar ${line.description}`} disabled={busy} onChange={(event) => event.target.value && onClassify(line.invoiceLineId, event.target.value as SettlementSalesType)} data-testid={`select-line-classification-${line.invoiceLineId}`}><option value="" disabled>Clasificar como…</option><option value="license">Licencia</option><option value="service">Servicio</option></select>}
                   </div>)}
-                  {owner && invoice.inclusionType === 'manual' && invoice.inclusionId && <button className="mt-3 text-[10px] font-bold text-[#a04e42] underline decoration-[#e6c4bd] underline-offset-2" onClick={() => setAuditAction({ kind: 'inclusion', id: invoice.inclusionId! })} data-testid={`button-revoke-inclusion-${invoice.inclusionId}`}>Revocar inclusión</button>}
+                   {owner && !activeResult.closure && 'inclusionId' in invoice && invoice.inclusionType === 'manual' && invoice.inclusionId && <button className="mt-3 text-[10px] font-bold text-[#a04e42] underline decoration-[#e6c4bd] underline-offset-2" onClick={() => setAuditAction({ kind: 'inclusion', id: invoice.inclusionId! })} data-testid={`button-revoke-inclusion-${invoice.inclusionId}`}>Revocar inclusión</button>}
                 </article>)}</div>}
             </section>
           </div>
 
           <section className="panel mt-5 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4"><div><div className="eyebrow">Rastreo de datos</div><h2 className="font-display mt-1 text-lg font-bold">Gastos del mes</h2></div><span className="text-[11px] text-[#79867f]">{activeResult.expenses.filter((expense) => !expense.voidedAt).length} activos</span></div>
-            {!activeResult.expenses.length ? <EmptyState title="Sin gastos registrados" text="Los costos de licencia y gastos operativos asociados a este especialista se mostrarán aquí." /> : <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Concepto</th><th className="px-4 py-3 font-medium">Tipo</th><th className="px-4 py-3 font-medium">Registrado</th><th className="px-5 py-3 text-right font-medium">Importe</th><th className="px-5 py-3" /></tr></thead><tbody>{activeResult.expenses.map((expense) => <tr key={expense.id} className={`table-row ${expense.voidedAt ? 'opacity-55' : ''}`}><td className="px-5 py-3 text-[12px] font-semibold">{expense.description}{expense.voidedAt && <div className="mt-1 text-[10px] text-[#a04e42]">Anulado: {expense.voidReason}</div>}</td><td className="px-4 py-3 text-[11px] text-[#718078]">{expenseLabels[expense.expenseType]}</td><td className="px-4 py-3 text-[10px] text-[#849089]">{date(expense.createdAt)}</td><td className="px-5 py-3 text-right font-mono text-[11px]">{rateFor(expense.currency) === undefined ? <span className="text-[#9c632d]">Tasa pendiente</span> : amount(expense.amount * (rateFor(expense.currency) ?? 0))}</td><td className="px-5 py-3 text-right">{owner && !expense.voidedAt && <button className="text-[10px] font-bold text-[#a04e42] underline decoration-[#e6c4bd] underline-offset-2" onClick={() => setAuditAction({ kind: 'expense', id: expense.id })} data-testid={`button-void-expense-${expense.id}`}>Anular</button>}</td></tr>)}</tbody></table></div>}
+             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4"><div><div className="eyebrow">Rastreo de datos</div><h2 className="font-display mt-1 text-lg font-bold">{activeResult.closure ? 'Gastos guardados en el cierre' : 'Gastos del mes'}</h2></div><span className="text-[11px] text-[#79867f]">{displayedExpenses.filter((expense) => !expense.voidedAt).length} activos</span></div>
+             {!displayedExpenses.length ? <EmptyState title="Sin gastos registrados" text="Los costos de licencia y gastos operativos asociados a este especialista se mostrarán aquí." /> : <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left"><thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Concepto</th><th className="px-4 py-3 font-medium">Tipo</th><th className="px-4 py-3 font-medium">Registrado</th><th className="px-5 py-3 text-right font-medium">Importe</th><th className="px-5 py-3" /></tr></thead><tbody>{displayedExpenses.map((expense) => <tr key={expense.id} className={`table-row ${expense.voidedAt ? 'opacity-55' : ''}`}><td className="px-5 py-3 text-[12px] font-semibold">{expense.description}{expense.voidedAt && <div className="mt-1 text-[10px] text-[#a04e42]">Anulado: {expense.voidReason}</div>}</td><td className="px-4 py-3 text-[11px] text-[#718078]">{expenseLabels[expense.expenseType]}</td><td className="px-4 py-3 text-[10px] text-[#849089]">{date(expense.createdAt)}</td><td className="px-5 py-3 text-right font-mono text-[11px]">{'amountInCup' in expense ? amount(expense.amountInCup) : rateFor(expense.currency) === undefined ? <span className="text-[#9c632d]">Tasa pendiente</span> : amount(expense.amount * (rateFor(expense.currency) ?? 0))}</td><td className="px-5 py-3 text-right">{owner && !activeResult.closure && !expense.voidedAt && <button className="text-[10px] font-bold text-[#a04e42] underline decoration-[#e6c4bd] underline-offset-2" onClick={() => setAuditAction({ kind: 'expense', id: expense.id })} data-testid={`button-void-expense-${expense.id}`}>Anular</button>}</td></tr>)}</tbody></table></div>}
           </section>
 
           {owner && <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -340,9 +382,10 @@ export default function SettlementsPage() {
       </>}
 
     {owner && <div className="sr-only" aria-live="polite">{busy ? 'Guardando cambios de liquidación' : ''}</div>}
-    {owner && auditAction && <ReasonDialog title={auditAction.kind === 'expense' ? 'Anular este gasto' : 'Revocar esta inclusión'} description={auditAction.kind === 'expense' ? 'El gasto dejará de formar parte de la estimación. Esta acción no se puede deshacer desde esta pantalla.' : 'La factura dejará de formar parte de la estimación de este período. La factura original no se modifica.'} busy={voidExpense.isPending || revokeInclusion.isPending} onCancel={() => setAuditAction(null)} onConfirm={(reason) => {
+    {owner && auditAction && <ReasonDialog title={auditAction.kind === 'expense' ? 'Anular este gasto' : auditAction.kind === 'inclusion' ? 'Revocar esta inclusión' : 'Corregir el cierre aprobado'} description={auditAction.kind === 'expense' ? 'El gasto dejará de formar parte de la estimación. Esta acción no se puede deshacer desde esta pantalla.' : auditAction.kind === 'inclusion' ? 'La factura dejará de formar parte de la estimación de este período. La factura original no se modifica.' : 'Se guardará una nueva versión con el cálculo y desglose vigentes. El cierre anterior seguirá disponible en el historial.'} busy={voidExpense.isPending || revokeInclusion.isPending || correctClosure.isPending} onCancel={() => setAuditAction(null)} onConfirm={(reason) => {
       setMutationError('');
       const done = () => { setAuditAction(null); refreshPeriod(); };
+      if (auditAction.kind === 'closure') { correctSettlement(reason); return; }
       if (auditAction.kind === 'expense') voidExpense.mutate({ id: auditAction.id, data: { reason } }, { onSuccess: done, onError: handleMutationError });
       else revokeInclusion.mutate({ id: auditAction.id, data: { reason } }, { onSuccess: done, onError: handleMutationError });
     }} />}

@@ -4,8 +4,12 @@ import { after, before, mock, test } from "node:test";
 import type { Server } from "node:http";
 import express from "express";
 import { clerkClient } from "@clerk/express";
-import { CreateSettlementPaymentResponse, GetMonthlySettlementResponse } from "@workspace/api-zod";
-import { inArray } from "drizzle-orm";
+import {
+  CreateSettlementClosureResponse,
+  CreateSettlementPaymentResponse,
+  GetMonthlySettlementResponse,
+} from "@workspace/api-zod";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   customersTable,
   db,
@@ -14,6 +18,7 @@ import {
   invoicesTable,
   pool,
   settlementClassificationsTable,
+  settlementClosuresTable,
   settlementPaymentsTable,
   teamMembersTable,
 } from "@workspace/db";
@@ -31,6 +36,7 @@ let server: Server;
 let base: string;
 let customerId: number;
 let invoiceId: number;
+let invoiceLineId: number;
 
 before(async () => {
   mock.method(clerkClient.users, "getUser", async (id: string) => ({
@@ -75,6 +81,7 @@ before(async () => {
     unitPrice: 10_000,
     amount: 10_000,
   }).returning();
+  invoiceLineId = line.id;
   await db.insert(invoicePaymentsTable).values({
     invoiceId,
     idempotencyKey: randomUUID(),
@@ -115,6 +122,11 @@ before(async () => {
 after(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   mock.restoreAll();
+  await db.delete(settlementClosuresTable).where(and(
+    inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]),
+    eq(settlementClosuresTable.version, 2),
+  ));
+  await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
   if (invoiceId) await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId]));
   if (customerId) await db.delete(customersTable).where(inArray(customersTable.id, [customerId]));
@@ -196,4 +208,83 @@ test("owner can record a reviewed partial transfer with its date and reference",
 test("specialists cannot register settlement payments", async () => {
   const response = await request(specialistOneId, "POST", {}, "/settlements/payments");
   assert.equal(response.status, 403);
+});
+
+test("owner closes a frozen snapshot and corrections append an auditable version", async () => {
+  const forbidden = await request(specialistOneId, "POST", {
+    period,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(forbidden.status, 403);
+
+  await db.delete(settlementClassificationsTable)
+    .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
+  const blockedClose = await request(ownerId, "POST", {
+    period,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(blockedClose.status, 422);
+  await db.insert(settlementClassificationsTable).values({
+    invoiceLineId,
+    salesType: "service",
+    label: "Servicio de prueba",
+    updatedBy: ownerId,
+  });
+
+  const closeResponse = await request(ownerId, "POST", {
+    period,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(closeResponse.status, 201);
+  const firstClosure = CreateSettlementClosureResponse.parse(await closeResponse.json());
+  assert.equal(firstClosure.version, 1);
+  assert.equal(firstClosure.supersedesId, null);
+  assert.equal(firstClosure.approvedBy, ownerId);
+  assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.salesType, "service");
+  const approvedNet = firstClosure.snapshot.totals.netPayable;
+
+  const otherSpecialistResponse = await request(specialistTwoId);
+  const otherSpecialist = GetMonthlySettlementResponse.parse(await otherSpecialistResponse.json()).results[0]!;
+  assert.equal(otherSpecialist.specialistId, specialistTwoId);
+  assert.equal(otherSpecialist.closureHistory.length, 0);
+
+  const duplicate = await request(ownerId, "POST", {
+    period,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(duplicate.status, 409);
+
+  await db.update(settlementClassificationsTable).set({ salesType: "license" })
+    .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
+  const afterEditResponse = await request(specialistOneId);
+  const afterEdit = GetMonthlySettlementResponse.parse(await afterEditResponse.json()).results[0]!;
+  assert.notEqual(afterEdit.totals.netPayable, approvedNet);
+  assert.equal(afterEdit.closure?.snapshot.totals.netPayable, approvedNet);
+  assert.equal(afterEdit.pendingAmount, approvedNet - afterEdit.paidAmount);
+  assert.equal(afterEdit.closureHistory.length, 1);
+
+  const reason = "Clasificación corregida tras revisar el servicio";
+  const correctionResponse = await request(ownerId, "POST", { reason },
+    `/settlements/closures/${firstClosure.id}/corrections`);
+  assert.equal(correctionResponse.status, 201);
+  const correction = CreateSettlementClosureResponse.parse(await correctionResponse.json());
+  assert.equal(correction.version, 2);
+  assert.equal(correction.supersedesId, firstClosure.id);
+  assert.equal(correction.approvedBy, ownerId);
+  assert.equal(correction.correctionReason, reason);
+  assert.equal(correction.snapshot.invoices[0]?.lines[0]?.salesType, "license");
+
+  const correctedResponse = await request(specialistOneId);
+  const corrected = GetMonthlySettlementResponse.parse(await correctedResponse.json()).results[0]!;
+  assert.equal(corrected.closureHistory.length, 2);
+  assert.deepEqual(corrected.closureHistory.map(({ version }) => version), [1, 2]);
+  assert.equal(corrected.closureHistory[0]?.snapshot.totals.netPayable, approvedNet);
+
+  const staleCorrection = await request(ownerId, "POST", { reason: "Intento de versión anterior" },
+    `/settlements/closures/${firstClosure.id}/corrections`);
+  assert.equal(staleCorrection.status, 409);
+
+  const specialistCorrection = await request(specialistOneId, "POST", { reason: "Motivo válido" },
+    `/settlements/closures/${correction.id}/corrections`);
+  assert.equal(specialistCorrection.status, 403);
 });

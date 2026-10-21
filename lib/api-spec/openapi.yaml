@@ -179,6 +179,48 @@ paths:
           description: La liquidación cambió o ya no tiene saldo pendiente.
         "422":
           description: El cálculo tiene bloqueos o el importe excede el saldo pendiente.
+  /settlements/closures:
+    post:
+      operationId: createSettlementClosure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementClosureInput" }
+      responses:
+        "201":
+          description: Liquidación mensual aprobada y guardada con su desglose.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementClosure" }
+        "403":
+          description: Solo el propietario puede aprobar y cerrar.
+        "409":
+          description: La liquidación ya está cerrada.
+        "422":
+          description: El cálculo todavía tiene bloqueos.
+  /settlements/closures/{id}/corrections:
+    post:
+      operationId: correctSettlementClosure
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementClosureCorrectionInput" }
+      responses:
+        "201":
+          description: Corrección auditada guardada como nueva versión sin borrar la anterior.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementClosure" }
+        "403":
+          description: Solo el propietario puede corregir una liquidación.
+        "404":
+          description: No se encontró el cierre.
+        "409":
+          description: El cierre ya no es la última versión o el cálculo tiene bloqueos.
   /issuer:
     get:
       operationId: getIssuer
@@ -1185,7 +1227,7 @@ components:
         description: { type: string, minLength: 1, maxLength: 200 }
     SettlementExpense:
       type: object
-      required: [id, period, specialistId, expenseType, amount, currency, description, createdBy, createdAt, voidedAt, voidReason]
+      required: [id, period, specialistId, expenseType, amount, currency, description, createdBy, createdAt, voidedAt, voidedBy, voidReason]
       properties:
         id: { type: integer }
         period: { type: string }
@@ -1197,6 +1239,7 @@ components:
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         voidedAt: { type: ["string", "null"], format: date-time }
+        voidedBy: { type: ["string", "null"] }
         voidReason: { type: ["string", "null"] }
     SettlementVoidInput:
       type: object
@@ -1264,6 +1307,112 @@ components:
     SettlementPaymentStatus:
       type: string
       enum: [pending, partial, paid]
+    SettlementClosureInput:
+      type: object
+      required: [period, specialistId]
+      properties:
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        specialistId: { type: string, minLength: 1, maxLength: 255 }
+    SettlementClosureCorrectionInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+    SettlementClosureLine:
+      type: object
+      required: [invoiceLineId, description, serviceCode, quantity, amount, salesType, rateToCup, amountInCup]
+      properties:
+        invoiceLineId: { type: integer }
+        description: { type: string }
+        serviceCode: { type: ["string", "null"] }
+        quantity: { type: number }
+        amount: { type: number }
+        salesType: { $ref: "#/components/schemas/SettlementSalesType" }
+        rateToCup: { type: number }
+        amountInCup: { type: number }
+    SettlementClosureInvoice:
+      type: object
+      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, issueDate, currency, total, totalPaid, balanceDue, paidOn, inclusionType, inclusionReason, lines]
+      properties:
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        customerName: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        issueDate: { type: string, format: date }
+        currency: { type: string }
+        total: { type: number }
+        totalPaid: { type: number }
+        balanceDue: { type: number }
+        paidOn: { type: ["string", "null"], format: date }
+        inclusionType: { type: string, enum: [paid_in_month, manual] }
+        inclusionReason: { type: ["string", "null"] }
+        lines: { type: array, items: { $ref: "#/components/schemas/SettlementClosureLine" } }
+    SettlementClosureExpense:
+      type: object
+      required: [id, expenseType, amount, currency, description, createdBy, createdAt, voidedAt, voidedBy, voidReason, rateToCup, amountInCup]
+      properties:
+        id: { type: integer }
+        expenseType: { $ref: "#/components/schemas/SettlementExpenseType" }
+        amount: { type: number }
+        currency: { type: string }
+        description: { type: string }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        voidedAt: { type: ["string", "null"], format: date-time }
+        voidedBy: { type: ["string", "null"] }
+        voidReason: { type: ["string", "null"] }
+        rateToCup: { type: number }
+        amountInCup: { type: number }
+    SettlementClosureRate:
+      type: object
+      required: [currency, rateToCup, updatedBy, updatedAt]
+      properties:
+        currency: { type: string }
+        rateToCup: { type: number }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+    SettlementRuleBracket:
+      type: object
+      required: [limit, rate]
+      properties:
+        limit: { type: ["number", "null"] }
+        rate: { type: number }
+    SettlementClosureRules:
+      type: object
+      required: [calculationVersion, calculationSteps, baseCurrency, salesTaxRate, licenseShare, serviceShare, salaryCoefficient, cessBrackets, incomeTaxBrackets]
+      properties:
+        calculationVersion: { type: string }
+        calculationSteps: { type: array, items: { type: string } }
+        baseCurrency: { type: string }
+        salesTaxRate: { type: number }
+        licenseShare: { type: number }
+        serviceShare: { type: number }
+        salaryCoefficient: { type: number }
+        cessBrackets: { type: array, items: { $ref: "#/components/schemas/SettlementRuleBracket" } }
+        incomeTaxBrackets: { type: array, items: { $ref: "#/components/schemas/SettlementRuleBracket" } }
+    SettlementClosureSnapshot:
+      type: object
+      required: [invoices, expenses, exchangeRates, rules, totals]
+      properties:
+        invoices: { type: array, items: { $ref: "#/components/schemas/SettlementClosureInvoice" } }
+        expenses: { type: array, items: { $ref: "#/components/schemas/SettlementClosureExpense" } }
+        exchangeRates: { type: array, items: { $ref: "#/components/schemas/SettlementClosureRate" } }
+        rules: { $ref: "#/components/schemas/SettlementClosureRules" }
+        totals: { $ref: "#/components/schemas/SettlementTotals" }
+    SettlementClosure:
+      type: object
+      required: [id, period, specialistId, version, supersedesId, snapshot, approvedBy, approvedAt, correctionReason]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        specialistId: { type: string }
+        version: { type: integer }
+        supersedesId: { type: ["integer", "null"] }
+        snapshot: { $ref: "#/components/schemas/SettlementClosureSnapshot" }
+        approvedBy: { type: string }
+        approvedAt: { type: string, format: date-time }
+        correctionReason: { type: ["string", "null"] }
     SettlementLine:
       type: object
       required: [invoiceLineId, description, serviceCode, quantity, amount, salesType]
@@ -1311,7 +1460,7 @@ components:
         netPayable: { type: number }
     SettlementSpecialistResult:
       type: object
-      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies, payments, paidAmount, pendingAmount, paymentStatus]
+      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies, payments, paidAmount, pendingAmount, paymentStatus, closure, closureHistory]
       properties:
         specialistId: { type: string }
         specialistName: { type: string }
@@ -1324,6 +1473,8 @@ components:
         paidAmount: { type: number }
         pendingAmount: { type: number }
         paymentStatus: { $ref: "#/components/schemas/SettlementPaymentStatus" }
+        closure: { oneOf: [{ $ref: "#/components/schemas/SettlementClosure" }, { type: "null" }] }
+        closureHistory: { type: array, items: { $ref: "#/components/schemas/SettlementClosure" } }
     SettlementServiceCatalogEntry:
       type: object
       required: [serviceCode, name, salesType]

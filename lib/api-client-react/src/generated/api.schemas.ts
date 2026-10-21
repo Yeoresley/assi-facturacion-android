@@ -797,6 +797,8 @@ export interface SettlementExpense {
   /** @nullable */
   voidedAt: string | null;
   /** @nullable */
+  voidedBy: string | null;
+  /** @nullable */
   voidReason: string | null;
 }
 
@@ -899,6 +901,143 @@ export const SettlementPaymentStatus = {
   paid: 'paid',
 } as const;
 
+export interface SettlementClosureInput {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  specialistId: string;
+}
+
+export interface SettlementClosureCorrectionInput {
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface SettlementClosureLine {
+  invoiceLineId: number;
+  description: string;
+  /** @nullable */
+  serviceCode: string | null;
+  quantity: number;
+  amount: number;
+  salesType: SettlementSalesType;
+  rateToCup: number;
+  amountInCup: number;
+}
+
+export type SettlementClosureInvoiceInclusionType = typeof SettlementClosureInvoiceInclusionType[keyof typeof SettlementClosureInvoiceInclusionType];
+
+
+export const SettlementClosureInvoiceInclusionType = {
+  paid_in_month: 'paid_in_month',
+  manual: 'manual',
+} as const;
+
+export interface SettlementClosureInvoice {
+  invoiceId: number;
+  invoiceNumber: string;
+  customerName: string;
+  specialistId: string;
+  specialistName: string;
+  issueDate: string;
+  currency: string;
+  total: number;
+  totalPaid: number;
+  balanceDue: number;
+  /** @nullable */
+  paidOn: string | null;
+  inclusionType: SettlementClosureInvoiceInclusionType;
+  /** @nullable */
+  inclusionReason: string | null;
+  lines: SettlementClosureLine[];
+}
+
+export interface SettlementClosureExpense {
+  id: number;
+  expenseType: SettlementExpenseType;
+  amount: number;
+  currency: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  /** @nullable */
+  voidedAt: string | null;
+  /** @nullable */
+  voidedBy: string | null;
+  /** @nullable */
+  voidReason: string | null;
+  rateToCup: number;
+  amountInCup: number;
+}
+
+export interface SettlementClosureRate {
+  currency: string;
+  rateToCup: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface SettlementRuleBracket {
+  /** @nullable */
+  limit: number | null;
+  rate: number;
+}
+
+export interface SettlementClosureRules {
+  calculationVersion: string;
+  calculationSteps: string[];
+  baseCurrency: string;
+  salesTaxRate: number;
+  licenseShare: number;
+  serviceShare: number;
+  salaryCoefficient: number;
+  cessBrackets: SettlementRuleBracket[];
+  incomeTaxBrackets: SettlementRuleBracket[];
+}
+
+export interface SettlementTotals {
+  grossLicenses: number;
+  grossServices: number;
+  salesTax: number;
+  licenseCosts: number;
+  operatingExpenses: number;
+  netLicenses: number;
+  netServices: number;
+  distributionBase: number;
+  salaryAccrued: number;
+  cess: number;
+  incomeTax: number;
+  netPayable: number;
+}
+
+export interface SettlementClosureSnapshot {
+  invoices: SettlementClosureInvoice[];
+  expenses: SettlementClosureExpense[];
+  exchangeRates: SettlementClosureRate[];
+  rules: SettlementClosureRules;
+  totals: SettlementTotals;
+}
+
+export interface SettlementClosure {
+  id: number;
+  period: string;
+  specialistId: string;
+  version: number;
+  /** @nullable */
+  supersedesId: number | null;
+  snapshot: SettlementClosureSnapshot;
+  approvedBy: string;
+  approvedAt: string;
+  /** @nullable */
+  correctionReason: string | null;
+}
+
 export interface SettlementLine {
   invoiceLineId: number;
   description: string;
@@ -938,21 +1077,6 @@ export interface SettlementInvoice {
   lines: SettlementLine[];
 }
 
-export interface SettlementTotals {
-  grossLicenses: number;
-  grossServices: number;
-  salesTax: number;
-  licenseCosts: number;
-  operatingExpenses: number;
-  netLicenses: number;
-  netServices: number;
-  distributionBase: number;
-  salaryAccrued: number;
-  cess: number;
-  incomeTax: number;
-  netPayable: number;
-}
-
 export interface SettlementSpecialistResult {
   specialistId: string;
   specialistName: string;
@@ -965,6 +1089,8 @@ export interface SettlementSpecialistResult {
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: SettlementPaymentStatus;
+  closure: SettlementClosure | null;
+  closureHistory: SettlementClosure[];
 }
 
 export interface SettlementServiceCatalogEntry {

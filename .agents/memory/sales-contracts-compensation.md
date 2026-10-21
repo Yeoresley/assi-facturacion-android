@@ -18,3 +18,9 @@ Los pagos al especialista se registran solo después de que el propietario confi
 **Why:** El usuario pidió dejar constancia de transferencias reales y que el especialista distinga lo pendiente de lo recibido, sin presentar la estimación como pago. Admitir abonos parciales evita exigir que todas las transferencias ocurran en un único movimiento.
 
 **How to apply:** Mantener el historial de transferencias separado y append-only; validar cada nuevo importe contra el saldo pendiente y exponer solo los pagos del especialista autenticado. Si se incorpora cierre/aprobación inmutable, coordinarlo con la conservación del saldo aquí derivado.
+
+Un cierre mensual aprobado debe guardar una copia verificable de facturas, gastos, tasas, reglas y totales. Los cambios posteriores no pueden alterar su importe ni los pagos asociados; cada corrección exige motivo y actor y crea una nueva versión que conserva las anteriores.
+
+**Why:** El propietario necesita mantener exactamente la cifra aprobada aunque después cambien datos o tasas, y revisar las correcciones sin borrar el cierre original.
+
+**How to apply:** Usar la última versión aprobada para saldos y nómina, mostrar el desglose de esa versión a propietario y especialista, y conservar todas las versiones con sus responsables y motivos.

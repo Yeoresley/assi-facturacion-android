@@ -142,6 +142,7 @@ export const GetMonthlySettlementResponse = zod.object({
   "createdBy": zod.string(),
   "createdAt": zod.coerce.date(),
   "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
   "voidReason": zod.string().nullable()
 })),
   "totals": zod.object({
@@ -172,7 +173,183 @@ export const GetMonthlySettlementResponse = zod.object({
 })),
   "paidAmount": zod.number(),
   "pendingAmount": zod.number(),
-  "paymentStatus": zod.enum(['pending', 'partial', 'paid'])
+  "paymentStatus": zod.enum(['pending', 'partial', 'paid']),
+  "closure": zod.union([zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "version": zod.number().int(),
+  "supersedesId": zod.number().int().nullable(),
+  "snapshot": zod.object({
+  "invoices": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number(),
+  "paidOn": zod.coerce.date().nullable(),
+  "inclusionType": zod.enum(['paid_in_month', 'manual']),
+  "inclusionReason": zod.string().nullable(),
+  "lines": zod.array(zod.object({
+  "invoiceLineId": zod.number().int(),
+  "description": zod.string(),
+  "serviceCode": zod.string().nullable(),
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "salesType": zod.enum(['license', 'service']),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+}))
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.number().int(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
+  "voidReason": zod.string().nullable(),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+})),
+  "exchangeRates": zod.array(zod.object({
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})),
+  "rules": zod.object({
+  "calculationVersion": zod.string(),
+  "calculationSteps": zod.array(zod.string()),
+  "baseCurrency": zod.string(),
+  "salesTaxRate": zod.number(),
+  "licenseShare": zod.number(),
+  "serviceShare": zod.number(),
+  "salaryCoefficient": zod.number(),
+  "cessBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+})),
+  "incomeTaxBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+}))
+}),
+  "totals": zod.object({
+  "grossLicenses": zod.number(),
+  "grossServices": zod.number(),
+  "salesTax": zod.number(),
+  "licenseCosts": zod.number(),
+  "operatingExpenses": zod.number(),
+  "netLicenses": zod.number(),
+  "netServices": zod.number(),
+  "distributionBase": zod.number(),
+  "salaryAccrued": zod.number(),
+  "cess": zod.number(),
+  "incomeTax": zod.number(),
+  "netPayable": zod.number()
+})
+}),
+  "approvedBy": zod.string(),
+  "approvedAt": zod.coerce.date(),
+  "correctionReason": zod.string().nullable()
+}),zod.null()]),
+  "closureHistory": zod.array(zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "version": zod.number().int(),
+  "supersedesId": zod.number().int().nullable(),
+  "snapshot": zod.object({
+  "invoices": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number(),
+  "paidOn": zod.coerce.date().nullable(),
+  "inclusionType": zod.enum(['paid_in_month', 'manual']),
+  "inclusionReason": zod.string().nullable(),
+  "lines": zod.array(zod.object({
+  "invoiceLineId": zod.number().int(),
+  "description": zod.string(),
+  "serviceCode": zod.string().nullable(),
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "salesType": zod.enum(['license', 'service']),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+}))
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.number().int(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
+  "voidReason": zod.string().nullable(),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+})),
+  "exchangeRates": zod.array(zod.object({
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})),
+  "rules": zod.object({
+  "calculationVersion": zod.string(),
+  "calculationSteps": zod.array(zod.string()),
+  "baseCurrency": zod.string(),
+  "salesTaxRate": zod.number(),
+  "licenseShare": zod.number(),
+  "serviceShare": zod.number(),
+  "salaryCoefficient": zod.number(),
+  "cessBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+})),
+  "incomeTaxBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+}))
+}),
+  "totals": zod.object({
+  "grossLicenses": zod.number(),
+  "grossServices": zod.number(),
+  "salesTax": zod.number(),
+  "licenseCosts": zod.number(),
+  "operatingExpenses": zod.number(),
+  "netLicenses": zod.number(),
+  "netServices": zod.number(),
+  "distributionBase": zod.number(),
+  "salaryAccrued": zod.number(),
+  "cess": zod.number(),
+  "incomeTax": zod.number(),
+  "netPayable": zod.number()
+})
+}),
+  "approvedBy": zod.string(),
+  "approvedAt": zod.coerce.date(),
+  "correctionReason": zod.string().nullable()
+}))
 })),
   "serviceCatalog": zod.array(zod.object({
   "serviceCode": zod.string(),
@@ -267,6 +444,7 @@ export const CreateSettlementExpenseResponse = zod.object({
   "createdBy": zod.string(),
   "createdAt": zod.coerce.date(),
   "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
   "voidReason": zod.string().nullable()
 })
 
@@ -298,6 +476,7 @@ export const VoidSettlementExpenseResponse = zod.object({
   "createdBy": zod.string(),
   "createdAt": zod.coerce.date(),
   "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
   "voidReason": zod.string().nullable()
 })
 
@@ -407,6 +586,212 @@ export const CreateSettlementPaymentResponse = zod.object({
   "reference": zod.string(),
   "recordedBy": zod.string(),
   "recordedAt": zod.coerce.date()
+})
+
+
+export const createSettlementClosureBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const createSettlementClosureBodySpecialistIdMax = 255;
+
+
+
+export const CreateSettlementClosureBody = zod.object({
+  "period": zod.string().regex(createSettlementClosureBodyPeriodRegExp),
+  "specialistId": zod.string().min(1).max(createSettlementClosureBodySpecialistIdMax)
+})
+
+export const CreateSettlementClosureResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "version": zod.number().int(),
+  "supersedesId": zod.number().int().nullable(),
+  "snapshot": zod.object({
+  "invoices": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number(),
+  "paidOn": zod.coerce.date().nullable(),
+  "inclusionType": zod.enum(['paid_in_month', 'manual']),
+  "inclusionReason": zod.string().nullable(),
+  "lines": zod.array(zod.object({
+  "invoiceLineId": zod.number().int(),
+  "description": zod.string(),
+  "serviceCode": zod.string().nullable(),
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "salesType": zod.enum(['license', 'service']),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+}))
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.number().int(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
+  "voidReason": zod.string().nullable(),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+})),
+  "exchangeRates": zod.array(zod.object({
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})),
+  "rules": zod.object({
+  "calculationVersion": zod.string(),
+  "calculationSteps": zod.array(zod.string()),
+  "baseCurrency": zod.string(),
+  "salesTaxRate": zod.number(),
+  "licenseShare": zod.number(),
+  "serviceShare": zod.number(),
+  "salaryCoefficient": zod.number(),
+  "cessBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+})),
+  "incomeTaxBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+}))
+}),
+  "totals": zod.object({
+  "grossLicenses": zod.number(),
+  "grossServices": zod.number(),
+  "salesTax": zod.number(),
+  "licenseCosts": zod.number(),
+  "operatingExpenses": zod.number(),
+  "netLicenses": zod.number(),
+  "netServices": zod.number(),
+  "distributionBase": zod.number(),
+  "salaryAccrued": zod.number(),
+  "cess": zod.number(),
+  "incomeTax": zod.number(),
+  "netPayable": zod.number()
+})
+}),
+  "approvedBy": zod.string(),
+  "approvedAt": zod.coerce.date(),
+  "correctionReason": zod.string().nullable()
+})
+
+
+
+
+
+export const CorrectSettlementClosureParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const correctSettlementClosureBodyReasonMin = 5;
+export const correctSettlementClosureBodyReasonMax = 1000;
+
+
+
+export const CorrectSettlementClosureBody = zod.object({
+  "reason": zod.string().min(correctSettlementClosureBodyReasonMin).max(correctSettlementClosureBodyReasonMax)
+})
+
+export const CorrectSettlementClosureResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "version": zod.number().int(),
+  "supersedesId": zod.number().int().nullable(),
+  "snapshot": zod.object({
+  "invoices": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "balanceDue": zod.number(),
+  "paidOn": zod.coerce.date().nullable(),
+  "inclusionType": zod.enum(['paid_in_month', 'manual']),
+  "inclusionReason": zod.string().nullable(),
+  "lines": zod.array(zod.object({
+  "invoiceLineId": zod.number().int(),
+  "description": zod.string(),
+  "serviceCode": zod.string().nullable(),
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "salesType": zod.enum(['license', 'service']),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+}))
+})),
+  "expenses": zod.array(zod.object({
+  "id": zod.number().int(),
+  "expenseType": zod.enum(['license_cost', 'operating_expense']),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "voidedAt": zod.coerce.date().nullable(),
+  "voidedBy": zod.string().nullable(),
+  "voidReason": zod.string().nullable(),
+  "rateToCup": zod.number(),
+  "amountInCup": zod.number()
+})),
+  "exchangeRates": zod.array(zod.object({
+  "currency": zod.string(),
+  "rateToCup": zod.number(),
+  "updatedBy": zod.string(),
+  "updatedAt": zod.coerce.date()
+})),
+  "rules": zod.object({
+  "calculationVersion": zod.string(),
+  "calculationSteps": zod.array(zod.string()),
+  "baseCurrency": zod.string(),
+  "salesTaxRate": zod.number(),
+  "licenseShare": zod.number(),
+  "serviceShare": zod.number(),
+  "salaryCoefficient": zod.number(),
+  "cessBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+})),
+  "incomeTaxBrackets": zod.array(zod.object({
+  "limit": zod.number().nullable(),
+  "rate": zod.number()
+}))
+}),
+  "totals": zod.object({
+  "grossLicenses": zod.number(),
+  "grossServices": zod.number(),
+  "salesTax": zod.number(),
+  "licenseCosts": zod.number(),
+  "operatingExpenses": zod.number(),
+  "netLicenses": zod.number(),
+  "netServices": zod.number(),
+  "distributionBase": zod.number(),
+  "salaryAccrued": zod.number(),
+  "cess": zod.number(),
+  "incomeTax": zod.number(),
+  "netPayable": zod.number()
+})
+}),
+  "approvedBy": zod.string(),
+  "approvedAt": zod.coerce.date(),
+  "correctionReason": zod.string().nullable()
 })
 
 

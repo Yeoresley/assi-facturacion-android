@@ -48,6 +48,9 @@ import type {
   MonthlySettlement,
   SettlementClassification,
   SettlementClassificationInput,
+  SettlementClosure,
+  SettlementClosureCorrectionInput,
+  SettlementClosureInput,
   SettlementExchangeRate,
   SettlementExchangeRateInput,
   SettlementExpense,
@@ -983,6 +986,171 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateSettlementPaymentMutationOptions(options));
+    }
+
+export const getCreateSettlementClosureUrl = () => {
+
+
+
+
+  return `/api/settlements/closures`
+}
+
+export const createSettlementClosure = async (settlementClosureInput: SettlementClosureInput, options?: Parameters<typeof customFetch>[1]): Promise<SettlementClosure> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SettlementClosure>(getCreateSettlementClosureUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(settlementClosureInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSettlementClosureMutationKey = () => ['createSettlementClosure'] as const;
+
+export const getCreateSettlementClosureMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlementClosure>>, TError,CreateSettlementClosureMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSettlementClosure>>, TError,CreateSettlementClosureMutationVariables, TContext> => {
+
+const mutationKey = getCreateSettlementClosureMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSettlementClosure>>, CreateSettlementClosureMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSettlementClosure(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSettlementClosureMutationResult = NonNullable<Awaited<ReturnType<typeof createSettlementClosure>>>
+    export type CreateSettlementClosureMutationBody = BodyType<SettlementClosureInput>
+    export type CreateSettlementClosureMutationError = ErrorType<void>
+    export type CreateSettlementClosureMutationVariables = {data: BodyType<SettlementClosureInput>}
+
+    export const useCreateSettlementClosure = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlementClosure>>, TError,CreateSettlementClosureMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSettlementClosure>>,
+        TError,
+        CreateSettlementClosureMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSettlementClosureMutationOptions(options));
+    }
+
+export const getCorrectSettlementClosureUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/closures/${id}/corrections`
+}
+
+export const correctSettlementClosure = async (id: number,
+    settlementClosureCorrectionInput: SettlementClosureCorrectionInput, options?: Parameters<typeof customFetch>[1]): Promise<SettlementClosure> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SettlementClosure>(getCorrectSettlementClosureUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(settlementClosureCorrectionInput)
+  }
+);}
+
+
+
+
+
+export const getCorrectSettlementClosureMutationKey = () => ['correctSettlementClosure'] as const;
+
+export const getCorrectSettlementClosureMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctSettlementClosure>>, TError,CorrectSettlementClosureMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof correctSettlementClosure>>, TError,CorrectSettlementClosureMutationVariables, TContext> => {
+
+const mutationKey = getCorrectSettlementClosureMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof correctSettlementClosure>>, CorrectSettlementClosureMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  correctSettlementClosure(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CorrectSettlementClosureMutationResult = NonNullable<Awaited<ReturnType<typeof correctSettlementClosure>>>
+    export type CorrectSettlementClosureMutationBody = BodyType<SettlementClosureCorrectionInput>
+    export type CorrectSettlementClosureMutationError = ErrorType<void>
+    export type CorrectSettlementClosureMutationVariables = {id: number;data: BodyType<SettlementClosureCorrectionInput>}
+
+    export const useCorrectSettlementClosure = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctSettlementClosure>>, TError,CorrectSettlementClosureMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof correctSettlementClosure>>,
+        TError,
+        CorrectSettlementClosureMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCorrectSettlementClosureMutationOptions(options));
     }
 
 export const getGetIssuerUrl = () => {
