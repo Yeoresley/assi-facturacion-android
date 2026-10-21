@@ -509,6 +509,12 @@ export interface InvoicePaymentCorrectionResponse {
   paymentCorrections: InvoicePaymentCorrection[];
 }
 
+export interface InvoicePaymentCorrectionsDownload {
+  filename: string;
+  base64: string;
+  contentType: string;
+}
+
 export type InvoiceStatusInputStatus = typeof InvoiceStatusInputStatus[keyof typeof InvoiceStatusInputStatus];
 
 

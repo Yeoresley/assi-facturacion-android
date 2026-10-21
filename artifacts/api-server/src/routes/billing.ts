@@ -39,6 +39,8 @@ import {
   CorrectInvoicePaymentParams,
   CorrectInvoicePaymentBody,
   CorrectInvoicePaymentResponse,
+  DownloadInvoicePaymentCorrectionsParams,
+  DownloadInvoicePaymentCorrectionsResponse,
   UpdateTeamMemberAccessBody,
   UpdateTeamMemberAccessParams,
 } from "@workspace/api-zod";
@@ -46,6 +48,7 @@ import {
   customersTable,
   db,
   invoiceLinesTable,
+  invoicePaymentCorrectionsTable,
   invoiceSharesTable,
   invoicesTable,
   teamInvitationsTable,
@@ -502,6 +505,65 @@ router.post("/invoices/:id/payment-corrections", async (req, res): Promise<void>
     }
     throw error;
   }
+});
+
+router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = DownloadInvoicePaymentCorrectionsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [invoice] = await db.select({ id: invoicesTable.id, currency: invoicesTable.currency })
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, params.data.id))
+    .limit(1);
+  if (!invoice) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+
+  const corrections = await db.select().from(invoicePaymentCorrectionsTable)
+    .where(eq(invoicePaymentCorrectionsTable.invoiceId, invoice.id))
+    .orderBy(invoicePaymentCorrectionsTable.createdAt, invoicePaymentCorrectionsTable.id);
+  const csvEscape = (value: string | number | null): string => {
+    let text = value == null ? "" : String(value);
+    if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
+    return `"${text.replaceAll('"', '""')}"`;
+  };
+  const rows = [
+    [
+      "Abono",
+      "Autor",
+      "Fecha de corrección",
+      "Motivo",
+      `Importe antes (${invoice.currency})`,
+      `Importe después (${invoice.currency})`,
+      "Fecha antes",
+      "Fecha después",
+      `Total abonado antes (${invoice.currency})`,
+      `Total abonado después (${invoice.currency})`,
+    ],
+    ...corrections.map((correction) => [
+      correction.targetPaymentId ?? correction.reversedPaymentId ?? "Sin recibo original",
+      correction.correctedBy,
+      correction.createdAt.toISOString(),
+      correction.reason,
+      correction.beforePaymentAmount?.toFixed(2) ?? null,
+      correction.afterPaymentAmount?.toFixed(2) ?? null,
+      correction.beforePaidOn,
+      correction.afterPaidOn,
+      correction.beforeTotalPaid.toFixed(2),
+      correction.afterTotalPaid.toFixed(2),
+    ]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(csvEscape).join(",")).join("\r\n")}\r\n`;
+  res.json(DownloadInvoicePaymentCorrectionsResponse.parse({
+    filename: `correcciones-factura-${invoice.id}.csv`,
+    base64: Buffer.from(csv, "utf8").toString("base64"),
+    contentType: "text/csv; charset=utf-8",
+  }));
 });
 
 router.patch("/invoices/:id/status", async (req, res): Promise<void> => {

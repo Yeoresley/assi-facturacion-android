@@ -2,13 +2,14 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey,
-  getListInvoicesQueryKey, useCorrectInvoicePayment, useCreateInvoicePayment, useGetCurrentTeamMember,
+  downloadInvoicePaymentCorrections, getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey,
+  getGetInvoiceQueryKey, getListInvoicesQueryKey, useCorrectInvoicePayment, useCreateInvoicePayment,
+  useGetCurrentTeamMember,
 } from '@workspace/api-client-react';
 import type { Invoice } from '@workspace/api-client-react';
-import { HandCoins, ReceiptText, RotateCcw } from 'lucide-react';
+import { ArrowDownToLine, HandCoins, ReceiptText, RotateCcw } from 'lucide-react';
 import { Link } from 'wouter';
-import { date, errorDetail, money } from '@/lib/shared';
+import { date, downloadBase64File, errorDetail, money } from '@/lib/shared';
 
 type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt' | 'totalPaid' | 'balanceDue' | 'currency'>;
 const eligible = ['finished', 'accepted', 'confirmed', 'sent'];
@@ -295,8 +296,10 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
   </>;
 }
 
-export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false }: { invoice: Invoice; canGenerateReceipts?: boolean }) {
+export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, canExportCorrections = false }: { invoice: Invoice; canGenerateReceipts?: boolean; canExportCorrections?: boolean }) {
   const [period, setPeriod] = useState<'all' | '30' | '90'>('all');
+  const [exportError, setExportError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const corrections = invoice.paymentCorrections ?? [];
   const sortedPayments = useMemo(() => [...invoice.payments].sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.recordedAt.localeCompare(a.recordedAt)), [invoice.payments]);
   const cutoff = period === 'all' ? null : new Date(Date.now() - Number(period) * 86400000).toISOString().slice(0, 10);
@@ -339,7 +342,21 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false }: 
         })}
       </ul> : <div className="rounded-lg border border-dashed border-[#dedfd4] bg-[#fbfaf5] px-4 py-5 text-center text-[12px] text-[#7b8780]" data-testid="empty-payment-history">{invoice.payments.length ? 'No hay abonos en este período.' : 'Todavía no se han registrado abonos.'}</div>}
       {corrections.length > 0 && <section className="mt-5 border-t border-[#eeece4] pt-4" aria-labelledby="payment-corrections-title">
-        <div className="mb-2 flex items-center justify-between"><h3 id="payment-corrections-title" className="text-[12px] font-bold">Correcciones de pago</h3><span className="text-[10px] text-[#87918a]">{corrections.length}</span></div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><h3 id="payment-corrections-title" className="text-[12px] font-bold">Correcciones de pago</h3><span className="text-[10px] text-[#87918a]">{corrections.length}</span></div>
+          {canExportCorrections && <button type="button" className="button button-soft !min-h-8 !px-2.5 !text-[11px]" disabled={isExporting} data-testid="button-download-payment-corrections" onClick={async () => {
+            setExportError('');
+            setIsExporting(true);
+            try {
+              const result = await downloadInvoicePaymentCorrections(invoice.id);
+              downloadBase64File(result.base64, result.filename, result.contentType);
+            } catch (error) {
+              setExportError(errorDetail(error, 'No se pudo descargar el historial de correcciones.'));
+            } finally {
+              setIsExporting(false);
+            }
+          }}><ArrowDownToLine size={13} />{isExporting ? 'Preparando…' : 'Descargar CSV'}</button>}
+        </div>
+        {exportError && <p className="mb-2 text-[11px] text-[#9a3b2e]" role="alert">{exportError}</p>}
         <ul className="divide-y divide-[#eeece4]" data-testid="list-payment-corrections">
           {corrections.map((entry) => <li key={entry.id} className="py-3" data-testid={`row-payment-correction-${entry.id}`}>
             <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="text-[12px] font-semibold text-[#9a3b2e]">Pago corregido</div><p className="mt-1 text-[11px] leading-5 text-[#64756e]">{entry.reason}</p></div><div className="text-right text-[10px] text-[#87918a]">{new Date(entry.createdAt).toLocaleString('es-ES')}<div className="mt-1">Por {entry.correctedBy}</div></div></div>

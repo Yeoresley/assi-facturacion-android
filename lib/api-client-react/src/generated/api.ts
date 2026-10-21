@@ -33,6 +33,7 @@ import type {
   InvoiceInput,
   InvoicePaymentCorrectionInput,
   InvoicePaymentCorrectionResponse,
+  InvoicePaymentCorrectionsDownload,
   InvoicePaymentInput,
   InvoicePaymentResponse,
   InvoiceSeries,
@@ -2635,6 +2636,83 @@ export const useCorrectInvoicePayment = <TError = ErrorType<void>,
       > => {
       return useMutation(getCorrectInvoicePaymentMutationOptions(options));
     }
+
+export const getDownloadInvoicePaymentCorrectionsUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/payment-corrections/export`
+}
+
+/**
+ * @summary Download the payment correction history for one invoice
+ */
+export const downloadInvoicePaymentCorrections = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoicePaymentCorrectionsDownload> => {
+
+  return customFetch<InvoicePaymentCorrectionsDownload>(getDownloadInvoicePaymentCorrectionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadInvoicePaymentCorrectionsQueryKey = (id: number,) => {
+    return [
+    `/api/invoices/${id}/payment-corrections/export`
+    ] as const;
+    }
+
+
+export const getDownloadInvoicePaymentCorrectionsQueryOptions = <TData = Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadInvoicePaymentCorrectionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>> = ({ signal }) => downloadInvoicePaymentCorrections(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadInvoicePaymentCorrectionsQueryResult = NonNullable<Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>>
+export type DownloadInvoicePaymentCorrectionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the payment correction history for one invoice
+ */
+
+export function useDownloadInvoicePaymentCorrections<TData = Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadInvoicePaymentCorrections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadInvoicePaymentCorrectionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateInvoiceShareUrl = (id: number,) => {
 

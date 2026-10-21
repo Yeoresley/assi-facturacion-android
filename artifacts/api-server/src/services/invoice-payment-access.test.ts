@@ -18,6 +18,7 @@ import {
   invoiceLinesTable,
   invoiceNumberReservationsTable,
   invoicePaymentsTable,
+  invoicePaymentCorrectionsTable,
   invoicesTable,
   invoiceSharesTable,
   pool,
@@ -41,6 +42,7 @@ let commercialOneId: number;
 let commercialTwoId: number;
 let invoiceOneId: number;
 let invoiceTwoId: number;
+let invoiceOnePaymentId: number;
 const mutationInvoiceIds: number[] = [];
 const mutationCatalogIds: number[] = [];
 
@@ -143,11 +145,30 @@ before(async () => {
   ]).returning();
   invoiceOneId = invoiceOne.id;
   invoiceTwoId = invoiceTwo.id;
-  await db.insert(invoicePaymentsTable).values([
+  const paymentRows = await db.insert(invoicePaymentsTable).values([
     { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 10, currency: "CUP", paidOn: "2026-10-19", paidBy: ownerId },
     { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 25, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
     { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 80, currency: "CUP", paidOn: "2026-10-19", paidBy: ownerId },
     { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 20, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
+  ]).returning({ id: invoicePaymentsTable.id, invoiceId: invoicePaymentsTable.invoiceId });
+  const paymentOneId = paymentRows.find((payment) => payment.invoiceId === invoiceOneId)!.id;
+  invoiceOnePaymentId = paymentOneId;
+  const paymentTwoId = paymentRows.find((payment) => payment.invoiceId === invoiceTwoId)!.id;
+  await db.insert(invoicePaymentCorrectionsTable).values([
+    {
+      invoiceId: invoiceOneId, idempotencyKey: randomUUID(), reason: 'Motivo "solo factura uno"',
+      correctedBy: ownerId, targetPaymentId: paymentOneId, reversedPaymentId: null,
+      beforePaymentAmount: 10, afterPaymentAmount: 8, beforePaidOn: "2026-10-19", afterPaidOn: "2026-10-18",
+      beforeInvoiceStatus: "sent", afterInvoiceStatus: "accepted", beforePaymentStatus: "pending", afterPaymentStatus: "pending",
+      beforeTotalPaid: 35, afterTotalPaid: 33, originalPaidBy: ownerId, originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+    },
+    {
+      invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), reason: "OTRA_FACTURA_NO_EXPORTAR",
+      correctedBy: specialistTwoId, targetPaymentId: paymentTwoId, reversedPaymentId: null,
+      beforePaymentAmount: 80, afterPaymentAmount: 70, beforePaidOn: "2026-10-19", afterPaidOn: "2026-10-18",
+      beforeInvoiceStatus: "sent", afterInvoiceStatus: "accepted", beforePaymentStatus: "pending", afterPaymentStatus: "pending",
+      beforeTotalPaid: 100, afterTotalPaid: 90, originalPaidBy: ownerId, originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+    },
   ]);
 
   const app = express();
@@ -211,9 +232,32 @@ function assertPaymentSnapshot(
   assert.deepEqual(invoice.payments.map(({ amount }) => amount), expected.payments);
 }
 
+test("only the owner can download corrections for the requested invoice", async () => {
+  const specialistResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistOneId);
+  assert.equal(specialistResponse.status, 403);
+
+  const ownerResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, ownerId);
+  assert.equal(ownerResponse.status, 200);
+  const result = await ownerResponse.json() as { filename: string; base64: string; contentType: string };
+  assert.equal(result.filename, `correcciones-factura-${invoiceOneId}.csv`);
+  assert.equal(result.contentType, "text/csv; charset=utf-8");
+  const csv = Buffer.from(result.base64, "base64").toString("utf8");
+  assert.ok(csv.startsWith("\uFEFF"));
+  assert.ok(csv.includes("Importe antes (CUP)"));
+  assert.ok(csv.includes("Total abonado antes (CUP)"));
+  assert.ok(csv.includes(`"${invoiceOnePaymentId}"`));
+  assert.ok(csv.includes(JSON.stringify(ownerId)));
+  assert.ok(csv.includes('"Motivo ""solo factura uno"""'));
+  assert.ok(csv.includes('"10.00","8.00","2026-10-19","2026-10-18","35.00","33.00"'));
+  assert.ok(!csv.includes("OTRA_FACTURA_NO_EXPORTAR"));
+
+  const foreignInvoiceResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistTwoId);
+  assert.equal(foreignInvoiceResponse.status, 403);
+});
+
 test("specialists see only their commercial's invoice payments in lists, details and authorized public links", async () => {
-  const ownSummary = { id: invoiceOneId, totalPaid: 35, balanceDue: 65, payments: [10, 25] };
-  const otherSummary = { id: invoiceTwoId, totalPaid: 100, balanceDue: 100, payments: [80, 20] };
+  const ownSummary = { id: invoiceOneId, totalPaid: 33, balanceDue: 67, payments: [10, 25] };
+  const otherSummary = { id: invoiceTwoId, totalPaid: 90, balanceDue: 110, payments: [80, 20] };
 
   for (const [specialist, visible, hidden] of [
     [specialistOneId, ownSummary, otherSummary],
@@ -265,7 +309,7 @@ test("specialists see only their commercial's invoice payments in lists, details
   assert.ok(paymentResult.payments
     .filter(({ id }) => id !== referencedPayment.id)
     .every(({ reference: value }) => value === null));
-  const updatedOwnSummary = { id: invoiceOneId, totalPaid: 40, balanceDue: 60, payments: [10, 25, 5] };
+  const updatedOwnSummary = { id: invoiceOneId, totalPaid: 38, balanceDue: 62, payments: [10, 25, 5] };
 
   const createdResponse = await request(`/invoices/${invoiceOneId}/share`, specialistOneId, "POST");
   assert.equal(createdResponse.status, 200);

@@ -2690,6 +2690,20 @@ export const CorrectInvoicePaymentResponse = zod.object({
 
 
 /**
+ * @summary Download the payment correction history for one invoice
+ */
+export const DownloadInvoicePaymentCorrectionsParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DownloadInvoicePaymentCorrectionsResponse = zod.object({
+  "filename": zod.string(),
+  "base64": zod.string(),
+  "contentType": zod.string()
+})
+
+
+/**
  * @summary Create a public invoice link
  */
 export const CreateInvoiceShareParams = zod.object({

@@ -552,6 +552,26 @@ paths:
           description: Invoice not found
         "409":
           description: Payment is no longer correctable or the correction conflicts with current state
+  /invoices/{id}/payment-corrections/export:
+    get:
+      operationId: downloadInvoicePaymentCorrections
+      tags: [invoices]
+      summary: Download the payment correction history for one invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: CSV file containing only this invoice's payment correction events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePaymentCorrectionsDownload" }
+        "403":
+          description: Only the administrator may export payment corrections
+        "404":
+          description: Invoice not found
   /invoices/{id}/share:
     post:
       operationId: createInvoiceShare
@@ -1064,6 +1084,13 @@ components:
         paymentCorrections:
           type: array
           items: { $ref: "#/components/schemas/InvoicePaymentCorrection" }
+    InvoicePaymentCorrectionsDownload:
+      type: object
+      required: [filename, base64, contentType]
+      properties:
+        filename: { type: string }
+        base64: { type: string }
+        contentType: { type: string }
     InvoiceStatusInput:
       type: object
       required: [status]

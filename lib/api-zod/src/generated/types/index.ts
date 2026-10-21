@@ -28,6 +28,7 @@ export * from './invoicePaymentCorrectionBeforePaymentStatus';
 export * from './invoicePaymentCorrectionInput';
 export * from './invoicePaymentCorrectionResponse';
 export * from './invoicePaymentCorrectionResponsePaymentStatus';
+export * from './invoicePaymentCorrectionsDownload';
 export * from './invoicePaymentInput';
 export * from './invoicePaymentResponse';
 export * from './invoicePaymentResponsePaymentStatus';
