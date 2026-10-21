@@ -53,17 +53,14 @@ export const CreateInvoiceSeriesBody = zod.object({
 })
 
 export const CreateInvoiceSeriesResponse = zod.object({
-  "invoiceId": zod.number().int(),
-  "paymentStatus": zod.enum(['pending', 'paid']),
-  "totalPaid": zod.number(),
-  "balanceDue": zod.number(),
-  "payments": zod.array(zod.object({
   "id": zod.number().int(),
-  "amount": zod.number(),
-  "currency": zod.string(),
-  "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
-}))
+  "name": zod.string(),
+  "prefix": zod.string(),
+  "suffix": zod.string(),
+  "width": zod.number().int(),
+  "talon": zod.string(),
+  "nextNumber": zod.number().int(),
+  "active": zod.boolean()
 })
 
 

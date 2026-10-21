@@ -14,6 +14,7 @@ import type { WorkflowStatus } from "./invoice-status";
 import {
   correctInvoicePayment, recordInvoicePayment, paymentFilter, paymentStatus,
 } from "./invoice-payment";
+import { CreateInvoiceSeriesResponse } from "@workspace/api-zod";
 
 // Integration tests use only explicitly created synthetic fixtures, never business invoices.
 const tag = `TEST_${randomUUID().replaceAll("-", "").slice(0, 12)}_`;
@@ -65,6 +66,13 @@ async function series(options: Partial<typeof invoiceSeriesTable.$inferInsert> =
   seriesIds.push(row.id);
   return row;
 }
+test("created invoice series response matches the saved series contract", () => {
+  const saved = {
+    id: 1, name: "Facturas HAB 2026", prefix: "HAB-26-", suffix: "",
+    width: 3, talon: "5", nextNumber: 91, active: true,
+  };
+  assert.deepEqual(CreateInvoiceSeriesResponse.parse(saved), saved);
+});
 async function draft(seriesId: number | null, extra: Partial<typeof invoicesTable.$inferInsert> = {}) {
   const [row] = await db.insert(invoicesTable).values({
     number: tag + randomUUID(), customerId, specialistId: randomUUID(), specialistName: "Test specialist",

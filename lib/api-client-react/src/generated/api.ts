@@ -158,7 +158,7 @@ export const getCreateInvoiceSeriesUrl = () => {
   return `/api/billing/series`
 }
 
-export const createInvoiceSeries = async (invoiceSeriesInput: InvoiceSeriesInput, options?: Parameters<typeof customFetch>[1]): Promise<InvoicePaymentResponse | InvoiceSeries> => {
+export const createInvoiceSeries = async (invoiceSeriesInput: InvoiceSeriesInput, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceSeries> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -174,7 +174,7 @@ export const createInvoiceSeries = async (invoiceSeriesInput: InvoiceSeriesInput
     }
     return headers;
   };
-return customFetch<InvoicePaymentResponse | InvoiceSeries>(getCreateInvoiceSeriesUrl(),
+return customFetch<InvoiceSeries>(getCreateInvoiceSeriesUrl(),
   {
     ...options,
     method: 'POST',

@@ -36,11 +36,6 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/InvoiceSeriesInput" }
       responses:
-        "200":
-          description: A previous request with this idempotency key; no second payment was created
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/InvoicePaymentResponse" }
         "201":
           description: Serie confirmada por propietario.
           content:
