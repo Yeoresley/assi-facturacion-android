@@ -15,3 +15,4 @@
 - [Respuesta a vulnerabilidades de dependencias](dependency-security-response.md) — si no hay parche upstream, retirar la ruta vulnerable y validar también el grafo instalado.
 - [Secuencia web y Android](android-roadmap.md) — terminar y estabilizar la aplicación web antes de comenzar la APK para Android.
 - [Auditoría de catálogos](catalog-audit-history.md) — registrar actor y snapshots al cambiar; no inventar responsables para entradas anteriores al historial.
+- [Desfase del esquema de desarrollo](dev-schema-drift.md) — no asumir que las tablas declaradas en Drizzle ya existen en la base compartida de desarrollo.
