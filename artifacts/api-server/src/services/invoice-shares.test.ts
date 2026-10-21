@@ -35,6 +35,7 @@ let server: Server;
 let base: string;
 let customerId: number;
 let commercialId: number;
+let otherCommercialId: number;
 let invoiceId: number;
 let otherInvoiceId: number;
 let shareId: number;
@@ -56,6 +57,10 @@ before(async () => {
     kind: "commercial", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: tag, name: tag, exportValue: tag,
   }).returning();
   commercialId = commercial.id;
+  const [otherCommercial] = await db.insert(versatCatalogTable).values({
+    kind: "commercial", sourceId: -Math.floor(Math.random() * 1_000_000_000), code: `${tag}-other`, name: `${tag}-other`, exportValue: `${tag}-other`,
+  }).returning();
+  otherCommercialId = otherCommercial.id;
   await db.insert(teamInvitationsTable).values([
     { email: email(specialist), commercialId }, { email: email(other) }, { email: email(unassigned) },
   ]);
@@ -77,7 +82,10 @@ before(async () => {
   };
   const [invoice, foreign] = await db.insert(invoicesTable).values([
     { number: tag, customerId, specialistId: owner, specialistName: tag, issueDate: "2026-10-21", currency: "CUP", status: "sent", versat, legalDocument },
-    { number: `${tag}-foreign`, customerId, specialistId: specialist, specialistName: tag, issueDate: "2026-10-21", currency: "CUP" },
+    {
+      number: `${tag}-foreign`, customerId, specialistId: specialist, specialistName: tag, issueDate: "2026-10-21",
+      currency: "CUP", status: "sent", versat: { ...versat, commercialId: otherCommercialId }, legalDocument,
+    },
   ]).returning();
   invoiceId = invoice.id;
   otherInvoiceId = foreign.id;
@@ -124,6 +132,7 @@ after(async () => {
   await db.delete(teamInvitationsTable).where(inArray(teamInvitationsTable.email, identities.map(email)));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
   if (commercialId) await db.delete(versatCatalogTable).where(eq(versatCatalogTable.id, commercialId));
+  if (otherCommercialId) await db.delete(versatCatalogTable).where(eq(versatCatalogTable.id, otherCommercialId));
   await pool.end();
 });
 
@@ -150,6 +159,23 @@ test("public shares omit internal correction audit while team detail preserves i
   const listed = await request(list);
   assert.match(listed.headers.get("cache-control")!, /no-store/);
   assert.deepEqual(await listed.json(), [{ id: shareId, createdAt: null, expiresAt: (await db.select().from(invoiceSharesTable).where(eq(invoiceSharesTable.id, shareId)))[0].expiresAt.toISOString() }]);
+
+  assert.equal((await request(`/invoices/${invoiceId}`, specialist)).status, 200);
+  const foreignInvoice = await request(`/invoices/${otherInvoiceId}`, specialist);
+  assert.equal(foreignInvoice.status, 404);
+  const foreignInvoiceBody = await foreignInvoice.text();
+  assert.ok(!foreignInvoiceBody.includes(tag) && !foreignInvoiceBody.includes("/objects/legal/"));
+  const priorDownloads = downloads;
+  for (const kind of ["stamp", "signature"]) {
+    const ownImage = await request(`/invoices/${invoiceId}/images/${kind}`, specialist);
+    assert.equal(ownImage.status, 200);
+    assert.equal(await ownImage.text(), "synthetic-image");
+    const foreignImage = await request(`/invoices/${otherInvoiceId}/images/${kind}`, specialist);
+    assert.equal(foreignImage.status, 404);
+    const foreignBody = await foreignImage.text();
+    assert.ok(!foreignBody.includes(tag) && !foreignBody.includes("synthetic-image"));
+  }
+  assert.equal(downloads, priorDownloads + 2);
 
   const liveData = await request(`/shared-invoices/${token}`, "");
   assert.equal(liveData.status, 200);

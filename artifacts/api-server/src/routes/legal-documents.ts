@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 import { Router, type Response } from "express";
 import { db, invoicesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
 import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, UpdateIssuerBody } from "@workspace/api-zod";
@@ -69,9 +69,9 @@ router.put("/invoices/:id/legal-document", async (req, res) => {
   res.json(GetInvoiceResponse.parse(serializeInvoice((await getInvoiceRow(id))!)));
 });
 
-async function sendImage(id: number, kind: string, res: Response) {
+async function sendImage(id: number, kind: string, res: Response, scope?: SQL) {
   if (!["stamp", "signature"].includes(kind)) { res.sendStatus(404); return; }
-  const invoice = await getInvoiceRow(id);
+  const invoice = await getInvoiceRow(id, scope);
   // Drafts and cancellations never expose scans, even if an old share exists.
   const path = invoice?.legalDocument?.[kind === "stamp" ? "stampPath" : "signaturePath"];
   if (!invoice || !["sent", "paid"].includes(invoice.status) || !path) { res.sendStatus(404); return; }
@@ -87,8 +87,9 @@ async function sendImage(id: number, kind: string, res: Response) {
 router.get("/invoices/:id/images/:kind", async (req, res) => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
-  if (!await getInvoiceRow(Number(req.params.id), invoiceScope(member))) { res.sendStatus(404); return; }
-  await sendImage(Number(req.params.id), req.params.kind, res);
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) { res.sendStatus(404); return; }
+  await sendImage(id, req.params.kind, res, invoiceScope(member));
 });
 router.get("/shared-invoices/:token/images/:kind", async (req, res) => {
   res.set("Cache-Control", "private, no-store");
