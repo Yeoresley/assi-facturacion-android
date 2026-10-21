@@ -341,6 +341,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/InvoicePaymentInput" }
       responses:
+        "200":
+          description: A previous request with this idempotency key; no second payment was created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePaymentResponse" }
         "201":
           description: Payment recorded and invoice balance recalculated
           content:
@@ -352,6 +357,8 @@ paths:
           description: Invoice not found
         "409":
           description: Payment cannot be recorded in this lifecycle state
+        "422":
+          description: Invalid payment amount or payment date, or amount exceeds the outstanding balance
   /invoices/{id}/share:
     post:
       operationId: createInvoiceShare

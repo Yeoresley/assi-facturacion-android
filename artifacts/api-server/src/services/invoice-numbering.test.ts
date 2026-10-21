@@ -319,6 +319,7 @@ test("partial abonos preserve exact cents, date and balance; exact final balance
   assert.equal(retry.created, false);
   assert.equal(retry.totalPaid, 0.4);
   await assert.rejects(recordPayment(d.id, owner, 0.41, "2026-10-10", firstKey), /solicitud ya se usó/);
+  await assert.rejects(recordPayment(d.id, owner, -0.01), /importe debe ser positivo/);
   await assert.rejects(recordPayment(d.id, owner, 0.61), /supera el saldo/);
   await assert.rejects(recordPayment(d.id, owner, 0.001), /dos decimales/);
   await assert.rejects(recordPayment(d.id, owner, 0.1, "2026-02-30"), /fecha.*válida/);
@@ -357,6 +358,9 @@ test("pending-payment filter respects commercial scope and excludes unissued, vo
   const s = await series();
   const pending = await draft(s.id);
   await transitionInvoice(pending.id, "finished");
+  const partiallyPaid = await draft(s.id);
+  await transitionInvoice(partiallyPaid.id, "finished");
+  await recordPayment(partiallyPaid.id, { userId: "filter-owner", role: "owner" }, 0.4);
   const paid = await draft(s.id);
   await transitionInvoice(paid.id, "finished");
   await recordPayment(paid.id, { userId: "test-owner", role: "owner" });
@@ -368,13 +372,16 @@ test("pending-payment filter respects commercial scope and excludes unissued, vo
     status: "paid", versatNumber: `${tag}LEGACY`,
     versat: { ...snapshot, number: `${tag}LEGACY`, talon: "5" },
   });
-  const ids = [pending.id, paid.id, unissued.id, errored.id, cancelled.id, voided.id, oldPaid.id];
+  const ids = [pending.id, partiallyPaid.id, paid.id, unissued.id, errored.id, cancelled.id, voided.id, oldPaid.id];
   const rows = await db.select({ id: invoicesTable.id }).from(invoicesTable)
     .where(and(inArray(invoicesTable.id, ids), paymentFilter("pending"), invoiceScope(specialist)));
-  assert.deepEqual(rows.map(r => r.id), [pending.id]);
+  assert.deepEqual(rows.map(r => r.id).sort((a, b) => a - b), [pending.id, partiallyPaid.id].sort((a, b) => a - b));
   const other = await db.select({ id: invoicesTable.id }).from(invoicesTable)
     .where(and(inArray(invoicesTable.id, ids), paymentFilter("pending"), invoiceScope({ role: "specialist", commercialId: 2 })));
   assert.equal(other.length, 0);
+  const completed = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), paymentFilter("paid"), invoiceScope(specialist)));
+  assert.deepEqual(completed.map(r => r.id).sort((a, b) => a - b), [paid.id, oldPaid.id].sort((a, b) => a - b));
   assert.equal(paymentStatus(await stored(oldPaid.id)), "paid");
   await transitionInvoice(oldPaid.id, "accepted");
   const adopted = await stored(oldPaid.id);

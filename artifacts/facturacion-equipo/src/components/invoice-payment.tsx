@@ -9,7 +9,7 @@ import type { Invoice } from '@workspace/api-client-react';
 import { HandCoins, ReceiptText } from 'lucide-react';
 import { date, errorDetail, money } from '@/lib/shared';
 
-type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt'>;
+type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt' | 'totalPaid' | 'balanceDue' | 'currency'>;
 const eligible = ['finished', 'accepted', 'confirmed', 'sent'];
 const excluded = ['error', 'voided', 'cancelled'];
 
@@ -22,7 +22,11 @@ export function PaymentBadge({ invoice }: { invoice: PayInfo }) {
   if (invoice.status === 'draft') return <span className="status-pill status-draft" data-testid="badge-payment-none">No emitida</span>;
   if (excluded.includes(invoice.status)) return <span className="status-pill status-draft" data-testid="badge-payment-none">No aplica</span>;
   const paid = invoice.paymentStatus === 'paid';
-  return <span className={`status-pill ${paid ? 'status-paid' : 'status-sent'}`} title={paid && invoice.paidAt ? `Pagada el ${date(invoice.paidAt)}` : undefined} data-testid={`badge-payment-${invoice.paymentStatus}`}>{paid ? 'Pagada' : 'Pendiente de pago'}</span>;
+  const partial = !paid && invoice.totalPaid > 0;
+  const title = paid && invoice.paidAt
+    ? `Pagada el ${date(invoice.paidAt)}`
+    : partial ? `Abonos registrados · saldo restante ${money(invoice.balanceDue, invoice.currency)}` : undefined;
+  return <span className={`status-pill ${paid ? 'status-paid' : 'status-sent'}`} title={title} data-testid={`badge-payment-${partial ? 'partial' : invoice.paymentStatus}`}>{paid ? 'Pagada' : partial ? 'Pago parcial' : 'Pendiente de pago'}</span>;
 }
 
 export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
