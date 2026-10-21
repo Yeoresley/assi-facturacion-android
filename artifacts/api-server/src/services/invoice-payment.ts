@@ -33,7 +33,12 @@ export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paym
   const reversedPaymentIds = new Set(corrections.flatMap(({ reversedPaymentId }) =>
     reversedPaymentId === null ? [] : [reversedPaymentId]));
   const activePayments = payments.filter((payment) => !reversedPaymentIds.has(payment.id));
-  const recordedCents = activePayments.reduce((sum, payment) => sum + cents(payment.amount), 0);
+  const correctedPayments = new Map([...corrections].sort((a, b) => a.id - b.id).flatMap((correction) =>
+    correction.targetPaymentId === null ? [] : [[correction.targetPaymentId, correction] as const]));
+  const recordedCents = activePayments.reduce((sum, payment) => {
+    const correction = correctedPayments.get(payment.id);
+    return sum + cents(correction?.afterPaymentAmount ?? payment.amount);
+  }, 0);
   // Legacy records marked paid before the payment ledger existed remain settled, without a fake receipt.
   const totalPaidCents = invoice.status === "paid" || invoice.paymentStatus === "paid"
     ? cents(invoice.total)
@@ -67,7 +72,13 @@ export function paymentFilter(status: "pending" | "partial" | "paid") {
   if (status === "pending") return collectiblePending;
 
   const activePaymentSum = sql<number>`(
-    SELECT COALESCE(SUM(${invoicePaymentsTable.amount}), 0)
+    SELECT COALESCE(SUM(COALESCE((
+      SELECT correction.after_payment_amount
+      FROM invoice_payment_corrections AS correction
+      WHERE correction.target_payment_id = ${invoicePaymentsTable.id}
+      ORDER BY correction.id DESC
+      LIMIT 1
+    ), ${invoicePaymentsTable.amount})), 0)
     FROM ${invoicePaymentsTable}
     WHERE ${invoicePaymentsTable.invoiceId} = ${invoicesTable.id}
       AND NOT EXISTS (
@@ -116,7 +127,8 @@ export async function recordInvoicePayment(
       eq(invoicePaymentsTable.idempotencyKey, input.idempotencyKey),
     ));
     const corrections = await tx.select().from(invoicePaymentCorrectionsTable)
-      .where(eq(invoicePaymentCorrectionsTable.invoiceId, id));
+      .where(eq(invoicePaymentCorrectionsTable.invoiceId, id))
+      .orderBy(invoicePaymentCorrectionsTable.id);
     if (duplicate) {
       if (cents(duplicate.amount) !== amountCents || duplicate.paidOn !== input.paidOn) {
         throw new InvoicePaymentError("Esta solicitud ya se usó para otro abono.", 409);
@@ -159,7 +171,14 @@ export async function recordInvoicePayment(
 
 export async function correctInvoicePayment(
   id: number,
-  input: { reason: string; idempotencyKey: string; confirmed: boolean },
+  input: {
+    paymentId?: number;
+    amount?: number;
+    paidOn?: string;
+    reason: string;
+    idempotencyKey: string;
+    confirmed: boolean;
+  },
   actor: Pick<CurrentTeamMember, "role" | "userId">,
 ) {
   if (actor.role !== "owner") throw new InvoicePaymentError("Solo el administrador puede corregir un pago.", 403);
@@ -170,6 +189,20 @@ export async function correctInvoicePayment(
   if (input.confirmed !== true) throw new InvoicePaymentError("Confirma explícitamente la corrección.", 422);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.idempotencyKey)) {
     throw new InvoicePaymentError("La clave de corrección no es válida.", 422);
+  }
+  const hasAmount = input.amount !== undefined;
+  const hasPaidOn = input.paidOn !== undefined;
+  if ((input.paymentId === undefined && (hasAmount || hasPaidOn)) ||
+      (input.paymentId !== undefined && (!hasAmount || !hasPaidOn))) {
+    throw new InvoicePaymentError("Selecciona un abono e indica su importe y fecha corregidos.", 422);
+  }
+  const correctedAmountCents = input.amount === undefined ? null : cents(input.amount);
+  if (correctedAmountCents !== null &&
+      (!Number.isSafeInteger(correctedAmountCents) || correctedAmountCents < 0)) {
+    throw new InvoicePaymentError("El importe corregido debe ser igual o mayor que cero y tener como máximo dos decimales.", 422);
+  }
+  if (input.paidOn !== undefined && !validPaymentDate(input.paidOn)) {
+    throw new InvoicePaymentError("Indica una fecha de pago válida.", 422);
   }
 
   return db.transaction(async (tx) => {
@@ -183,52 +216,104 @@ export async function correctInvoicePayment(
     const entries = await tx.select().from(invoicePaymentsTable)
       .where(eq(invoicePaymentsTable.invoiceId, id));
     const corrections = await tx.select().from(invoicePaymentCorrectionsTable)
-      .where(eq(invoicePaymentCorrectionsTable.invoiceId, id));
+      .where(eq(invoicePaymentCorrectionsTable.invoiceId, id))
+      .orderBy(invoicePaymentCorrectionsTable.id);
     if (previousRequest) {
-      if (previousRequest.reason !== reason) {
+      if (previousRequest.reason !== reason ||
+          previousRequest.targetPaymentId !== (input.paymentId ?? null) ||
+          (input.paymentId !== undefined &&
+            (previousRequest.afterPaymentAmount !== input.amount || previousRequest.afterPaidOn !== input.paidOn))) {
         throw new InvoicePaymentError("Esta solicitud ya se usó para otra corrección.", 409);
       }
       return { ...summarizePayments(invoice, entries, corrections), created: false };
     }
 
-    if (paymentStatus(invoice) !== "paid") {
-      throw new InvoicePaymentError("La factura ya no figura pagada; actualiza la factura antes de corregirla.", 409);
-    }
     const before = summarizePayments(invoice, entries, corrections);
     const reversedPaymentIds = new Set(corrections.flatMap(({ reversedPaymentId }) =>
       reversedPaymentId === null ? [] : [reversedPaymentId]));
-    const reversedPayment = [...entries].reverse().find((payment) => !reversedPaymentIds.has(payment.id));
+    let beforePaymentAmount: number | null = null;
+    let beforePaidOn: string | null = null;
+    const targetedPayment = input.paymentId === undefined
+      ? undefined
+      : entries.find((payment) => payment.id === input.paymentId);
+    if (input.paymentId !== undefined && !targetedPayment) {
+      throw new InvoicePaymentError("El abono seleccionado no pertenece a esta factura.", 404);
+    }
+    if (targetedPayment) {
+      const alreadyReversed = corrections.some((correction) =>
+        correction.reversedPaymentId === targetedPayment.id);
+      if (alreadyReversed) throw new InvoicePaymentError("Este abono ya no está activo.", 409);
+      if (reversedPaymentIds.has(targetedPayment.id)) {
+        throw new InvoicePaymentError("Este abono ya no está activo.", 409);
+      }
+      const previousTargetCorrection = [...corrections].sort((a, b) => b.id - a.id)
+        .find((correction) => correction.targetPaymentId === targetedPayment.id);
+      beforePaymentAmount = previousTargetCorrection?.afterPaymentAmount ?? targetedPayment.amount;
+      beforePaidOn = previousTargetCorrection?.afterPaidOn ?? targetedPayment.paidOn;
+      const otherActiveCents = entries.reduce((sum, payment) => {
+        if (payment.id === targetedPayment.id || reversedPaymentIds.has(payment.id)) return sum;
+        const previousCorrection = [...corrections].sort((a, b) => b.id - a.id)
+          .find((correction) => correction.targetPaymentId === payment.id);
+        return sum + cents(previousCorrection?.afterPaymentAmount ?? payment.amount);
+      }, 0);
+      const totalCents = cents(invoice.total);
+      if (!Number.isSafeInteger(totalCents) || totalCents < 0 ||
+          otherActiveCents + correctedAmountCents! > totalCents) {
+        throw new InvoicePaymentError("El importe corregido supera el total de la factura.", 422);
+      }
+      if (correctedAmountCents === cents(beforePaymentAmount) && input.paidOn === beforePaidOn) {
+        throw new InvoicePaymentError("El abono ya tiene ese importe y esa fecha.", 422);
+      }
+    } else if (paymentStatus(invoice) !== "paid" || entries.length > 0) {
+      throw new InvoicePaymentError("Selecciona el abono concreto que quieres corregir.", 409);
+    }
+
     const afterInvoiceStatus = invoice.status === "paid"
       ? invoice.confirmedAt ? "confirmed" : invoice.acceptedAt ? "accepted" : "sent"
       : invoice.status;
-    const afterInvoice = { ...invoice, status: afterInvoiceStatus as Invoice["status"], paymentStatus: "pending" as const };
-    const afterEntries = reversedPayment
-      ? entries.filter((payment) => payment.id !== reversedPayment.id)
-      : entries;
-    const after = summarizePayments(afterInvoice, afterEntries, corrections);
+    const afterInvoice = {
+      ...invoice,
+      status: afterInvoiceStatus as Invoice["status"],
+      paymentStatus: "pending" as const,
+    };
     const [correction] = await tx.insert(invoicePaymentCorrectionsTable).values({
       invoiceId: id,
       idempotencyKey: input.idempotencyKey,
       reason,
       correctedBy: actor.userId,
-      reversedPaymentId: reversedPayment?.id ?? null,
+      targetPaymentId: targetedPayment?.id ?? null,
+      reversedPaymentId: null,
+      beforePaymentAmount,
+      afterPaymentAmount: correctedAmountCents === null ? null : correctedAmountCents / 100,
+      beforePaidOn,
+      afterPaidOn: input.paidOn ?? null,
       beforeInvoiceStatus: invoice.status,
       afterInvoiceStatus,
-      beforePaymentStatus: "paid",
+      beforePaymentStatus: paymentStatus(invoice),
       afterPaymentStatus: "pending",
       beforeTotalPaid: before.totalPaid,
-      afterTotalPaid: after.totalPaid,
-      originalPaidBy: invoice.paidBy,
-      originalPaidAt: invoice.paidAt,
+      afterTotalPaid: 0,
+      originalPaidBy: targetedPayment?.paidBy ?? invoice.paidBy,
+      originalPaidAt: targetedPayment?.recordedAt ?? invoice.paidAt,
     }).returning();
+    const after = summarizePayments(afterInvoice, entries, [...corrections, correction]);
+    await tx.update(invoicePaymentCorrectionsTable).set({
+      afterPaymentStatus: after.paymentStatus,
+      afterTotalPaid: after.totalPaid,
+    }).where(eq(invoicePaymentCorrectionsTable.id, correction.id));
+    const savedCorrection = { ...correction, afterPaymentStatus: after.paymentStatus, afterTotalPaid: after.totalPaid };
     await tx.update(invoicesTable).set({
       status: afterInvoiceStatus,
-      paymentStatus: "pending",
-      paidBy: null,
-      paidAt: null,
+      paymentStatus: after.paymentStatus,
+      paidBy: after.paymentStatus === "paid" ? invoice.paidBy ?? actor.userId : null,
+      paidAt: after.paymentStatus === "paid" ? invoice.paidAt ?? new Date() : null,
     }).where(eq(invoicesTable.id, id));
     return {
-      ...summarizePayments(afterInvoice, entries, [...corrections, correction]),
+      ...summarizePayments(
+        { ...afterInvoice, paymentStatus: after.paymentStatus },
+        entries,
+        [...corrections, savedCorrection],
+      ),
       created: true,
     };
   });

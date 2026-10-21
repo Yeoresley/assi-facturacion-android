@@ -460,7 +460,7 @@ paths:
     post:
       operationId: correctInvoicePayment
       tags: [invoices]
-      summary: Administrator reverses an erroneous full-payment mark without deleting its evidence
+      summary: Administrator corrects one invoice payment without changing its original receipt
       parameters:
         - in: path
           name: id
@@ -489,7 +489,7 @@ paths:
         "404":
           description: Invoice not found
         "409":
-          description: Invoice is not currently fully paid or the correction conflicts with current state
+          description: Payment is no longer correctable or the correction conflicts with current state
   /invoices/{id}/share:
     post:
       operationId: createInvoiceShare
@@ -902,6 +902,9 @@ components:
       type: object
       required: [reason, idempotencyKey, confirmed]
       properties:
+        paymentId: { type: integer, minimum: 1 }
+        amount: { type: number, minimum: 0, maximum: 999999999999.99, multipleOf: 0.01 }
+        paidOn: { type: string, format: date }
         reason: { type: string, minLength: 5, maxLength: 1000 }
         idempotencyKey: { type: string, format: uuid }
         confirmed: { type: boolean, enum: [true] }
@@ -916,13 +919,18 @@ components:
         recordedAt: { type: string, format: date-time }
     InvoicePaymentCorrection:
       type: object
-      required: [id, reason, correctedBy, createdAt, reversedPaymentId, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]
+      required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]
       properties:
         id: { type: integer }
         reason: { type: string }
         correctedBy: { type: string }
         createdAt: { type: string, format: date-time }
+        targetPaymentId: { type: ["integer", "null"] }
         reversedPaymentId: { type: ["integer", "null"] }
+        beforePaymentAmount: { type: ["number", "null"] }
+        afterPaymentAmount: { type: ["number", "null"] }
+        beforePaidOn: { type: ["string", "null"], format: date }
+        afterPaidOn: { type: ["string", "null"], format: date }
         beforeInvoiceStatus: { type: string }
         afterInvoiceStatus: { type: string }
         beforePaymentStatus: { type: string, enum: [pending, paid] }

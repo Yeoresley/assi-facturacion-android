@@ -26,8 +26,14 @@ export const invoicePaymentCorrectionsTable = pgTable("invoice_payment_correctio
   reason: text("reason").notNull(),
   correctedBy: text("corrected_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  targetPaymentId: integer("target_payment_id")
+    .references(() => invoicePaymentsTable.id),
   reversedPaymentId: integer("reversed_payment_id")
     .references(() => invoicePaymentsTable.id),
+  beforePaymentAmount: numeric("before_payment_amount", { precision: 14, scale: 2, mode: "number" }),
+  afterPaymentAmount: numeric("after_payment_amount", { precision: 14, scale: 2, mode: "number" }),
+  beforePaidOn: date("before_paid_on", { mode: "string" }),
+  afterPaidOn: date("after_paid_on", { mode: "string" }),
   beforeInvoiceStatus: text("before_invoice_status").notNull(),
   afterInvoiceStatus: text("after_invoice_status").notNull(),
   beforePaymentStatus: text("before_payment_status").notNull(),

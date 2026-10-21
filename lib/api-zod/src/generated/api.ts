@@ -620,7 +620,12 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -847,7 +852,12 @@ export const GetBillingOverviewResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -1147,7 +1157,12 @@ export const ListInvoicesResponseItem = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -1388,7 +1403,12 @@ export const CreateInvoiceResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -1575,7 +1595,12 @@ export const GetInvoiceResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -1819,7 +1844,12 @@ export const UpdateInvoiceResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -2010,7 +2040,12 @@ export const UpdateInvoiceStatusResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -2131,11 +2166,16 @@ export const CreateInvoicePaymentResponse = zod.object({
 
 
 /**
- * @summary Administrator reverses an erroneous full-payment mark without deleting its evidence
+ * @summary Administrator corrects one invoice payment without changing its original receipt
  */
 export const CorrectInvoicePaymentParams = zod.object({
   "id": zod.coerce.number().int()
 })
+
+
+export const correctInvoicePaymentBodyAmountMin = 0;
+export const correctInvoicePaymentBodyAmountMax = 999999999999.99;
+export const correctInvoicePaymentBodyAmountMultipleOf = 0.01;
 
 export const correctInvoicePaymentBodyReasonMin = 5;
 export const correctInvoicePaymentBodyReasonMax = 1000;
@@ -2143,6 +2183,9 @@ export const correctInvoicePaymentBodyReasonMax = 1000;
 
 
 export const CorrectInvoicePaymentBody = zod.object({
+  "paymentId": zod.number().int().min(1).optional(),
+  "amount": zod.number().min(correctInvoicePaymentBodyAmountMin).max(correctInvoicePaymentBodyAmountMax).multipleOf(correctInvoicePaymentBodyAmountMultipleOf).optional(),
+  "paidOn": zod.coerce.date().optional(),
   "reason": zod.string().min(correctInvoicePaymentBodyReasonMin).max(correctInvoicePaymentBodyReasonMax),
   "idempotencyKey": zod.string().uuid(),
   "confirmed": zod.literal(true)
@@ -2165,7 +2208,12 @@ export const CorrectInvoicePaymentResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),
@@ -2326,7 +2374,12 @@ export const GetSharedInvoiceResponse = zod.object({
   "reason": zod.string(),
   "correctedBy": zod.string(),
   "createdAt": zod.coerce.date(),
+  "targetPaymentId": zod.number().int().nullable(),
   "reversedPaymentId": zod.number().int().nullable(),
+  "beforePaymentAmount": zod.number().nullable(),
+  "afterPaymentAmount": zod.number().nullable(),
+  "beforePaidOn": zod.coerce.date().nullable(),
+  "afterPaidOn": zod.coerce.date().nullable(),
   "beforeInvoiceStatus": zod.string(),
   "afterInvoiceStatus": zod.string(),
   "beforePaymentStatus": zod.enum(['pending', 'paid']),

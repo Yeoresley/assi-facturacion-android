@@ -52,7 +52,19 @@ function isDuplicate(error: unknown): boolean {
 function settlementPaidOn(invoice: Awaited<ReturnType<typeof getInvoiceRows>>[number]): string | null {
   const reversed = invoice.paymentCorrections.flatMap(({ reversedPaymentId }) =>
     reversedPaymentId === null ? [] : [reversedPaymentId]);
-  return settlementPaymentCompletionDate(invoice.total, invoice.payments, reversed);
+  const correctedPayments = new Map(invoice.paymentCorrections
+    .filter((correction) => correction.targetPaymentId !== null)
+    .sort((a, b) => a.id - b.id)
+    .map((correction) => [correction.targetPaymentId!, correction]));
+  const effectivePayments = invoice.payments.map((payment) => {
+    const correction = correctedPayments.get(payment.id);
+    return {
+      ...payment,
+      amount: correction?.afterPaymentAmount ?? payment.amount,
+      paidOn: correction?.afterPaidOn ?? payment.paidOn,
+    };
+  });
+  return settlementPaymentCompletionDate(invoice.total, effectivePayments, reversed);
 }
 
 function serializedExpense(expense: typeof settlementExpensesTable.$inferSelect) {

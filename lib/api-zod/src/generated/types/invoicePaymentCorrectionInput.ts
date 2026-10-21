@@ -7,6 +7,14 @@
  */
 
 export interface InvoicePaymentCorrectionInput {
+  /** @minimum 1 */
+  paymentId?: number;
+  /**
+     * @minimum 0
+     * @maximum 999999999999.99
+     */
+  amount?: number;
+  paidOn?: Date;
   /**
      * @minLength 5
      * @maxLength 1000

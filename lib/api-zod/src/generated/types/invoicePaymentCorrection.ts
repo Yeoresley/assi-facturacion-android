@@ -14,7 +14,17 @@ export interface InvoicePaymentCorrection {
   correctedBy: string;
   createdAt: Date;
   /** @nullable */
+  targetPaymentId: number | null;
+  /** @nullable */
   reversedPaymentId: number | null;
+  /** @nullable */
+  beforePaymentAmount: number | null;
+  /** @nullable */
+  afterPaymentAmount: number | null;
+  /** @nullable */
+  beforePaidOn: Date | null;
+  /** @nullable */
+  afterPaidOn: Date | null;
   beforeInvoiceStatus: string;
   afterInvoiceStatus: string;
   beforePaymentStatus: InvoicePaymentCorrectionBeforePaymentStatus;

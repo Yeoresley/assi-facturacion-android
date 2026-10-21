@@ -466,7 +466,10 @@ router.post("/invoices/:id/payment-corrections", async (req, res): Promise<void>
     return;
   }
   try {
-    const result = await correctInvoicePayment(params.data.id, body.data, owner);
+    const result = await correctInvoicePayment(params.data.id, {
+      ...body.data,
+      paidOn: body.data.paidOn === undefined ? undefined : toDateOnly(body.data.paidOn),
+    }, owner);
     res.status(result.created ? 201 : 200).json(CorrectInvoicePaymentResponse.parse({
       invoiceId: params.data.id,
       paymentStatus: result.paymentStatus,

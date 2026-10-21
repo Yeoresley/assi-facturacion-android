@@ -2301,7 +2301,7 @@ export const getCorrectInvoicePaymentUrl = (id: number,) => {
 }
 
 /**
- * @summary Administrator reverses an erroneous full-payment mark without deleting its evidence
+ * @summary Administrator corrects one invoice payment without changing its original receipt
  */
 export const correctInvoicePayment = async (id: number,
     invoicePaymentCorrectionInput: InvoicePaymentCorrectionInput, options?: Parameters<typeof customFetch>[1]): Promise<InvoicePaymentCorrectionResponse> => {
@@ -2368,7 +2368,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CorrectInvoicePaymentMutationVariables = {id: number;data: BodyType<InvoicePaymentCorrectionInput>}
 
     /**
- * @summary Administrator reverses an erroneous full-payment mark without deleting its evidence
+ * @summary Administrator corrects one invoice payment without changing its original receipt
  */
 export const useCorrectInvoicePayment = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctInvoicePayment>>, TError,CorrectInvoicePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

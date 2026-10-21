@@ -306,7 +306,17 @@ export interface InvoicePaymentCorrection {
   correctedBy: string;
   createdAt: string;
   /** @nullable */
+  targetPaymentId: number | null;
+  /** @nullable */
   reversedPaymentId: number | null;
+  /** @nullable */
+  beforePaymentAmount: number | null;
+  /** @nullable */
+  afterPaymentAmount: number | null;
+  /** @nullable */
+  beforePaidOn: string | null;
+  /** @nullable */
+  afterPaidOn: string | null;
   beforeInvoiceStatus: string;
   afterInvoiceStatus: string;
   beforePaymentStatus: InvoicePaymentCorrectionBeforePaymentStatus;
@@ -442,6 +452,14 @@ export interface InvoicePaymentInput {
 }
 
 export interface InvoicePaymentCorrectionInput {
+  /** @minimum 1 */
+  paymentId?: number;
+  /**
+     * @minimum 0
+     * @maximum 999999999999.99
+     */
+  amount?: number;
+  paidOn?: string;
   /**
      * @minLength 5
      * @maxLength 1000

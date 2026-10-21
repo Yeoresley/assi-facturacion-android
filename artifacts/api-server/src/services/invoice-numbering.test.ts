@@ -364,28 +364,35 @@ test("concurrent different abonos lock the invoice and cannot overpay its remain
   assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 1);
 });
 
-test("administrator correction is append-only, idempotent under concurrency, and reverses only the final payment", async () => {
+test("administrator correction edits one selected partial payment without changing either receipt", async () => {
   const d = await draft(await series().then((row) => row.id));
   await transitionInvoice(d.id, "finished");
   const owner = { userId: "payment-correction-owner", role: "owner" as const };
   await recordPayment(d.id, owner, 0.4, "2026-10-10");
   await recordPayment(d.id, owner, 0.6, "2026-10-11");
+  const receipts = await db.select().from(invoicePaymentsTable)
+    .where(eq(invoicePaymentsTable.invoiceId, d.id)).orderBy(asc(invoicePaymentsTable.id));
   await transitionInvoice(d.id, "accepted");
   const before = await stored(d.id);
   const key = randomUUID();
   const corrections = await Promise.all(Array.from({ length: 4 }, () => correctInvoicePayment(d.id, {
-    reason: "Pago duplicado por error", confirmed: true, idempotencyKey: key,
+    paymentId: receipts[0].id,
+    amount: 0.25,
+    paidOn: "2026-10-09",
+    reason: "Importe registrado por error",
+    confirmed: true,
+    idempotencyKey: key,
   }, owner)));
   const saved = await stored(d.id);
-  const receipts = await db.select().from(invoicePaymentsTable)
-    .where(eq(invoicePaymentsTable.invoiceId, d.id)).orderBy(asc(invoicePaymentsTable.id));
   const audit = await db.select().from(invoicePaymentCorrectionsTable)
     .where(eq(invoicePaymentCorrectionsTable.invoiceId, d.id));
   assert.equal(corrections.filter((result) => result.created).length, 1);
   assert.equal(corrections[0].paymentStatus, "pending");
-  assert.equal(corrections[0].totalPaid, 0.4);
-  assert.equal(corrections[0].balanceDue, 0.6);
+  assert.equal(corrections[0].totalPaid, 0.85);
+  assert.equal(corrections[0].balanceDue, 0.15);
   assert.equal(corrections[0].payments.length, 2);
+  assert.equal((await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(eq(invoicesTable.id, d.id), paymentFilter("partial")))).length, 1);
   assert.equal(saved.paymentStatus, "pending");
   assert.equal(saved.status, "accepted");
   assert.equal(saved.acceptedBy, before.acceptedBy);
@@ -394,14 +401,54 @@ test("administrator correction is append-only, idempotent under concurrency, and
   assert.equal(saved.paidBy, null);
   assert.equal(saved.paidAt, null);
   assert.equal(receipts.length, 2);
+  assert.equal(receipts[0].amount, 0.4);
+  assert.equal(receipts[0].paidOn, "2026-10-10");
+  assert.equal(receipts[1].amount, 0.6);
+  assert.equal(receipts[1].paidOn, "2026-10-11");
   assert.equal(audit.length, 1);
-  assert.equal(audit[0].reason, "Pago duplicado por error");
+  assert.equal(audit[0].reason, "Importe registrado por error");
   assert.equal(audit[0].correctedBy, owner.userId);
-  assert.equal(audit[0].reversedPaymentId, receipts[1].id);
+  assert.equal(audit[0].targetPaymentId, receipts[0].id);
+  assert.equal(audit[0].reversedPaymentId, null);
+  assert.equal(audit[0].beforePaymentAmount, 0.4);
+  assert.equal(audit[0].afterPaymentAmount, 0.25);
+  assert.equal(audit[0].beforePaidOn, "2026-10-10");
+  assert.equal(audit[0].afterPaidOn, "2026-10-09");
   assert.equal(audit[0].beforeTotalPaid, 1);
-  assert.equal(audit[0].afterTotalPaid, 0.4);
+  assert.equal(audit[0].afterTotalPaid, 0.85);
   assert.equal(audit[0].beforeInvoiceStatus, "accepted");
   assert.equal(audit[0].afterPaymentStatus, "pending");
+  const revised = await correctInvoicePayment(d.id, {
+    paymentId: receipts[0].id,
+    amount: 0.3,
+    paidOn: "2026-10-12",
+    reason: "Ajuste de fecha y monto",
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+  }, owner);
+  assert.equal(revised.totalPaid, 0.9);
+  assert.equal(revised.paymentCorrections.length, 2);
+  assert.equal(revised.paymentCorrections[1].beforePaymentAmount, 0.25);
+  assert.equal(revised.paymentCorrections[1].beforePaidOn, "2026-10-09");
+  const paidAgain = await correctInvoicePayment(d.id, {
+    paymentId: receipts[0].id,
+    amount: 0.4,
+    paidOn: "2026-10-13",
+    reason: "Restaurar importe correcto",
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+  }, owner);
+  assert.equal(paidAgain.paymentStatus, "paid");
+  assert.equal(paidAgain.totalPaid, 1);
+  assert.equal((await stored(d.id)).paidBy, owner.userId);
+  await assert.rejects(correctInvoicePayment(d.id, {
+    paymentId: receipts[1].id,
+    amount: 0.71,
+    paidOn: "2026-10-11",
+    reason: "Sobrepasa el total",
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+  }, owner), /supera el total/);
   await assert.rejects(correctInvoicePayment(d.id, {
     reason: "Motivo distinto para la misma clave", confirmed: true, idempotencyKey: key,
   }, owner), /solicitud ya se usó/);
@@ -411,6 +458,14 @@ test("administrator correction is append-only, idempotent under concurrency, and
   await assert.rejects(correctInvoicePayment(d.id, {
     reason: "No confirmado", confirmed: false, idempotencyKey: randomUUID(),
   }, owner), /Confirma explícitamente/);
+  await assert.rejects(correctInvoicePayment(d.id, {
+    paymentId: receipts[1].id,
+    amount: 0.6,
+    paidOn: "2026-10-11",
+    reason: "No confirmó selección",
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+  }, owner), /ya tiene ese importe/);
 });
 
 test("correcting a historical paid status reopens it without inventing a receipt or acceptance", async () => {
