@@ -33,6 +33,8 @@ import {
   MarkInvoicePaidParams,
   MarkInvoicePaidBody,
   MarkInvoicePaidResponse,
+  UpdateTeamMemberAccessBody,
+  UpdateTeamMemberAccessParams,
 } from "@workspace/api-zod";
 import {
   customersTable,
@@ -43,7 +45,7 @@ import {
   teamInvitationsTable,
   teamMembersTable,
 } from "@workspace/db";
-import { resolveTeamMember, requireOwner } from "../middlewares/team-access";
+import { resolveTeamMember, requireOwner, setTeamMemberSuspension, TeamAccessError } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
 import { prepareInvoice } from "../services/prepare-invoice";
 import { canAccessInvoice, invoiceScope } from "../services/invoice-access";
@@ -537,6 +539,7 @@ router.get("/team/members", async (req, res): Promise<void> => {
         name: invite.email,
         email: invite.email,
         role: "pending" as const,
+        suspended: invite.suspended,
         createdAt: invite.createdAt,
       })),
   ].map((item) => ({
@@ -544,6 +547,8 @@ router.get("/team/members", async (req, res): Promise<void> => {
     name: item.name,
     email: item.email,
     role: item.role,
+    suspended: item.suspended || invites.some(invite => invite.email === item.email && invite.suspended)
+      || members.some(member => item.email !== null && member.email === item.email && member.suspended),
     commercialId: invites.find(invite => invite.email === item.email)?.commercialId ?? null,
   }));
   res.json(ListTeamMembersResponse.parse(combined));
@@ -582,6 +587,23 @@ router.post("/team/invitations", async (req, res): Promise<void> => {
     commercialId: invitation.commercialId,
     createdAt: invitation.createdAt.toISOString(),
   });
+});
+
+router.patch("/team/members/:userId/access", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = UpdateTeamMemberAccessParams.safeParse(req.params);
+  const body = UpdateTeamMemberAccessBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Indica el acceso y su estado de suspensión." }); return;
+  }
+  try {
+    await setTeamMemberSuspension(owner, params.data.userId, body.data.suspended);
+    res.status(204).end();
+  } catch (error) {
+    if (!(error instanceof TeamAccessError)) throw error;
+    res.status(error.status).json({ error: error.message });
+  }
 });
 
 export default router;

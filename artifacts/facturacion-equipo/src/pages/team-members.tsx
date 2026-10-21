@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetCurrentTeamMemberQueryKey, getGetVersatCatalogsQueryKey, getListTeamMembersQueryKey,
   useGetCurrentTeamMember, useGetVersatCatalogs, useInviteTeamMember, useListTeamMembers,
+  useUpdateTeamMemberAccess, type TeamMember,
 } from '@workspace/api-client-react';
 import { ArrowLeft, ArrowRight, Pencil, ShieldAlert } from 'lucide-react';
 import { Link } from 'wouter';
@@ -23,6 +24,7 @@ function OwnerTeam() {
   const team = useListTeamMembers({ query: { queryKey: getListTeamMembersQueryKey(), retry: false } });
   const catalogs = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
   const invite = useInviteTeamMember();
+  const access = useUpdateTeamMemberAccess();
   const client = useQueryClient();
   const [email, setEmail] = useState('');
   const [commercial, setCommercial] = useState('');
@@ -31,6 +33,20 @@ function OwnerTeam() {
   const commercials = (catalogs.data?.entries ?? []).filter((e) => e.kind === 'commercial');
   const byId = new Map(commercials.map((c) => [c.id, c]));
   const selected = commercial ? byId.get(Number(commercial)) : undefined;
+  const [confirmation, setConfirmation] = useState<TeamMember | null>(null);
+
+  function changeAccess(member: TeamMember) {
+    setNotice('');
+    setError('');
+    access.mutate({ userId: encodeURIComponent(member.userId), data: { suspended: !member.suspended } }, {
+      onSuccess: () => {
+        setConfirmation(null);
+        setNotice(member.suspended ? `Acceso reactivado para ${member.name}. Se conserva su comercial.` : `Acceso suspendido para ${member.name}. Sus facturas e historial se conservan.`);
+        client.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
+      },
+      onError: (err) => setError(errorDetail(err, 'No se pudo cambiar el acceso. Inténtalo de nuevo.')),
+    });
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -44,6 +60,7 @@ function OwnerTeam() {
         setNotice(result.commercialId == null
           ? `Acceso guardado para ${result.email} sin comercial: no verá facturas hasta que se le asigne uno.`
           : `Asignación guardada para ${result.email}. Se aplica al iniciar sesión con esa dirección verificada.`);
+        setNotice((text) => `${text} Si el acceso estaba suspendido, continúa suspendido hasta que lo reactives expresamente.`);
         client.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
       },
       onError: (err) => setError(`No se pudo guardar la asignación. ${errorDetail(err, 'Revisa el email e inténtalo de nuevo.')}`),
@@ -62,6 +79,12 @@ function OwnerTeam() {
   return <div className="fade-in mx-auto max-w-[1000px]">
     <Link href="/settings" className="mb-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />Volver a ajustes</Link>
     <PageHeading eyebrow="Acceso compartido" title="Equipo y permisos" description="Cada especialista ve y prepara las facturas de su comercial. Quienes comparten comercial comparten facturas." />
+    <p className="mb-5 text-[12px] leading-5 text-[#71817b]">Quitar el comercial solo impide acceder a facturas; no bloquea clientes ni catálogos. Suspender bloquea todo el acceso privado sin borrar facturas ni cambiar el comercial histórico. Los enlaces públicos existentes se gestionan por separado y siguen disponibles hasta su caducidad.</p>
+    {confirmation && <section className="panel mb-5 p-5" role="alertdialog" aria-modal="false" aria-labelledby="access-confirm-title">
+      <h2 id="access-confirm-title" className="font-bold">{confirmation.suspended ? '¿Reactivar' : '¿Suspender'} el acceso de {confirmation.name}?</h2>
+      <p className="mt-2 text-[12px] leading-5">{confirmation.suspended ? 'Volverá a tener acceso según su rol y comercial actuales.' : 'No podrá consultar ni modificar datos privados. Su sesión abierta retirará los datos en la siguiente comprobación (hasta 30 segundos).'} No se borrarán facturas ni historial. Los enlaces públicos no cambian.</p>
+      <div className="mt-4 flex gap-3"><button className="button button-primary" disabled={access.isPending} onClick={() => changeAccess(confirmation)} data-testid="button-confirm-access">{access.isPending ? 'Guardando…' : confirmation.suspended ? 'Confirmar reactivación' : 'Confirmar suspensión'}</button><button className="button button-plain" disabled={access.isPending} onClick={() => setConfirmation(null)}>Cancelar</button></div>
+    </section>}
     <section className="panel mb-5 p-5 md:p-6"><div className="mb-4"><div className="eyebrow">Asignación</div><h2 className="font-display mt-1 text-lg font-bold">Conceder o cambiar acceso</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Usa el email verificado de Clerk. Si la persona ya existe, se actualiza su comercial.</p></div>
       <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={submit}>
         <label><span className="field-label">Email del especialista</span><input className="field" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="especialista@equipo.com" data-testid="input-team-email" /></label>
@@ -79,9 +102,9 @@ function OwnerTeam() {
       {team.isLoading ? <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12" />)}</div> : team.isError ? <div className="p-5"><QueryError retry={() => team.refetch()} message="No pudimos cargar los accesos del equipo." /></div> : !team.data?.length ? <EmptyState title="Aún no hay accesos visibles" text="Las personas autorizadas aparecerán aquí cuando las añadas." /> :
         <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr className="eyebrow text-left"><th className="px-5 py-3 font-medium">Miembro</th><th className="px-4 py-3 font-medium">Rol</th><th className="px-4 py-3 font-medium">Comercial</th><th className="px-5 py-3 text-right font-medium">Acción</th></tr></thead><tbody>{team.data.map((m, i) => <tr key={`${m.userId}-${m.email || i}`} className="table-row" data-testid={`row-team-member-${m.userId}`}>
           <td className="px-5 py-4"><div className="text-[13px] font-semibold">{m.name || 'Sin nombre'}</div><div className="text-[11px] text-[#78857f]">{m.email || 'Sin correo'}</div></td>
-          <td className="px-4 py-4 text-[12px]">{roleLabel(m.role)}</td>
+          <td className="px-4 py-4 text-[12px]">{roleLabel(m.role)}<div className={m.suspended ? 'font-bold text-[#a04539]' : 'text-[#71817b]'}>{m.suspended ? 'Suspendido' : m.role === 'pending' ? 'Pendiente de inicio' : 'Activo'}</div></td>
           <td className="px-4 py-4 text-[12px]">{m.role === 'owner' ? <span className="text-[#71817b]">Todas las facturas</span> : name(m.commercialId) ?? <span className="font-semibold text-[#9a742e]">Sin asignar</span>}</td>
-          <td className="px-5 py-4 text-right">{m.role !== 'owner' && m.email && <button className="button button-plain !min-h-8 !px-3 text-[11px]" onClick={() => edit(m.email, m.commercialId)} data-testid={`button-edit-member-${m.userId}`}><Pencil size={13} />Editar</button>}</td>
+          <td className="px-5 py-4 text-right">{m.role !== 'owner' && <div className="flex justify-end gap-2">{m.email && <button className="button button-plain !min-h-8 !px-3 text-[11px]" onClick={() => edit(m.email, m.commercialId)} data-testid={`button-edit-member-${m.userId}`}><Pencil size={13} />Editar</button>}<button className="button button-plain !min-h-8 !px-3 text-[11px]" disabled={access.isPending} onClick={() => { setConfirmation(m); setError(''); }} data-testid={`button-access-member-${m.userId}`}>{m.suspended ? 'Reactivar' : 'Suspender'}</button></div>}</td>
         </tr>)}</tbody></table></div>}
     </section>
   </div>;

@@ -195,8 +195,19 @@ function Shell({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const client = useQueryClient();
   const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false, refetchInterval: 30000 } });
-  const sig = member.data ? `${member.data.userId}|${member.data.role}|${member.data.commercialId ?? ''}` : null;
+  const sig = member.data ? `${member.data.userId}|${member.data.role}|${member.data.commercialId ?? ''}|${member.data.suspended}` : null;
   const lastSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (member.data?.suspended || member.isError || member.data?.role === 'pending') {
+      const filters = { predicate: (q: { queryKey: readonly unknown[] }) => {
+        const key = String(q.queryKey[0] ?? '');
+        return key.startsWith('/api/') && key !== '/api/team/me' && !key.startsWith('/api/shared-invoices/') && key !== '/api/healthz';
+      } };
+      // Cancel before removal so an already-running request cannot repopulate private data.
+      void client.cancelQueries(filters).then(() => client.removeQueries(filters));
+      client.getMutationCache().clear();
+    }
+  }, [member.data?.suspended, member.data?.role, member.isError, client]);
   useEffect(() => {
     if (!sig) return;
     if (lastSig.current !== null && lastSig.current !== sig) {
@@ -207,6 +218,7 @@ function Shell({ children }: { children: ReactNode }) {
   if (member.isLoading) return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb]"><div className="w-[280px] space-y-3"><div className="skeleton h-5 w-36" /><div className="skeleton h-3 w-full" /><div className="skeleton h-3 w-2/3" /></div></div>;
   if (member.isError || !member.data) return <AccessMessage title="No pudimos comprobar tu acceso" body="La sesión está activa, pero el servicio de equipo no respondió. Comprueba la conexión e inténtalo de nuevo." retry={() => member.refetch()} />;
   const me = member.data;
+  if (me.suspended) return <AccessMessage title="Tu acceso está suspendido" body="El propietario ha suspendido tu acceso al equipo. Tus facturas e historial se conservan. Pídele que reactive tu acceso y comprueba de nuevo." retry={() => member.refetch()} />;
   if (me.role === 'pending') return <AccessMessage title="Tu acceso está pendiente" body="La cuenta está creada. El propietario del espacio debe habilitar tu acceso antes de entrar al escritorio." retry={() => member.refetch()} />;
   return <div className="app-shell flex bg-[#f6f4eb]">
     <aside className="sidebar fixed inset-y-0 left-0 z-20 flex w-[238px] flex-col px-4 py-5">

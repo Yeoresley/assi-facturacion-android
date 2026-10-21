@@ -43,6 +43,7 @@ import type {
   TeamInvitation,
   TeamInvitationInput,
   TeamMember,
+  TeamMemberAccessInput,
   VersatCatalogs,
   VersatDownload
 } from './api.schemas';
@@ -56,7 +57,6 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
-
 
 
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
@@ -77,8 +77,6 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
 export const getListInvoiceSeriesUrl = () => {
 
 
-
-
   return `/api/billing/series`
 }
 
@@ -92,9 +90,6 @@ export const listInvoiceSeries = async ( options?: Parameters<typeof customFetch
 
   }
 );}
-
-
-
 
 
 export const getListInvoiceSeriesQueryKey = () => {
@@ -112,11 +107,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getListInvoiceSeriesQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoiceSeries>>> = ({ signal }) => listInvoiceSeries({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoiceSeries>>, TError, TData> & { queryKey: QueryKey }
@@ -124,7 +115,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type ListInvoiceSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof listInvoiceSeries>>>
 export type ListInvoiceSeriesQueryError = ErrorType<unknown>
-
 
 
 export function useListInvoiceSeries<TData = Awaited<ReturnType<typeof listInvoiceSeries>>, TError = ErrorType<unknown>>(
@@ -140,14 +130,7 @@ export function useListInvoiceSeries<TData = Awaited<ReturnType<typeof listInvoi
 }
 
 
-
-
-
-
-
 export const getCreateInvoiceSeriesUrl = () => {
-
-
 
 
   return `/api/billing/series`
@@ -179,9 +162,6 @@ return customFetch<InvoiceSeries>(getCreateInvoiceSeriesUrl(),
 );}
 
 
-
-
-
 export const getCreateInvoiceSeriesMutationKey = () => ['createInvoiceSeries'] as const;
 
 export const getCreateInvoiceSeriesMutationOptions = <TError = ErrorType<unknown>,
@@ -196,17 +176,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoiceSeries>>, CreateInvoiceSeriesMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createInvoiceSeries(data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -228,8 +202,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     }
 
 export const getUpdateInvoiceSeriesUrl = (id: number,) => {
-
-
 
 
   return `/api/billing/series/${id}`
@@ -262,9 +234,6 @@ return customFetch<InvoiceSeries>(getUpdateInvoiceSeriesUrl(id),
 );}
 
 
-
-
-
 export const getUpdateInvoiceSeriesMutationKey = () => ['updateInvoiceSeries'] as const;
 
 export const getUpdateInvoiceSeriesMutationOptions = <TError = ErrorType<unknown>,
@@ -279,17 +248,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateInvoiceSeries>>, UpdateInvoiceSeriesMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateInvoiceSeries(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -313,8 +276,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 export const getGetIssuerUrl = () => {
 
 
-
-
   return `/api/issuer`
 }
 
@@ -328,9 +289,6 @@ export const getIssuer = async ( options?: Parameters<typeof customFetch>[1]): P
 
   }
 );}
-
-
-
 
 
 export const getGetIssuerQueryKey = () => {
@@ -348,11 +306,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetIssuerQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getIssuer>>> = ({ signal }) => getIssuer({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIssuer>>, TError, TData> & { queryKey: QueryKey }
@@ -360,7 +314,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetIssuerQueryResult = NonNullable<Awaited<ReturnType<typeof getIssuer>>>
 export type GetIssuerQueryError = ErrorType<unknown>
-
 
 
 export function useGetIssuer<TData = Awaited<ReturnType<typeof getIssuer>>, TError = ErrorType<unknown>>(
@@ -376,14 +329,7 @@ export function useGetIssuer<TData = Awaited<ReturnType<typeof getIssuer>>, TErr
 }
 
 
-
-
-
-
-
 export const getUpdateIssuerUrl = () => {
-
-
 
 
   return `/api/issuer`
@@ -415,9 +361,6 @@ return customFetch<IssuerSettings>(getUpdateIssuerUrl(),
 );}
 
 
-
-
-
 export const getUpdateIssuerMutationKey = () => ['updateIssuer'] as const;
 
 export const getUpdateIssuerMutationOptions = <TError = ErrorType<unknown>,
@@ -432,17 +375,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIssuer>>, UpdateIssuerMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  updateIssuer(data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -464,8 +401,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     }
 
 export const getAuthorizeInvoiceDocumentUrl = (id: number,) => {
-
-
 
 
   return `/api/invoices/${id}/legal-document`
@@ -498,9 +433,6 @@ return customFetch<Invoice>(getAuthorizeInvoiceDocumentUrl(id),
 );}
 
 
-
-
-
 export const getAuthorizeInvoiceDocumentMutationKey = () => ['authorizeInvoiceDocument'] as const;
 
 export const getAuthorizeInvoiceDocumentMutationOptions = <TError = ErrorType<unknown>,
@@ -515,17 +447,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof authorizeInvoiceDocument>>, AuthorizeInvoiceDocumentMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  authorizeInvoiceDocument(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -550,8 +476,6 @@ export const getGetInvoiceImageUrl = (id: number,
     kind: 'stamp' | 'signature',) => {
 
 
-
-
   return `/api/invoices/${id}/images/${kind}`
 }
 
@@ -566,9 +490,6 @@ export const getInvoiceImage = async (id: number,
 
   }
 );}
-
-
-
 
 
 export const getGetInvoiceImageQueryKey = (id: number,
@@ -588,11 +509,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetInvoiceImageQueryKey(id,kind);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoiceImage>>> = ({ signal }) => getInvoiceImage(id,kind, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, enabled: id !== null && id !== undefined && kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoiceImage>>, TError, TData> & { queryKey: QueryKey }
@@ -600,7 +517,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetInvoiceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getInvoiceImage>>>
 export type GetInvoiceImageQueryError = ErrorType<unknown>
-
 
 
 export function useGetInvoiceImage<TData = Awaited<ReturnType<typeof getInvoiceImage>>, TError = ErrorType<unknown>>(
@@ -617,15 +533,8 @@ export function useGetInvoiceImage<TData = Awaited<ReturnType<typeof getInvoiceI
 }
 
 
-
-
-
-
-
 export const getGetSharedInvoiceImageUrl = (token: string,
     kind: 'stamp' | 'signature',) => {
-
-
 
 
   return `/api/shared-invoices/${token}/images/${kind}`
@@ -642,9 +551,6 @@ export const getSharedInvoiceImage = async (token: string,
 
   }
 );}
-
-
-
 
 
 export const getGetSharedInvoiceImageQueryKey = (token: string,
@@ -664,11 +570,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetSharedInvoiceImageQueryKey(token,kind);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedInvoiceImage>>> = ({ signal }) => getSharedInvoiceImage(token,kind, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, enabled: token !== null && token !== undefined && kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError, TData> & { queryKey: QueryKey }
@@ -676,7 +578,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetSharedInvoiceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getSharedInvoiceImage>>>
 export type GetSharedInvoiceImageQueryError = ErrorType<unknown>
-
 
 
 export function useGetSharedInvoiceImage<TData = Awaited<ReturnType<typeof getSharedInvoiceImage>>, TError = ErrorType<unknown>>(
@@ -693,14 +594,7 @@ export function useGetSharedInvoiceImage<TData = Awaited<ReturnType<typeof getSh
 }
 
 
-
-
-
-
-
 export const getHealthCheckUrl = () => {
-
-
 
 
   return `/api/healthz`
@@ -722,9 +616,6 @@ export const healthCheck = async ( options?: Parameters<typeof customFetch>[1]):
 );}
 
 
-
-
-
 export const getHealthCheckQueryKey = () => {
     return [
     `/api/healthz`
@@ -740,11 +631,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getHealthCheckQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheck>>> = ({ signal }) => healthCheck({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & { queryKey: QueryKey }
@@ -771,14 +658,7 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 }
 
 
-
-
-
-
-
 export const getGetBillingOverviewUrl = () => {
-
-
 
 
   return `/api/billing/overview`
@@ -799,9 +679,6 @@ export const getBillingOverview = async ( options?: Parameters<typeof customFetc
 );}
 
 
-
-
-
 export const getGetBillingOverviewQueryKey = () => {
     return [
     `/api/billing/overview`
@@ -817,11 +694,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetBillingOverviewQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getBillingOverview>>> = ({ signal }) => getBillingOverview({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBillingOverview>>, TError, TData> & { queryKey: QueryKey }
@@ -846,11 +719,6 @@ export function useGetBillingOverview<TData = Awaited<ReturnType<typeof getBilli
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
 
 
 export const getListCustomersUrl = (params?: ListCustomersParams,) => {
@@ -883,9 +751,6 @@ export const listCustomers = async (params?: ListCustomersParams, options?: Para
 );}
 
 
-
-
-
 export const getListCustomersQueryKey = (params?: ListCustomersParams,) => {
     return [
     `/api/customers`, ...(params ? [params] : [])
@@ -901,11 +766,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getListCustomersQueryKey(params);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listCustomers>>> = ({ signal }) => listCustomers(params, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCustomers>>, TError, TData> & { queryKey: QueryKey }
@@ -932,14 +793,7 @@ export function useListCustomers<TData = Awaited<ReturnType<typeof listCustomers
 }
 
 
-
-
-
-
-
 export const getCreateCustomerUrl = () => {
-
-
 
 
   return `/api/customers`
@@ -974,9 +828,6 @@ return customFetch<Customer>(getCreateCustomerUrl(),
 );}
 
 
-
-
-
 export const getCreateCustomerMutationKey = () => ['createCustomer'] as const;
 
 export const getCreateCustomerMutationOptions = <TError = ErrorType<unknown>,
@@ -991,17 +842,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCustomer>>, CreateCustomerMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createCustomer(data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1026,8 +871,6 @@ export const useCreateCustomer = <TError = ErrorType<unknown>,
     }
 
 export const getUpdateCustomerUrl = (id: number,) => {
-
-
 
 
   return `/api/customers/${id}`
@@ -1063,9 +906,6 @@ return customFetch<Customer>(getUpdateCustomerUrl(id),
 );}
 
 
-
-
-
 export const getUpdateCustomerMutationKey = () => ['updateCustomer'] as const;
 
 export const getUpdateCustomerMutationOptions = <TError = ErrorType<void>,
@@ -1080,17 +920,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomer>>, UpdateCustomerMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateCustomer(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1117,8 +951,6 @@ export const useUpdateCustomer = <TError = ErrorType<void>,
 export const getDeleteCustomerUrl = (id: number,) => {
 
 
-
-
   return `/api/customers/${id}`
 }
 
@@ -1137,9 +969,6 @@ export const deleteCustomer = async (id: number, options?: Parameters<typeof cus
 );}
 
 
-
-
-
 export const getDeleteCustomerMutationKey = () => ['deleteCustomer'] as const;
 
 export const getDeleteCustomerMutationOptions = <TError = ErrorType<void>,
@@ -1154,17 +983,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCustomer>>, DeleteCustomerMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteCustomer(id,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1218,9 +1041,6 @@ export const listInvoices = async (params?: ListInvoicesParams, options?: Parame
 );}
 
 
-
-
-
 export const getListInvoicesQueryKey = (params?: ListInvoicesParams,) => {
     return [
     `/api/invoices`, ...(params ? [params] : [])
@@ -1236,11 +1056,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getListInvoicesQueryKey(params);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoices>>> = ({ signal }) => listInvoices(params, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoices>>, TError, TData> & { queryKey: QueryKey }
@@ -1267,14 +1083,7 @@ export function useListInvoices<TData = Awaited<ReturnType<typeof listInvoices>>
 }
 
 
-
-
-
-
-
 export const getCreateInvoiceUrl = () => {
-
-
 
 
   return `/api/invoices`
@@ -1309,9 +1118,6 @@ return customFetch<Invoice>(getCreateInvoiceUrl(),
 );}
 
 
-
-
-
 export const getCreateInvoiceMutationKey = () => ['createInvoice'] as const;
 
 export const getCreateInvoiceMutationOptions = <TError = ErrorType<unknown>,
@@ -1326,17 +1132,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoice>>, CreateInvoiceMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createInvoice(data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1363,8 +1163,6 @@ export const useCreateInvoice = <TError = ErrorType<unknown>,
 export const getGetInvoiceUrl = (id: number,) => {
 
 
-
-
   return `/api/invoices/${id}`
 }
 
@@ -1383,9 +1181,6 @@ export const getInvoice = async (id: number, options?: Parameters<typeof customF
 );}
 
 
-
-
-
 export const getGetInvoiceQueryKey = (id: number,) => {
     return [
     `/api/invoices/${id}`
@@ -1401,11 +1196,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetInvoiceQueryKey(id);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoice>>> = ({ signal }) => getInvoice(id, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoice>>, TError, TData> & { queryKey: QueryKey }
@@ -1432,14 +1223,7 @@ export function useGetInvoice<TData = Awaited<ReturnType<typeof getInvoice>>, TE
 }
 
 
-
-
-
-
-
 export const getUpdateInvoiceUrl = (id: number,) => {
-
-
 
 
   return `/api/invoices/${id}`
@@ -1475,9 +1259,6 @@ return customFetch<Invoice>(getUpdateInvoiceUrl(id),
 );}
 
 
-
-
-
 export const getUpdateInvoiceMutationKey = () => ['updateInvoice'] as const;
 
 export const getUpdateInvoiceMutationOptions = <TError = ErrorType<void>,
@@ -1492,17 +1273,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateInvoice>>, UpdateInvoiceMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateInvoice(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1527,8 +1302,6 @@ export const useUpdateInvoice = <TError = ErrorType<void>,
     }
 
 export const getUpdateInvoiceStatusUrl = (id: number,) => {
-
-
 
 
   return `/api/invoices/${id}/status`
@@ -1564,9 +1337,6 @@ return customFetch<Invoice>(getUpdateInvoiceStatusUrl(id),
 );}
 
 
-
-
-
 export const getUpdateInvoiceStatusMutationKey = () => ['updateInvoiceStatus'] as const;
 
 export const getUpdateInvoiceStatusMutationOptions = <TError = ErrorType<unknown>,
@@ -1581,17 +1351,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateInvoiceStatus>>, UpdateInvoiceStatusMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateInvoiceStatus(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1616,8 +1380,6 @@ export const useUpdateInvoiceStatus = <TError = ErrorType<unknown>,
     }
 
 export const getMarkInvoicePaidUrl = (id: number,) => {
-
-
 
 
   return `/api/invoices/${id}/payment`
@@ -1653,9 +1415,6 @@ return customFetch<Invoice>(getMarkInvoicePaidUrl(id),
 );}
 
 
-
-
-
 export const getMarkInvoicePaidMutationKey = () => ['markInvoicePaid'] as const;
 
 export const getMarkInvoicePaidMutationOptions = <TError = ErrorType<void>,
@@ -1670,17 +1429,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInvoicePaid>>, MarkInvoicePaidMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  markInvoicePaid(id,data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1707,8 +1460,6 @@ export const useMarkInvoicePaid = <TError = ErrorType<void>,
 export const getCreateInvoiceShareUrl = (id: number,) => {
 
 
-
-
   return `/api/invoices/${id}/share`
 }
 
@@ -1727,9 +1478,6 @@ export const createInvoiceShare = async (id: number, options?: Parameters<typeof
 );}
 
 
-
-
-
 export const getCreateInvoiceShareMutationKey = () => ['createInvoiceShare'] as const;
 
 export const getCreateInvoiceShareMutationOptions = <TError = ErrorType<unknown>,
@@ -1744,17 +1492,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoiceShare>>, CreateInvoiceShareMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  createInvoiceShare(id,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1781,8 +1523,6 @@ export const useCreateInvoiceShare = <TError = ErrorType<unknown>,
 export const getGetSharedInvoiceUrl = (token: string,) => {
 
 
-
-
   return `/api/shared-invoices/${token}`
 }
 
@@ -1801,9 +1541,6 @@ export const getSharedInvoice = async (token: string, options?: Parameters<typeo
 );}
 
 
-
-
-
 export const getGetSharedInvoiceQueryKey = (token: string,) => {
     return [
     `/api/shared-invoices/${token}`
@@ -1819,11 +1556,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetSharedInvoiceQueryKey(token);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedInvoice>>> = ({ signal }) => getSharedInvoice(token, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSharedInvoice>>, TError, TData> & { queryKey: QueryKey }
@@ -1850,14 +1583,7 @@ export function useGetSharedInvoice<TData = Awaited<ReturnType<typeof getSharedI
 }
 
 
-
-
-
-
-
 export const getGetVersatCatalogsUrl = () => {
-
-
 
 
   return `/api/versat/catalogs`
@@ -1875,9 +1601,6 @@ export const getVersatCatalogs = async ( options?: Parameters<typeof customFetch
 );}
 
 
-
-
-
 export const getGetVersatCatalogsQueryKey = () => {
     return [
     `/api/versat/catalogs`
@@ -1893,11 +1616,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetVersatCatalogsQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersatCatalogs>>> = ({ signal }) => getVersatCatalogs({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogs>>, TError, TData> & { queryKey: QueryKey }
@@ -1905,7 +1624,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetVersatCatalogsQueryResult = NonNullable<Awaited<ReturnType<typeof getVersatCatalogs>>>
 export type GetVersatCatalogsQueryError = ErrorType<unknown>
-
 
 
 export function useGetVersatCatalogs<TData = Awaited<ReturnType<typeof getVersatCatalogs>>, TError = ErrorType<unknown>>(
@@ -1921,14 +1639,7 @@ export function useGetVersatCatalogs<TData = Awaited<ReturnType<typeof getVersat
 }
 
 
-
-
-
-
-
 export const getGetInvoiceVersatFileUrl = (id: number,) => {
-
-
 
 
   return `/api/invoices/${id}/versat-file`
@@ -1946,9 +1657,6 @@ export const getInvoiceVersatFile = async (id: number, options?: Parameters<type
 );}
 
 
-
-
-
 export const getGetInvoiceVersatFileQueryKey = (id: number,) => {
     return [
     `/api/invoices/${id}/versat-file`
@@ -1964,11 +1672,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetInvoiceVersatFileQueryKey(id);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoiceVersatFile>>> = ({ signal }) => getInvoiceVersatFile(id, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError, TData> & { queryKey: QueryKey }
@@ -1976,7 +1680,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetInvoiceVersatFileQueryResult = NonNullable<Awaited<ReturnType<typeof getInvoiceVersatFile>>>
 export type GetInvoiceVersatFileQueryError = ErrorType<void>
-
 
 
 export function useGetInvoiceVersatFile<TData = Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError = ErrorType<void>>(
@@ -1990,11 +1693,6 @@ export function useGetInvoiceVersatFile<TData = Awaited<ReturnType<typeof getInv
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
 
 
 export const getGetVersatExportFileUrl = (params: GetVersatExportFileParams,) => {
@@ -2024,9 +1722,6 @@ export const getVersatExportFile = async (params: GetVersatExportFileParams, opt
 );}
 
 
-
-
-
 export const getGetVersatExportFileQueryKey = (params?: GetVersatExportFileParams,) => {
     return [
     `/api/versat/export-file`, ...(params ? [params] : [])
@@ -2042,11 +1737,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetVersatExportFileQueryKey(params);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersatExportFile>>> = ({ signal }) => getVersatExportFile(params, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersatExportFile>>, TError, TData> & { queryKey: QueryKey }
@@ -2054,7 +1745,6 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 export type GetVersatExportFileQueryResult = NonNullable<Awaited<ReturnType<typeof getVersatExportFile>>>
 export type GetVersatExportFileQueryError = ErrorType<void>
-
 
 
 export function useGetVersatExportFile<TData = Awaited<ReturnType<typeof getVersatExportFile>>, TError = ErrorType<void>>(
@@ -2068,11 +1758,6 @@ export function useGetVersatExportFile<TData = Awaited<ReturnType<typeof getVers
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
 
 
 export const getExportVersatInvoicesUrl = (params: ExportVersatInvoicesParams,) => {
@@ -2105,9 +1790,6 @@ export const exportVersatInvoices = async (params: ExportVersatInvoicesParams, o
 );}
 
 
-
-
-
 export const getExportVersatInvoicesQueryKey = (params?: ExportVersatInvoicesParams,) => {
     return [
     `/api/versat/export`, ...(params ? [params] : [])
@@ -2123,11 +1805,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getExportVersatInvoicesQueryKey(params);
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof exportVersatInvoices>>> = ({ signal }) => exportVersatInvoices(params, { signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportVersatInvoices>>, TError, TData> & { queryKey: QueryKey }
@@ -2154,21 +1832,14 @@ export function useExportVersatInvoices<TData = Awaited<ReturnType<typeof export
 }
 
 
-
-
-
-
-
 export const getGetCurrentTeamMemberUrl = () => {
-
-
 
 
   return `/api/team/me`
 }
 
 /**
- * @summary Get current user's application access
+ * @summary Get current user's application access, including suspension (no business data)
  */
 export const getCurrentTeamMember = async ( options?: Parameters<typeof customFetch>[1]): Promise<TeamMember> => {
 
@@ -2180,9 +1851,6 @@ export const getCurrentTeamMember = async ( options?: Parameters<typeof customFe
 
   }
 );}
-
-
-
 
 
 export const getGetCurrentTeamMemberQueryKey = () => {
@@ -2200,11 +1868,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getGetCurrentTeamMemberQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentTeamMember>>> = ({ signal }) => getCurrentTeamMember({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentTeamMember>>, TError, TData> & { queryKey: QueryKey }
@@ -2215,7 +1879,7 @@ export type GetCurrentTeamMemberQueryError = ErrorType<void>
 
 
 /**
- * @summary Get current user's application access
+ * @summary Get current user's application access, including suspension (no business data)
  */
 
 export function useGetCurrentTeamMember<TData = Awaited<ReturnType<typeof getCurrentTeamMember>>, TError = ErrorType<void>>(
@@ -2231,14 +1895,7 @@ export function useGetCurrentTeamMember<TData = Awaited<ReturnType<typeof getCur
 }
 
 
-
-
-
-
-
 export const getListTeamMembersUrl = () => {
-
-
 
 
   return `/api/team/members`
@@ -2259,9 +1916,6 @@ export const listTeamMembers = async ( options?: Parameters<typeof customFetch>[
 );}
 
 
-
-
-
 export const getListTeamMembersQueryKey = () => {
     return [
     `/api/team/members`
@@ -2277,11 +1931,7 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
   const queryKey =  queryOptions?.queryKey ?? getListTeamMembersQueryKey();
 
 
-
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeamMembers>>> = ({ signal }) => listTeamMembers({ signal, ...requestOptions });
-
-
-
 
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTeamMembers>>, TError, TData> & { queryKey: QueryKey }
@@ -2308,14 +1958,7 @@ export function useListTeamMembers<TData = Awaited<ReturnType<typeof listTeamMem
 }
 
 
-
-
-
-
-
 export const getInviteTeamMemberUrl = () => {
-
-
 
 
   return `/api/team/invitations`
@@ -2350,9 +1993,6 @@ return customFetch<TeamInvitation>(getInviteTeamMemberUrl(),
 );}
 
 
-
-
-
 export const getInviteTeamMemberMutationKey = () => ['inviteTeamMember'] as const;
 
 export const getInviteTeamMemberMutationOptions = <TError = ErrorType<unknown>,
@@ -2367,17 +2007,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       : {mutation: { mutationKey, }, request: undefined};
 
 
-
-
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof inviteTeamMember>>, InviteTeamMemberMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  inviteTeamMember(data,requestOptions)
         }
-
-
-
-
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2401,3 +2035,84 @@ export const useInviteTeamMember = <TError = ErrorType<unknown>,
       return useMutation(getInviteTeamMemberMutationOptions(options));
     }
 
+export const getUpdateTeamMemberAccessUrl = (userId: string,) => {
+
+
+  return `/api/team/members/${userId}/access`
+}
+
+
+    /**
+ * @summary Owner-only suspension or reactivation; preserves invoices and commercial assignment
+ */
+export const useUpdateTeamMemberAccess = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeamMemberAccess>>, TError,UpdateTeamMemberAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTeamMemberAccess>>,
+        TError,
+        UpdateTeamMemberAccessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTeamMemberAccessMutationOptions(options));
+    }
+
+export const getUpdateTeamMemberAccessMutationKey = () => ['updateTeamMemberAccess'] as const;
+
+    export type UpdateTeamMemberAccessMutationVariables = {userId: string;data: BodyType<TeamMemberAccessInput>}
+
+    export type UpdateTeamMemberAccessMutationBody = BodyType<TeamMemberAccessInput>
+
+    export type UpdateTeamMemberAccessMutationError = ErrorType<void>
+
+/**
+ * Suspensions override roles and invitations. Owners cannot be suspended. Public invoice links are managed separately. Invitation rows use their invite-prefixed userId.
+ * @summary Owner-only suspension or reactivation; preserves invoices and commercial assignment
+ */
+export const updateTeamMemberAccess = async (userId: string,
+    teamMemberAccessInput: TeamMemberAccessInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateTeamMemberAccessUrl(userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teamMemberAccessInput)
+  }
+);}
+
+    export type UpdateTeamMemberAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updateTeamMemberAccess>>>
+
+export const getUpdateTeamMemberAccessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTeamMemberAccess>>, TError,UpdateTeamMemberAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTeamMemberAccess>>, TError,UpdateTeamMemberAccessMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTeamMemberAccessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTeamMemberAccess>>, UpdateTeamMemberAccessMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  updateTeamMemberAccess(userId,data,requestOptions)
+        }
+
+
+  return  { mutationFn, ...mutationOptions }}

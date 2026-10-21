@@ -41,7 +41,6 @@ export const createInvoiceSeriesBodyNextNumberMin = 0;
 export const createInvoiceSeriesBodyNextNumberMax = 2147483646;
 
 
-
 export const CreateInvoiceSeriesBody = zod.object({
   "name": zod.string().min(1).max(createInvoiceSeriesBodyNameMax),
   "prefix": zod.string().max(createInvoiceSeriesBodyPrefixMax).regex(createInvoiceSeriesBodyPrefixRegExp),
@@ -64,16 +63,12 @@ export const CreateInvoiceSeriesResponse = zod.object({
 })
 
 
-
-
-
 export const UpdateInvoiceSeriesParams = zod.object({
   "id": zod.coerce.number().int().min(1)
 })
 
 export const updateInvoiceSeriesBodyNextNumberMin = 0;
 export const updateInvoiceSeriesBodyNextNumberMax = 2147483647;
-
 
 
 export const UpdateInvoiceSeriesBody = zod.object({
@@ -113,7 +108,6 @@ export const getIssuerResponseProfileOneBankBranchMax = 80;
 export const getIssuerResponseProfileOneBankNameMax = 200;
 
 
-
 export const GetIssuerResponse = zod.object({
   "profile": zod.union([zod.object({
   "name": zod.string().min(1).max(getIssuerResponseProfileOneNameMax),
@@ -150,7 +144,6 @@ export const updateIssuerBodyBankBranchMax = 80;
 export const updateIssuerBodyBankNameMax = 200;
 
 
-
 export const UpdateIssuerBody = zod.object({
   "name": zod.string().min(1).max(updateIssuerBodyNameMax),
   "nit": zod.string().min(1).max(updateIssuerBodyNitMax),
@@ -182,7 +175,6 @@ export const updateIssuerResponseProfileOneBankBranchMax = 80;
 export const updateIssuerResponseProfileOneBankNameMax = 200;
 
 
-
 export const UpdateIssuerResponse = zod.object({
   "profile": zod.union([zod.object({
   "name": zod.string().min(1).max(updateIssuerResponseProfileOneNameMax),
@@ -198,9 +190,6 @@ export const UpdateIssuerResponse = zod.object({
   "hasStamp": zod.boolean(),
   "hasSignature": zod.boolean()
 })
-
-
-
 
 
 export const AuthorizeInvoiceDocumentParams = zod.object({
@@ -232,7 +221,6 @@ export const authorizeInvoiceDocumentBodyReceivedIdMax = 40;
 export const authorizeInvoiceDocumentBodyCustomerIrccMax = 80;
 
 export const authorizeInvoiceDocumentBodyCustomerBankAccountMax = 80;
-
 
 
 export const AuthorizeInvoiceDocumentBody = zod.object({
@@ -313,7 +301,6 @@ export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankAccoun
 export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const AuthorizeInvoiceDocumentResponse = zod.object({
@@ -406,9 +393,6 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
 })
 
 
-
-
-
 export const GetInvoiceImageParams = zod.object({
   "id": zod.coerce.number().int().min(1),
   "kind": zod.enum(['stamp', 'signature'])
@@ -496,7 +480,6 @@ export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssu
 export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const getBillingOverviewResponseRecentInvoicesItemLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const GetBillingOverviewResponse = zod.object({
@@ -631,7 +614,6 @@ export const ListCustomersResponse = zod.array(ListCustomersResponseItem)
 export const createCustomerBodyVersatCodeMax = 40;
 
 
-
 export const CreateCustomerBody = zod.object({
   "name": zod.string().min(1),
   "versatCode": zod.string().max(createCustomerBodyVersatCodeMax).nullish(),
@@ -668,7 +650,6 @@ export const UpdateCustomerParams = zod.object({
 
 
 export const updateCustomerBodyVersatCodeMax = 40;
-
 
 
 export const UpdateCustomerBody = zod.object({
@@ -778,7 +759,6 @@ export const listInvoicesResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
 export const listInvoicesResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const listInvoicesResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const ListInvoicesResponseItem = zod.object({
@@ -903,8 +883,6 @@ export const createInvoiceBodyLinesItemUnitPriceMin = 0;
 export const createInvoiceBodyLinesItemUnitPriceMax = 999999999999;
 
 
-
-
 export const CreateInvoiceBody = zod.object({
   "seriesId": zod.number().int().min(1).nullish(),
   "customerId": zod.number().int(),
@@ -991,7 +969,6 @@ export const createInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
 export const createInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const createInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const CreateInvoiceResponse = zod.object({
@@ -1152,7 +1129,6 @@ export const getInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 export const getInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
-
 export const GetInvoiceResponse = zod.object({
   "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
@@ -1251,7 +1227,6 @@ export const UpdateInvoiceParams = zod.object({
 })
 
 
-
 export const updateInvoiceBodyVersatNumberMax = 50;
 
 
@@ -1276,8 +1251,6 @@ export const updateInvoiceBodyLinesItemQuantityMax = 999999999;
 
 export const updateInvoiceBodyLinesItemUnitPriceMin = 0;
 export const updateInvoiceBodyLinesItemUnitPriceMax = 999999999999;
-
-
 
 
 export const UpdateInvoiceBody = zod.object({
@@ -1366,7 +1339,6 @@ export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
 export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const UpdateInvoiceResponse = zod.object({
@@ -1531,7 +1503,6 @@ export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankBranchMax =
 export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
-
 export const UpdateInvoiceStatusResponse = zod.object({
   "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
@@ -1692,7 +1663,6 @@ export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankAccountMax = 80
 export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
 
 export const markInvoicePaidResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
-
 
 
 export const MarkInvoicePaidResponse = zod.object({
@@ -1866,7 +1836,6 @@ export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80
 export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
-
 export const GetSharedInvoiceResponse = zod.object({
   "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
@@ -2029,14 +1998,15 @@ export const ExportVersatInvoicesResponse = zod.array(ExportVersatInvoicesRespon
 
 
 /**
- * @summary Get current user's application access
+ * @summary Get current user's application access, including suspension (no business data)
  */
 export const GetCurrentTeamMemberResponse = zod.object({
   "userId": zod.string(),
   "name": zod.string(),
   "email": zod.string().nullable(),
   "role": zod.enum(['owner', 'specialist', 'pending']),
-  "commercialId": zod.number().int().nullable()
+  "commercialId": zod.number().int().nullable(),
+  "suspended": zod.boolean()
 })
 
 
@@ -2048,7 +2018,8 @@ export const ListTeamMembersResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullable(),
   "role": zod.enum(['owner', 'specialist', 'pending']),
-  "commercialId": zod.number().int().nullable()
+  "commercialId": zod.number().int().nullable(),
+  "suspended": zod.boolean()
 })
 export const ListTeamMembersResponse = zod.array(ListTeamMembersResponseItem)
 
@@ -2056,7 +2027,6 @@ export const ListTeamMembersResponse = zod.array(ListTeamMembersResponseItem)
 /**
  * @summary Grant a specialist access by email
  */
-
 
 
 export const InviteTeamMemberBody = zod.object({
@@ -2070,4 +2040,13 @@ export const InviteTeamMemberResponse = zod.object({
   "createdAt": zod.coerce.date()
 })
 
+export const UpdateTeamMemberAccessParams = zod.object({
+  "userId": zod.coerce.string().min(1)
+})
 
+
+export const UpdateTeamMemberAccessBody = zod.object({
+  "suspended": zod.boolean()
+})
+
+export const UpdateTeamMemberAccessResponse = zod.void()

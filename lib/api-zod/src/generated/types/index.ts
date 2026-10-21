@@ -39,6 +39,7 @@ export * from './listInvoicesStatus';
 export * from './teamInvitation';
 export * from './teamInvitationInput';
 export * from './teamMember';
+export * from './teamMemberAccessInput';
 export * from './teamMemberRole';
 export * from './versatCatalogEntry';
 export * from './versatCatalogEntryKind';

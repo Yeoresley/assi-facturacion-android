@@ -447,7 +447,7 @@ paths:
     get:
       operationId: getCurrentTeamMember
       tags: [team]
-      summary: Get current user's application access
+      summary: Get current user's application access, including suspension (no business data)
       responses:
         "200":
           description: Current team member
@@ -484,8 +484,36 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TeamInvitation" }
+  /team/members/{userId}/access:
+    patch:
+      operationId: updateTeamMemberAccess
+      tags: [team]
+      summary: Owner-only suspension or reactivation; preserves invoices and commercial assignment
+      description: Suspensions override roles and invitations. Owners cannot be suspended. Public invoice links are managed separately. Invitation rows use their invite-prefixed userId.
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeamMemberAccessInput" }
+      responses:
+        "204": { description: Access state saved }
+        "400": { description: Invalid input }
+        "401": { description: Authentication required }
+        "403": { description: Owner access required or suspended }
+        "404": { description: Team member not found }
+        "422": { description: Owner account cannot be suspended }
 components:
   schemas:
+    TeamMemberAccessInput:
+      type: object
+      required: [suspended]
+      properties:
+        suspended: { type: boolean }
     InvoiceSeriesInput:
       type: object
       required: [name, prefix, suffix, width, talon, nextNumber, confirmedWithVersat]
@@ -726,13 +754,14 @@ components:
           items: { $ref: "#/components/schemas/Invoice" }
     TeamMember:
       type: object
-      required: [userId, name, email, role, commercialId]
+      required: [userId, name, email, role, commercialId, suspended]
       properties:
         userId: { type: string }
         name: { type: string }
         email: { type: ["string", "null"] }
         role: { type: string, enum: [owner, specialist, pending] }
         commercialId: { type: ["integer", "null"] }
+        suspended: { type: boolean }
     TeamInvitationInput:
       type: object
       required: [email, commercialId]

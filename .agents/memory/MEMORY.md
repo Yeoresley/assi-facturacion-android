@@ -4,3 +4,4 @@
 - [Impresión en navegador](browser-invoice-printing.md) — comprobar ambas vistas: transformaciones, márgenes del escritorio y cabeceras altas pueden romper la paginación de Chromium.
 - [Unicidad de numeración Versat](versat-numbering-scope.md) — conservar unicidad global mientras no se confirme si el escritorio permite repetir números entre talones.
 - [Aceptación y exportación](invoice-acceptance.md) — solo exportar tras aceptación del cliente registrada por el especialista; aceptación no equivale a pago.
+- [Suspensión de accesos](team-suspension-policy.md) — conservar historial y comercial; solo la reactivación explícita levanta la suspensión; enlaces públicos separados.

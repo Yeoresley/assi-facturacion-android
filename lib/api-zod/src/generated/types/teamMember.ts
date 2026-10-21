@@ -15,4 +15,5 @@ export interface TeamMember {
   role: TeamMemberRole;
   /** @nullable */
   commercialId: number | null;
+  suspended: boolean;
 }

@@ -31,6 +31,7 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/facturacion-equipo/src/lib/invoice-print.test.ts` — comprobar importes en letras
 - `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/services/invoice-numbering.test.ts` — concurrencia y recuperación de numeración con fixtures sintéticos en la base de desarrollo; requiere aplicar el esquema primero
+- `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/middlewares/team-access.test.ts` — suspensión/reactivación con identidades y datos sintéticos; comprueba todos los endpoints privados sin contactar ni modificar Clerk; requiere aplicar el esquema primero
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
