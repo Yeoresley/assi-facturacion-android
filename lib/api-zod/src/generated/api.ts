@@ -3035,6 +3035,54 @@ export const CompareVersatCatalogsResponse = zod.object({
 })
 
 
+/**
+ * @summary Read the immutable change history for a Versat catalog entry
+ */
+
+
+
+export const GetVersatCatalogHistoryParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const GetVersatCatalogHistoryResponseItem = zod.object({
+  "id": zod.number().int(),
+  "catalogEntryId": zod.number().int(),
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int(),
+  "action": zod.enum(['created', 'updated', 'deactivated', 'reactivated']),
+  "actorUserId": zod.string(),
+  "actorName": zod.string(),
+  "actorEmail": zod.string().email().nullable(),
+  "previousValues": zod.union([zod.object({
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "exportValue": zod.string(),
+  "unitCode": zod.string().nullable(),
+  "unitName": zod.string().nullable(),
+  "groupCode": zod.string().nullable(),
+  "position": zod.string().nullable(),
+  "active": zod.boolean()
+}),zod.null()]),
+  "newValues": zod.object({
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "exportValue": zod.string(),
+  "unitCode": zod.string().nullable(),
+  "unitName": zod.string().nullable(),
+  "groupCode": zod.string().nullable(),
+  "position": zod.string().nullable(),
+  "active": zod.boolean()
+}),
+  "createdAt": zod.coerce.date()
+})
+export const GetVersatCatalogHistoryResponse = zod.array(GetVersatCatalogHistoryResponseItem)
+
+
 export const UpdateVersatCatalogEntryParams = zod.object({
   "id": zod.coerce.number().int()
 })

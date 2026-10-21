@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, serial, text, unique } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 export type CatalogKind = "service" | "unit" | "currency" | "concept" | "operation" | "commercial" | "payment";
 export type CatalogMetadata = {
@@ -18,6 +18,35 @@ export const versatCatalogTable = pgTable("versat_catalog", {
   metadata: jsonb("metadata").$type<CatalogMetadata>().notNull().default({}),
   active: boolean("active").notNull().default(true),
 }, (table) => [unique("versat_catalog_source_unique").on(table.kind, table.sourceId)]);
+
+export type VersatCatalogAuditValues = {
+  kind: CatalogKind;
+  sourceId: number;
+  code: string;
+  name: string;
+  exportValue: string;
+  unitCode: string | null;
+  unitName: string | null;
+  groupCode: string | null;
+  position: string | null;
+  active: boolean;
+};
+
+export type VersatCatalogAuditAction = "created" | "updated" | "deactivated" | "reactivated";
+
+export const versatCatalogAuditTable = pgTable("versat_catalog_audit", {
+  id: serial("id").primaryKey(),
+  catalogEntryId: integer("catalog_entry_id").notNull(),
+  kind: text("kind").$type<CatalogKind>().notNull(),
+  sourceId: integer("source_id").notNull(),
+  action: text("action").$type<VersatCatalogAuditAction>().notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  actorName: text("actor_name").notNull(),
+  actorEmail: text("actor_email"),
+  previousValues: jsonb("previous_values").$type<VersatCatalogAuditValues | null>(),
+  newValues: jsonb("new_values").$type<VersatCatalogAuditValues>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("versat_catalog_audit_entry_created_idx").on(table.catalogEntryId, table.createdAt)]);
 
 export type VersatInvoiceSnapshot = {
   conceptId: number;

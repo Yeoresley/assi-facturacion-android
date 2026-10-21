@@ -65,6 +65,7 @@ import type {
   TeamInvitationInput,
   TeamMember,
   TeamMemberAccessInput,
+  VersatCatalogAuditEvent,
   VersatCatalogComparison,
   VersatCatalogEntry,
   VersatCatalogFileInput,
@@ -3260,6 +3261,83 @@ export const useCompareVersatCatalogs = <TError = ErrorType<void>,
       > => {
       return useMutation(getCompareVersatCatalogsMutationOptions(options));
     }
+
+export const getGetVersatCatalogHistoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/versat/catalogs/${id}/history`
+}
+
+/**
+ * @summary Read the immutable change history for a Versat catalog entry
+ */
+export const getVersatCatalogHistory = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<VersatCatalogAuditEvent[]> => {
+
+  return customFetch<VersatCatalogAuditEvent[]>(getGetVersatCatalogHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVersatCatalogHistoryQueryKey = (id: number,) => {
+    return [
+    `/api/versat/catalogs/${id}/history`
+    ] as const;
+    }
+
+
+export const getGetVersatCatalogHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getVersatCatalogHistory>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVersatCatalogHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersatCatalogHistory>>> = ({ signal }) => getVersatCatalogHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVersatCatalogHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getVersatCatalogHistory>>>
+export type GetVersatCatalogHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read the immutable change history for a Versat catalog entry
+ */
+
+export function useGetVersatCatalogHistory<TData = Awaited<ReturnType<typeof getVersatCatalogHistory>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVersatCatalogHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateVersatCatalogEntryUrl = (id: number,) => {
 

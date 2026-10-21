@@ -684,6 +684,22 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VersatCatalogComparison" }
         "400": { description: Invalid or unsupported CSV file }
+  /versat/catalogs/{id}/history:
+    get:
+      operationId: getVersatCatalogHistory
+      tags: [Billing]
+      summary: Read the immutable change history for a Versat catalog entry
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Catalog entry history, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VersatCatalogAuditEvent" }
+        "404": { description: Catalog entry not found }
   /versat/catalogs/{id}:
     patch:
       operationId: updateVersatCatalogEntry
@@ -1240,6 +1256,38 @@ components:
         groupCode: { type: string, maxLength: 60 }
         position: { type: string, maxLength: 120 }
         active: { type: boolean }
+    VersatCatalogAuditValues:
+      type: object
+      required: [kind, sourceId, code, name, exportValue, unitCode, unitName, groupCode, position, active]
+      properties:
+        kind: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
+        sourceId: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        exportValue: { type: string }
+        unitCode: { type: ["string", "null"] }
+        unitName: { type: ["string", "null"] }
+        groupCode: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        active: { type: boolean }
+    VersatCatalogAuditEvent:
+      type: object
+      required: [id, catalogEntryId, kind, sourceId, action, actorUserId, actorName, actorEmail, previousValues, newValues, createdAt]
+      properties:
+        id: { type: integer }
+        catalogEntryId: { type: integer }
+        kind: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
+        sourceId: { type: integer }
+        action: { type: string, enum: [created, updated, deactivated, reactivated] }
+        actorUserId: { type: string }
+        actorName: { type: string }
+        actorEmail: { type: ["string", "null"], format: email }
+        previousValues:
+          oneOf:
+            - { $ref: "#/components/schemas/VersatCatalogAuditValues" }
+            - { type: "null" }
+        newValues: { $ref: "#/components/schemas/VersatCatalogAuditValues" }
+        createdAt: { type: string, format: date-time }
     VersatCatalogs:
       type: object
       required: [entries, customerCount]

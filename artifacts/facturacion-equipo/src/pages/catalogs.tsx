@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetVersatCatalogsQueryKey, useCreateVersatCatalogEntry, useGetVersatCatalogs,
+  getGetVersatCatalogHistoryQueryKey, getGetVersatCatalogsQueryKey,
+  useCreateVersatCatalogEntry, useGetVersatCatalogHistory, useGetVersatCatalogs,
   useUpdateVersatCatalogEntry,
 } from '@workspace/api-client-react';
-import type { VersatCatalogEntry, VersatCatalogEntryKind } from '@workspace/api-client-react';
-import { ArrowRight, BookOpen, Check, Pencil, Plus, RotateCcw, Search, Users, X } from 'lucide-react';
+import type { VersatCatalogAuditValues, VersatCatalogEntry, VersatCatalogEntryKind } from '@workspace/api-client-react';
+import { ArrowRight, BookOpen, Check, Clock3, Pencil, Plus, RotateCcw, Search, Users, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { EmptyState, PageHeading, QueryError, errorDetail } from '@/lib/shared';
 
@@ -19,17 +20,37 @@ const kinds: { kind: VersatCatalogEntryKind; label: string; hint: string }[] = [
   { kind: 'payment', label: 'Formas de pago', hint: 'Forma de pago.' },
 ];
 
+const auditFields: { key: keyof VersatCatalogAuditValues; label: string }[] = [
+  { key: 'kind', label: 'Catálogo' },
+  { key: 'sourceId', label: 'ID de origen' },
+  { key: 'code', label: 'Código' },
+  { key: 'name', label: 'Nombre' },
+  { key: 'exportValue', label: 'Valor exportado' },
+  { key: 'unitCode', label: 'Código UM' },
+  { key: 'unitName', label: 'Nombre UM' },
+  { key: 'groupCode', label: 'Grupo' },
+  { key: 'position', label: 'Cargo' },
+  { key: 'active', label: 'Estado' },
+];
+
 export default function CatalogsPage() {
   const client = useQueryClient();
   const query = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
   const [kind, setKind] = useState<VersatCatalogEntryKind>('service');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<VersatCatalogEntry | null>(null);
+  const [historyEntry, setHistoryEntry] = useState<VersatCatalogEntry | null>(null);
   const [dialog, setDialog] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const create = useCreateVersatCatalogEntry();
   const update = useUpdateVersatCatalogEntry();
+  const historyQuery = useGetVersatCatalogHistory(historyEntry?.id ?? 0, {
+    query: {
+      queryKey: getGetVersatCatalogHistoryQueryKey(historyEntry?.id ?? 0),
+      enabled: Boolean(historyEntry),
+    },
+  });
   const entries = useMemo(() => query.data?.entries ?? [], [query.data]);
   const counts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -44,6 +65,18 @@ export default function CatalogsPage() {
   const current = kinds.find((item) => item.kind === kind)!;
   const kindName = (value: VersatCatalogEntryKind) => kinds.find((item) => item.kind === value)?.label ?? value;
   const pending = create.isPending || update.isPending;
+  const actionLabel = (action: string) => ({
+    created: 'Alta',
+    updated: 'Modificación',
+    deactivated: 'Desactivación',
+    reactivated: 'Reactivación',
+  }[action] ?? action);
+  const auditValue = (key: keyof VersatCatalogAuditValues, value: unknown) => {
+    if (key === 'active') return value ? 'Activo' : 'Desactivado';
+    if (key === 'kind' && typeof value === 'string') return kindName(value as VersatCatalogEntryKind);
+    if (value == null || value === '') return '—';
+    return String(value);
+  };
 
   function openNew() {
     setEditing(null);
@@ -118,7 +151,7 @@ export default function CatalogsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 md:px-5"><div><div className="eyebrow">{current.label} · {counts[kind] || 0}</div><p className="mt-1 text-[11px] text-[#78857f]">{current.hint}</p></div>
           <label className="relative min-w-[240px] flex-1 sm:max-w-[340px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={16} /><input className="field !h-10 !pl-9" type="search" placeholder="Buscar código o nombre" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-catalog-search" /></label></div>
         {visible.length === 0 ? <EmptyState title={needle ? 'Sin coincidencias' : 'Catálogo vacío'} text={needle ? 'Prueba con otro código o nombre.' : 'No hay entradas importadas de este tipo.'} /> :
-          <div className="max-h-[640px] overflow-auto"><table className="w-full min-w-[920px]"><thead className="sticky top-0 bg-[#faf9f3]"><tr className="eyebrow text-left"><th className="px-5 py-3 font-medium">Código</th><th className="px-4 py-3 font-medium">Nombre</th><th className="px-4 py-3 font-medium">Valor exportado</th>{kind === 'service' && <><th className="px-4 py-3 font-medium">UM</th><th className="px-4 py-3 font-medium">Grupo</th></>}{kind === 'commercial' && <th className="px-4 py-3 font-medium">Cargo</th>}<th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">ID origen</th><th className="px-5 py-3 text-right font-medium">Acciones</th></tr></thead><tbody>{visible.map((entry) => <tr key={entry.id} className={`table-row ${!entry.active ? 'opacity-65' : ''}`} data-testid={`row-catalog-${entry.id}`}><td className="px-5 py-3 font-mono text-[12px] font-medium text-[#2e6960]">{entry.code}</td><td className="px-4 py-3 text-[12px] font-semibold">{entry.name}</td><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.exportValue}</td>{kind === 'service' && <><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.unitCode ? `${entry.unitCode}${entry.unitName ? ` · ${entry.unitName}` : ''}` : '—'}</td><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.groupCode || '—'}</td></>}{kind === 'commercial' && <td className="px-4 py-3 text-[11px] text-[#71817b]">{entry.position || '—'}</td>}<td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${entry.active ? 'bg-[#e6f2e9] text-[#317060]' : 'bg-[#f1e7e4] text-[#9a6960]'}`}>{entry.active ? 'Activo' : 'Desactivado'}</span></td><td className="px-4 py-3 font-mono text-[10px] text-[#8a958f]">{entry.sourceId}</td><td className="px-5 py-3"><div className="flex justify-end gap-2"><button className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => openEdit(entry)} disabled={pending} data-testid={`button-edit-catalog-${entry.id}`}><Pencil size={13} />Editar</button><button className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => setActive(entry)} disabled={pending} data-testid={`button-toggle-catalog-${entry.id}`}>{entry.active ? <X size={13} /> : <RotateCcw size={13} />}{entry.active ? 'Desactivar' : 'Reactivar'}</button></div></td></tr>)}</tbody></table></div>}
+          <div className="max-h-[640px] overflow-auto"><table className="w-full min-w-[920px]"><thead className="sticky top-0 bg-[#faf9f3]"><tr className="eyebrow text-left"><th className="px-5 py-3 font-medium">Código</th><th className="px-4 py-3 font-medium">Nombre</th><th className="px-4 py-3 font-medium">Valor exportado</th>{kind === 'service' && <><th className="px-4 py-3 font-medium">UM</th><th className="px-4 py-3 font-medium">Grupo</th></>}{kind === 'commercial' && <th className="px-4 py-3 font-medium">Cargo</th>}<th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">ID origen</th><th className="px-5 py-3 text-right font-medium">Acciones</th></tr></thead><tbody>{visible.map((entry) => <tr key={entry.id} className={`table-row ${!entry.active ? 'opacity-65' : ''}`} data-testid={`row-catalog-${entry.id}`}><td className="px-5 py-3 font-mono text-[12px] font-medium text-[#2e6960]">{entry.code}</td><td className="px-4 py-3 text-[12px] font-semibold">{entry.name}</td><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.exportValue}</td>{kind === 'service' && <><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.unitCode ? `${entry.unitCode}${entry.unitName ? ` · ${entry.unitName}` : ''}` : '—'}</td><td className="px-4 py-3 font-mono text-[11px] text-[#5f736c]">{entry.groupCode || '—'}</td></>}{kind === 'commercial' && <td className="px-4 py-3 text-[11px] text-[#71817b]">{entry.position || '—'}</td>}<td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${entry.active ? 'bg-[#e6f2e9] text-[#317060]' : 'bg-[#f1e7e4] text-[#9a6960]'}`}>{entry.active ? 'Activo' : 'Desactivado'}</span></td><td className="px-4 py-3 font-mono text-[10px] text-[#8a958f]">{entry.sourceId}</td><td className="px-5 py-3"><div className="flex justify-end gap-2"><button className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => setHistoryEntry(entry)} data-testid={`button-history-catalog-${entry.id}`}><Clock3 size={13} />Historial</button><button className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => openEdit(entry)} disabled={pending} data-testid={`button-edit-catalog-${entry.id}`}><Pencil size={13} />Editar</button><button className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => setActive(entry)} disabled={pending} data-testid={`button-toggle-catalog-${entry.id}`}>{entry.active ? <X size={13} /> : <RotateCcw size={13} />}{entry.active ? 'Desactivar' : 'Reactivar'}</button></div></td></tr>)}</tbody></table></div>}
       </section>
     </>}
     {dialog && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#1d302e]/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) setDialog(false); }}>
@@ -134,6 +167,23 @@ export default function CatalogsPage() {
           {kind === 'commercial' && <label className="block"><span className="field-label">Cargo</span><input className="field" name="position" defaultValue={editing?.position ?? ''} maxLength={120} /></label>}
           <div className="flex flex-wrap justify-end gap-2 pt-2"><button type="button" className="button button-plain" onClick={() => setDialog(false)} disabled={pending}>Cancelar</button><button type="submit" className="button button-primary" disabled={pending} data-testid="button-save-catalog-entry">{pending ? 'Guardando…' : <><Check size={15} />{editing ? 'Guardar cambios' : 'Añadir registro'}</>}</button></div>
         </form>
+      </section>
+    </div>}
+    {historyEntry && <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#1d302e]/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryEntry(null); }}>
+      <section className="panel max-h-[90dvh] w-full max-w-[780px] overflow-y-auto p-5 shadow-xl md:p-7" role="dialog" aria-modal="true" aria-labelledby="catalog-history-title">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><div className="eyebrow">Registro de auditoría · {kindName(historyEntry.kind)}</div><h2 id="catalog-history-title" className="font-display mt-1 text-xl font-bold">Historial de «{historyEntry.code}»</h2><p className="mt-2 text-[12px] leading-5 text-[#78857f]">Los eventos son de solo lectura. Se conserva quién realizó cada cambio y sus valores antes y después.</p></div><button className="button button-plain !min-h-8 !px-2" type="button" aria-label="Cerrar historial" onClick={() => setHistoryEntry(null)}><X size={16} /></button></div>
+        {historyQuery.isLoading ? <div className="py-8 text-center text-sm text-[#78857f]">Cargando historial…</div>
+          : historyQuery.isError ? <QueryError retry={() => historyQuery.refetch()} message="No pudimos cargar el historial." detail={errorDetail(historyQuery.error, '')} />
+            : !historyQuery.data?.length ? <EmptyState title="Aún no hay cambios registrados" text="Las altas y modificaciones realizadas a partir del registro de auditoría aparecerán aquí." />
+              : <ol className="space-y-3">{historyQuery.data.map((event) => {
+                const fields = auditFields.filter(({ key }) => !event.previousValues
+                  || event.previousValues[key] !== event.newValues[key]);
+                return <li key={event.id} className="rounded-xl border border-[#eeece4] bg-[#fffefa] p-4" data-testid={`catalog-history-event-${event.id}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#eeece4] pb-3"><div><span className="rounded-full bg-[#e9f1ed] px-2.5 py-1 text-[10px] font-bold text-[#317060]">{actionLabel(event.action)}</span><div className="mt-2 text-[12px] font-semibold text-[#334943]">{event.actorName}{event.actorEmail ? <span className="ml-2 font-normal text-[#78857f]">{event.actorEmail}</span> : null}</div></div><time className="text-[11px] text-[#78857f]" dateTime={event.createdAt}>{new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt))}</time></div>
+                  <div className="mt-3 space-y-2">{fields.map(({ key, label }) => <div key={key} className="grid gap-1 text-[11px] sm:grid-cols-[120px_1fr_1fr] sm:gap-3"><span className="font-semibold text-[#64736d]">{label}</span><span className="text-[#8a958f]"><span className="sm:hidden">Antes: </span>{auditValue(key, event.previousValues?.[key])}</span><span className="font-medium text-[#334943]"><span className="sm:hidden">Después: </span>{auditValue(key, event.newValues[key])}</span></div>)}</div>
+                </li>;
+              })}</ol>}
+        <div className="mt-5 flex justify-end"><button type="button" className="button button-plain" onClick={() => setHistoryEntry(null)}>Cerrar</button></div>
       </section>
     </div>}
   </div>;

@@ -14,3 +14,4 @@
 - [Datos de prueba antes de producción](test-data-before-production.md) — las facturas actuales son de prueba y deben eliminarse antes de iniciar producción.
 - [Respuesta a vulnerabilidades de dependencias](dependency-security-response.md) — si no hay parche upstream, retirar la ruta vulnerable y validar también el grafo instalado.
 - [Secuencia web y Android](android-roadmap.md) — terminar y estabilizar la aplicación web antes de comenzar la APK para Android.
+- [Auditoría de catálogos](catalog-audit-history.md) — registrar actor y snapshots al cambiar; no inventar responsables para entradas anteriores al historial.

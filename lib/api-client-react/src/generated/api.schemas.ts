@@ -721,6 +721,74 @@ export interface VersatCatalogUpdate {
   active?: boolean;
 }
 
+export type VersatCatalogAuditValuesKind = typeof VersatCatalogAuditValuesKind[keyof typeof VersatCatalogAuditValuesKind];
+
+
+export const VersatCatalogAuditValuesKind = {
+  service: 'service',
+  unit: 'unit',
+  currency: 'currency',
+  concept: 'concept',
+  operation: 'operation',
+  commercial: 'commercial',
+  payment: 'payment',
+} as const;
+
+export interface VersatCatalogAuditValues {
+  kind: VersatCatalogAuditValuesKind;
+  sourceId: number;
+  code: string;
+  name: string;
+  exportValue: string;
+  /** @nullable */
+  unitCode: string | null;
+  /** @nullable */
+  unitName: string | null;
+  /** @nullable */
+  groupCode: string | null;
+  /** @nullable */
+  position: string | null;
+  active: boolean;
+}
+
+export type VersatCatalogAuditEventKind = typeof VersatCatalogAuditEventKind[keyof typeof VersatCatalogAuditEventKind];
+
+
+export const VersatCatalogAuditEventKind = {
+  service: 'service',
+  unit: 'unit',
+  currency: 'currency',
+  concept: 'concept',
+  operation: 'operation',
+  commercial: 'commercial',
+  payment: 'payment',
+} as const;
+
+export type VersatCatalogAuditEventAction = typeof VersatCatalogAuditEventAction[keyof typeof VersatCatalogAuditEventAction];
+
+
+export const VersatCatalogAuditEventAction = {
+  created: 'created',
+  updated: 'updated',
+  deactivated: 'deactivated',
+  reactivated: 'reactivated',
+} as const;
+
+export interface VersatCatalogAuditEvent {
+  id: number;
+  catalogEntryId: number;
+  kind: VersatCatalogAuditEventKind;
+  sourceId: number;
+  action: VersatCatalogAuditEventAction;
+  actorUserId: string;
+  actorName: string;
+  /** @nullable */
+  actorEmail: string | null;
+  previousValues: VersatCatalogAuditValues | null;
+  newValues: VersatCatalogAuditValues;
+  createdAt: string;
+}
+
 export interface VersatCatalogs {
   entries: VersatCatalogEntry[];
   customerCount: number;

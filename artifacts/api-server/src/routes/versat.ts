@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { strToU8, zipSync } from "fflate";
 import {
@@ -8,10 +8,14 @@ import {
   DownloadInvoiceVersatFileParams, DownloadInvoiceVersatFileResponse,
   DownloadVersatExportFileQueryParams, DownloadVersatExportFileResponse,
   ExportVersatInvoicesQueryParams, ExportVersatInvoicesResponse,
+  GetVersatCatalogHistoryParams, GetVersatCatalogHistoryResponse,
   GetVersatCatalogsResponse,
   UpdateVersatCatalogEntryBody, UpdateVersatCatalogEntryParams, UpdateVersatCatalogEntryResponse,
 } from "@workspace/api-zod";
-import { customersTable, db, invoicesTable, versatCatalogTable, type CatalogKind } from "@workspace/db";
+import {
+  customersTable, db, invoicesTable, versatCatalogAuditTable, versatCatalogTable,
+  type CatalogKind, type VersatCatalogAuditAction, type VersatCatalogAuditValues,
+} from "@workspace/db";
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRows, toDateOnly } from "../services/invoice-records";
 import { buildFac, encodeFac, facWarnings, getVersatIssues } from "../services/versat-file";
@@ -30,6 +34,40 @@ function serializeCatalogEntry(entry: typeof versatCatalogTable.$inferSelect) {
     unitName: metadata.unitName ?? null,
     groupCode: metadata.groupCode ?? null,
     position: metadata.position ?? null,
+  };
+}
+
+function catalogAuditValues(entry: typeof versatCatalogTable.$inferSelect): VersatCatalogAuditValues {
+  return {
+    kind: entry.kind,
+    sourceId: entry.sourceId,
+    code: entry.code,
+    name: entry.name,
+    exportValue: entry.exportValue,
+    unitCode: entry.metadata.unitCode ?? null,
+    unitName: entry.metadata.unitName ?? null,
+    groupCode: entry.metadata.groupCode ?? null,
+    position: entry.metadata.position ?? null,
+    active: entry.active,
+  };
+}
+
+function catalogAuditRecord(
+  entry: typeof versatCatalogTable.$inferSelect,
+  actor: { userId: string; name: string; email: string | null },
+  action: VersatCatalogAuditAction,
+  previousValues: VersatCatalogAuditValues | null,
+) {
+  return {
+    catalogEntryId: entry.id,
+    kind: entry.kind,
+    sourceId: entry.sourceId,
+    action,
+    actorUserId: actor.userId,
+    actorName: actor.name,
+    actorEmail: actor.email,
+    previousValues,
+    newValues: catalogAuditValues(entry),
   };
 }
 
@@ -106,7 +144,8 @@ router.post("/versat/catalogs/compare", async (req, res): Promise<void> => {
 });
 
 router.post("/versat/catalogs", async (req, res): Promise<void> => {
-  if (!await requireOwner(req, res)) return;
+  const actor = await requireOwner(req, res);
+  if (!actor) return;
   const parsed = CreateVersatCatalogEntryBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -125,15 +164,19 @@ router.post("/versat/catalogs", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const [entry] = await db.insert(versatCatalogTable).values({
-      kind: input.kind,
-      sourceId: input.sourceId,
-      code,
-      name,
-      exportValue,
-      metadata: catalogMetadata(input),
-      active: true,
-    }).returning();
+    const entry = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(versatCatalogTable).values({
+        kind: input.kind,
+        sourceId: input.sourceId,
+        code,
+        name,
+        exportValue,
+        metadata: catalogMetadata(input),
+        active: true,
+      }).returning();
+      await tx.insert(versatCatalogAuditTable).values(catalogAuditRecord(created, actor, "created", null));
+      return created;
+    });
     res.status(201).json(CreateVersatCatalogEntryResponse.parse(serializeCatalogEntry(entry)));
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
@@ -145,7 +188,8 @@ router.post("/versat/catalogs", async (req, res): Promise<void> => {
 });
 
 router.patch("/versat/catalogs/:id", async (req, res): Promise<void> => {
-  if (!await requireOwner(req, res)) return;
+  const actor = await requireOwner(req, res);
+  if (!actor) return;
   const params = UpdateVersatCatalogEntryParams.safeParse(req.params);
   const body = UpdateVersatCatalogEntryBody.safeParse(req.body);
   if (!params.success || !body.success) {
@@ -162,32 +206,91 @@ router.patch("/versat/catalogs/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Indica al menos un campo para modificar." });
     return;
   }
-  const code = body.data.code === undefined ? current.code : cleanRequired(body.data.code);
-  const name = body.data.name === undefined ? current.name : cleanRequired(body.data.name);
-  const exportValue = body.data.exportValue === undefined ? current.exportValue : cleanRequired(body.data.exportValue);
-  if (!code || !name || !exportValue) {
+  const result = await db.transaction(async (tx) => {
+    const [locked] = await tx.select().from(versatCatalogTable)
+      .where(eq(versatCatalogTable.id, current.id)).for("update").limit(1);
+    if (!locked) return { error: "missing" as const };
+    const code = body.data.code === undefined ? locked.code : cleanRequired(body.data.code);
+    const name = body.data.name === undefined ? locked.name : cleanRequired(body.data.name);
+    const exportValue = body.data.exportValue === undefined ? locked.exportValue : cleanRequired(body.data.exportValue);
+    if (!code || !name || !exportValue) return { error: "empty" as const };
+    if (body.data.code !== undefined) {
+      const [duplicate] = await tx.select({ id: versatCatalogTable.id }).from(versatCatalogTable)
+        .where(and(
+          eq(versatCatalogTable.kind, locked.kind),
+          eq(versatCatalogTable.code, code),
+          ne(versatCatalogTable.id, locked.id),
+        )).limit(1);
+      if (duplicate) return { error: "duplicate" as const };
+    }
+    const metadata = { ...locked.metadata };
+    for (const field of ["unitCode", "unitName", "groupCode", "position"] as const) {
+      if (body.data[field] === undefined) continue;
+      const value = body.data[field].trim();
+      if (value) metadata[field] = value;
+      else delete metadata[field];
+    }
+    const nextActive = body.data.active ?? locked.active;
+    const previousValues = catalogAuditValues(locked);
+    const nextValues: VersatCatalogAuditValues = {
+      kind: locked.kind,
+      sourceId: locked.sourceId,
+      code,
+      name,
+      exportValue,
+      unitCode: metadata.unitCode ?? null,
+      unitName: metadata.unitName ?? null,
+      groupCode: metadata.groupCode ?? null,
+      position: metadata.position ?? null,
+      active: nextActive,
+    };
+    if (JSON.stringify(previousValues) === JSON.stringify(nextValues)) return { entry: locked };
+    const [updated] = await tx.update(versatCatalogTable).set({
+      code,
+      name,
+      exportValue,
+      metadata,
+      active: nextActive,
+    }).where(eq(versatCatalogTable.id, locked.id)).returning();
+    const action: VersatCatalogAuditAction = locked.active !== updated.active
+      ? updated.active ? "reactivated" : "deactivated"
+      : "updated";
+    await tx.insert(versatCatalogAuditTable)
+      .values(catalogAuditRecord(updated, actor, action, previousValues));
+    return { entry: updated };
+  });
+  if ("error" in result) {
+    if (result.error === "missing") {
+      res.status(404).json({ error: "No encontramos ese registro del catálogo." });
+      return;
+    }
+    if (result.error === "duplicate") {
+      res.status(409).json({ error: "Ya existe otro registro con ese código en este catálogo." });
+      return;
+    }
     res.status(400).json({ error: "Código, nombre y valor exportado no pueden quedar vacíos." });
     return;
   }
-  if (body.data.code !== undefined && await catalogCodeExists(current.kind, code, current.id)) {
-    res.status(409).json({ error: "Ya existe otro registro con ese código en este catálogo." });
+  res.json(UpdateVersatCatalogEntryResponse.parse(serializeCatalogEntry(result.entry)));
+});
+
+router.get("/versat/catalogs/:id/history", async (req, res): Promise<void> => {
+  if (!await requireOwner(req, res)) return;
+  const params = GetVersatCatalogHistoryParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
     return;
   }
-  const metadata = { ...current.metadata };
-  for (const field of ["unitCode", "unitName", "groupCode", "position"] as const) {
-    if (body.data[field] === undefined) continue;
-    const value = body.data[field].trim();
-    if (value) metadata[field] = value;
-    else delete metadata[field];
+  const [entry] = await db.select({ id: versatCatalogTable.id })
+    .from(versatCatalogTable).where(eq(versatCatalogTable.id, params.data.id)).limit(1);
+  if (!entry) {
+    res.status(404).json({ error: "No encontramos ese registro del catálogo." });
+    return;
   }
-  const [entry] = await db.update(versatCatalogTable).set({
-    code,
-    name,
-    exportValue,
-    metadata,
-    ...(body.data.active === undefined ? {} : { active: body.data.active }),
-  }).where(eq(versatCatalogTable.id, current.id)).returning();
-  res.json(UpdateVersatCatalogEntryResponse.parse(serializeCatalogEntry(entry)));
+  const history = await db.select().from(versatCatalogAuditTable)
+    .where(eq(versatCatalogAuditTable.catalogEntryId, entry.id))
+    .orderBy(desc(versatCatalogAuditTable.createdAt), desc(versatCatalogAuditTable.id));
+  res.json(GetVersatCatalogHistoryResponse.parse(history));
 });
 
 async function periodInvoices(from: Date, to: Date, tx?: BillingTransaction) {
