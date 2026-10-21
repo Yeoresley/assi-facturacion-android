@@ -11,5 +11,6 @@ export type ListInvoicesPaymentStatus = typeof ListInvoicesPaymentStatus[keyof t
 
 export const ListInvoicesPaymentStatus = {
   pending: 'pending',
+  partial: 'partial',
   paid: 'paid',
 } as const;

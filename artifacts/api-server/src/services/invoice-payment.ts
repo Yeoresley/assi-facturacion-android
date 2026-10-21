@@ -54,11 +54,43 @@ export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paym
   };
 }
 
-export function paymentFilter(status: "pending" | "paid") {
-  return status === "paid"
-    ? or(eq(invoicesTable.paymentStatus, "paid"), eq(invoicesTable.status, "paid"))!
-    : and(inArray(invoicesTable.status, [...collectibleStatuses]), ne(invoicesTable.status, "paid"),
-      eq(invoicesTable.paymentStatus, "pending"))!;
+export function paymentFilter(status: "pending" | "partial" | "paid") {
+  if (status === "paid") {
+    return or(eq(invoicesTable.paymentStatus, "paid"), eq(invoicesTable.status, "paid"))!;
+  }
+
+  const collectiblePending = and(
+    inArray(invoicesTable.status, [...collectibleStatuses]),
+    ne(invoicesTable.status, "paid"),
+    eq(invoicesTable.paymentStatus, "pending"),
+  )!;
+  if (status === "pending") return collectiblePending;
+
+  const activePaymentSum = sql<number>`(
+    SELECT COALESCE(SUM(${invoicePaymentsTable.amount}), 0)
+    FROM ${invoicePaymentsTable}
+    WHERE ${invoicePaymentsTable.invoiceId} = ${invoicesTable.id}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ${invoicePaymentCorrectionsTable}
+        WHERE ${invoicePaymentCorrectionsTable.reversedPaymentId} = ${invoicePaymentsTable.id}
+      )
+  )`;
+  return and(
+    collectiblePending,
+    sql`EXISTS (
+      SELECT 1
+      FROM ${invoicePaymentsTable}
+      WHERE ${invoicePaymentsTable.invoiceId} = ${invoicesTable.id}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM ${invoicePaymentCorrectionsTable}
+          WHERE ${invoicePaymentCorrectionsTable.reversedPaymentId} = ${invoicePaymentsTable.id}
+        )
+    )`,
+    sql`${activePaymentSum} > 0`,
+    sql`${activePaymentSum} < ${invoicesTable.total}`,
+  )!;
 }
 
 export class InvoicePaymentError extends Error {

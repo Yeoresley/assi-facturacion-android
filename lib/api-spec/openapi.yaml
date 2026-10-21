@@ -231,7 +231,7 @@ paths:
             enum: [draft, finished, accepted, confirmed, voided, cancelled, error, sent, paid]
         - in: query
           name: paymentStatus
-          schema: { type: string, enum: [pending, paid] }
+          schema: { type: string, enum: [pending, partial, paid] }
         - in: query
           name: from
           schema: { type: string, format: date }

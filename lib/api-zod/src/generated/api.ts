@@ -770,7 +770,7 @@ export const DeleteCustomerResponse = zod.void()
 export const ListInvoicesQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
   "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']).optional(),
-  "paymentStatus": zod.enum(['pending', 'paid']).optional(),
+  "paymentStatus": zod.enum(['pending', 'partial', 'paid']).optional(),
   "from": zod.date().optional(),
   "to": zod.date().optional()
 })

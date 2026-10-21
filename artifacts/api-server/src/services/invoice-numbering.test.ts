@@ -464,6 +464,12 @@ test("pending-payment filter respects commercial scope and excludes unissued, vo
   const completed = await db.select({ id: invoicesTable.id }).from(invoicesTable)
     .where(and(inArray(invoicesTable.id, ids), paymentFilter("paid"), invoiceScope(specialist)));
   assert.deepEqual(completed.map(r => r.id).sort((a, b) => a - b), [paid.id, oldPaid.id].sort((a, b) => a - b));
+  const partial = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), paymentFilter("partial"), invoiceScope(specialist)));
+  assert.deepEqual(partial.map(r => r.id), [partiallyPaid.id]);
+  const otherPartial = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), paymentFilter("partial"), invoiceScope({ role: "specialist", commercialId: 2 })));
+  assert.equal(otherPartial.length, 0);
   assert.equal(paymentStatus(await stored(oldPaid.id)), "paid");
   await transitionInvoice(oldPaid.id, "accepted");
   const adopted = await stored(oldPaid.id);
