@@ -18,6 +18,9 @@ export function PaymentReceiptPaper({ invoice, paymentId }: { invoice: Invoice; 
       <div><span>Cliente</span><strong>{customerName}</strong></div>
       <div><span>Fecha de pago</span><strong>{date(receipt.payment.paidOn)}</strong></div>
     </section>
+    {receipt.payment.reference && <section className="payment-receipt-customer">
+      <div><span>Referencia del cobro</span><strong>{receipt.payment.reference}</strong></div>
+    </section>}
     <section className="payment-receipt-amount">
       <span>Importe recibido</span>
       <strong>{money(receipt.payment.amount, receipt.payment.currency || invoice.currency)}</strong>

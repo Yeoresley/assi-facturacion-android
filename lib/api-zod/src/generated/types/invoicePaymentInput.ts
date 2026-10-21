@@ -14,4 +14,6 @@ export interface InvoicePaymentInput {
   amount: number;
   paidOn: Date;
   idempotencyKey: string;
+  /** @maxLength 120 */
+  reference?: string;
 }

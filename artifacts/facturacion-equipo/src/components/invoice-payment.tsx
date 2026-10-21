@@ -37,6 +37,7 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(() => String(invoice.balanceDue));
   const [paidOn, setPaidOn] = useState(localToday);
+  const [reference, setReference] = useState('');
   const [validationError, setValidationError] = useState('');
   const requestRef = useRef<{ signature: string; key: string } | null>(null);
   const isOwner = member.data?.role === 'owner';
@@ -46,11 +47,13 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
   const amountCents = Math.round(amountNumber * 100);
   const balanceCents = Math.round(invoice.balanceDue * 100);
   const validAmount = Number.isFinite(amountNumber) && amountCents >= 1 && amountCents <= balanceCents;
-  const signature = `${amountCents}|${paidOn}`;
+  const normalizedReference = reference.trim();
+  const signature = `${amountCents}|${paidOn}|${normalizedReference}`;
 
   const openDialog = () => {
     setAmount(String(invoice.balanceDue));
     setPaidOn(localToday());
+    setReference('');
     setValidationError('');
     payment.reset();
     requestRef.current = null;
@@ -72,7 +75,12 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
     }
     payment.mutate({
       id: invoice.id,
-      data: { amount: amountCents / 100, paidOn, idempotencyKey: requestRef.current.key },
+      data: {
+        amount: amountCents / 100,
+        paidOn,
+        idempotencyKey: requestRef.current.key,
+        ...(normalizedReference ? { reference: normalizedReference } : {}),
+      },
     }, {
       onSuccess: async () => {
         setOpen(false);
@@ -111,6 +119,8 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
           <p id={`amount-hint-${invoice.id}`} className="mt-1.5 text-[11px] text-[#7c8881]">Máximo disponible: {money(invoice.balanceDue, invoice.currency)}. El saldo restante seguirá pendiente.</p>
           <label htmlFor={`payment-date-${invoice.id}`} className="field-label mt-4">Fecha de recepción</label>
           <input id={`payment-date-${invoice.id}`} className="field" type="date" value={paidOn} max={localToday()} onChange={(event) => setPaidOn(event.target.value)} data-testid={`input-payment-date-${invoice.id}`} />
+          <label htmlFor={`payment-reference-${invoice.id}`} className="field-label mt-4">Referencia del cobro (opcional)</label>
+          <input id={`payment-reference-${invoice.id}`} className="field" type="text" maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Ej.: transferencia 145" data-testid={`input-payment-reference-${invoice.id}`} />
           {(validationError || payment.isError) && <div className="mt-3 rounded-lg bg-[#fbefeb] px-3 py-2.5 text-[12px] leading-5 text-[#9a3b2e]" role="alert">{validationError || errorDetail(payment.error, 'No se pudo registrar el abono. Puedes volver a intentarlo; el mismo envío conserva su identificador seguro.')}</div>}
           <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
             <button type="button" className="button button-plain" disabled={payment.isPending} onClick={() => setOpen(false)}>Cancelar</button>

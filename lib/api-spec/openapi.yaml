@@ -934,6 +934,7 @@ components:
         amount: { type: number, exclusiveMinimum: 0, maximum: 999999999999.99, multipleOf: 0.01 }
         paidOn: { type: string, format: date }
         idempotencyKey: { type: string, format: uuid }
+        reference: { type: string, maxLength: 120 }
     InvoicePaymentCorrectionInput:
       type: object
       required: [reason, idempotencyKey, confirmed]
@@ -946,13 +947,14 @@ components:
         confirmed: { type: boolean, enum: [true] }
     InvoicePayment:
       type: object
-      required: [id, amount, currency, paidOn, recordedAt]
+      required: [id, amount, currency, paidOn, recordedAt, reference]
       properties:
         id: { type: integer }
         amount: { type: number }
         currency: { type: string }
         paidOn: { type: string, format: date }
         recordedAt: { type: string, format: date-time }
+        reference: { type: ["string", "null"], maxLength: 120 }
     InvoicePaymentCorrection:
       type: object
       required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]

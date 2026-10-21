@@ -532,6 +532,8 @@ export const authorizeInvoiceDocumentResponseTotalPaidMin = 0;
 
 export const authorizeInvoiceDocumentResponseBalanceDueMin = 0;
 
+export const authorizeInvoiceDocumentResponsePaymentsItemReferenceMax = 120;
+
 export const authorizeInvoiceDocumentResponseVersatOneOneNumberMax = 50;
 
 
@@ -613,7 +615,8 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(authorizeInvoiceDocumentResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -750,6 +753,8 @@ export const getBillingOverviewResponseRecentInvoicesItemTotalPaidMin = 0;
 
 export const getBillingOverviewResponseRecentInvoicesItemBalanceDueMin = 0;
 
+export const getBillingOverviewResponseRecentInvoicesItemPaymentsItemReferenceMax = 120;
+
 export const getBillingOverviewResponseRecentInvoicesItemVersatOneOneNumberMax = 50;
 
 
@@ -845,7 +850,8 @@ export const GetBillingOverviewResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(getBillingOverviewResponseRecentInvoicesItemPaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1069,6 +1075,8 @@ export const listInvoicesResponseTotalPaidMin = 0;
 
 export const listInvoicesResponseBalanceDueMin = 0;
 
+export const listInvoicesResponsePaymentsItemReferenceMax = 120;
+
 export const listInvoicesResponseVersatOneOneNumberMax = 50;
 
 
@@ -1150,7 +1158,8 @@ export const ListInvoicesResponseItem = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(listInvoicesResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1315,6 +1324,8 @@ export const createInvoiceResponseTotalPaidMin = 0;
 
 export const createInvoiceResponseBalanceDueMin = 0;
 
+export const createInvoiceResponsePaymentsItemReferenceMax = 120;
+
 export const createInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -1396,7 +1407,8 @@ export const CreateInvoiceResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(createInvoiceResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1507,6 +1519,8 @@ export const getInvoiceResponseTotalPaidMin = 0;
 
 export const getInvoiceResponseBalanceDueMin = 0;
 
+export const getInvoiceResponsePaymentsItemReferenceMax = 120;
+
 export const getInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -1588,7 +1602,8 @@ export const GetInvoiceResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(getInvoiceResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1756,6 +1771,8 @@ export const updateInvoiceResponseTotalPaidMin = 0;
 
 export const updateInvoiceResponseBalanceDueMin = 0;
 
+export const updateInvoiceResponsePaymentsItemReferenceMax = 120;
+
 export const updateInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -1837,7 +1854,8 @@ export const UpdateInvoiceResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(updateInvoiceResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -1952,6 +1970,8 @@ export const updateInvoiceStatusResponseTotalPaidMin = 0;
 
 export const updateInvoiceStatusResponseBalanceDueMin = 0;
 
+export const updateInvoiceStatusResponsePaymentsItemReferenceMax = 120;
+
 export const updateInvoiceStatusResponseVersatOneOneNumberMax = 50;
 
 
@@ -2033,7 +2053,8 @@ export const UpdateInvoiceStatusResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(updateInvoiceStatusResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2142,13 +2163,20 @@ export const createInvoicePaymentBodyAmountExclusiveMin = 0;
 export const createInvoicePaymentBodyAmountMax = 999999999999.99;
 export const createInvoicePaymentBodyAmountMultipleOf = 0.01;
 
+export const createInvoicePaymentBodyReferenceMax = 120;
+
 
 
 export const CreateInvoicePaymentBody = zod.object({
   "amount": zod.number().gt(createInvoicePaymentBodyAmountExclusiveMin).max(createInvoicePaymentBodyAmountMax).multipleOf(createInvoicePaymentBodyAmountMultipleOf),
   "paidOn": zod.coerce.date(),
-  "idempotencyKey": zod.string().uuid()
+  "idempotencyKey": zod.string().uuid(),
+  "reference": zod.string().max(createInvoicePaymentBodyReferenceMax).optional()
 })
+
+export const createInvoicePaymentResponsePaymentsItemReferenceMax = 120;
+
+
 
 export const CreateInvoicePaymentResponse = zod.object({
   "invoiceId": zod.number().int(),
@@ -2160,7 +2188,8 @@ export const CreateInvoicePaymentResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(createInvoicePaymentResponsePaymentsItemReferenceMax).nullable()
 }))
 })
 
@@ -2191,6 +2220,10 @@ export const CorrectInvoicePaymentBody = zod.object({
   "confirmed": zod.literal(true)
 })
 
+export const correctInvoicePaymentResponsePaymentsItemReferenceMax = 120;
+
+
+
 export const CorrectInvoicePaymentResponse = zod.object({
   "invoiceId": zod.number().int(),
   "paymentStatus": zod.enum(['pending', 'paid']),
@@ -2201,7 +2234,8 @@ export const CorrectInvoicePaymentResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(correctInvoicePaymentResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),
@@ -2286,6 +2320,8 @@ export const getSharedInvoiceResponseTotalPaidMin = 0;
 
 export const getSharedInvoiceResponseBalanceDueMin = 0;
 
+export const getSharedInvoiceResponsePaymentsItemReferenceMax = 120;
+
 export const getSharedInvoiceResponseVersatOneOneNumberMax = 50;
 
 
@@ -2367,7 +2403,8 @@ export const GetSharedInvoiceResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date()
+  "recordedAt": zod.coerce.date(),
+  "reference": zod.string().max(getSharedInvoiceResponsePaymentsItemReferenceMax).nullable()
 })),
   "paymentCorrections": zod.array(zod.object({
   "id": zod.number().int(),

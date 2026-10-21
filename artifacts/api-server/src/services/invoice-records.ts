@@ -16,6 +16,7 @@ export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
     currency: string;
     paidOn: string;
     recordedAt: string;
+    reference: string | null;
   }>;
   paymentCorrections: ReturnType<typeof summarizePayments>["paymentCorrections"];
 };

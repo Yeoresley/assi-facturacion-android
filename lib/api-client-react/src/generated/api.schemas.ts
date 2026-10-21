@@ -282,6 +282,11 @@ export interface InvoicePayment {
   currency: string;
   paidOn: string;
   recordedAt: string;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  reference: string | null;
 }
 
 export type InvoicePaymentCorrectionBeforePaymentStatus = typeof InvoicePaymentCorrectionBeforePaymentStatus[keyof typeof InvoicePaymentCorrectionBeforePaymentStatus];
@@ -449,6 +454,8 @@ export interface InvoicePaymentInput {
   amount: number;
   paidOn: string;
   idempotencyKey: string;
+  /** @maxLength 120 */
+  reference?: string;
 }
 
 export interface InvoicePaymentCorrectionInput {

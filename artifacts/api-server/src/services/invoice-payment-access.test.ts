@@ -5,6 +5,7 @@ import type { Server } from "node:http";
 import express from "express";
 import { clerkClient } from "@clerk/express";
 import {
+  CreateInvoicePaymentResponse,
   CreateInvoiceShareResponse,
   GetInvoiceResponse,
   GetSharedInvoiceResponse,
@@ -180,8 +181,15 @@ after(async () => {
   await pool.end();
 });
 
-const request = (path: string, actor = specialistOneId, method = "GET") =>
-  fetch(`${base}${path}`, { method, headers: { "x-synthetic-id": actor } });
+const request = (path: string, actor = specialistOneId, method = "GET", body?: unknown) =>
+  fetch(`${base}${path}`, {
+    method,
+    headers: {
+      "x-synthetic-id": actor,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 
 function assertPaymentSnapshot(
   invoice: { id: number; totalPaid: number; balanceDue: number; payments: Array<{ amount: number }> },
@@ -225,6 +233,30 @@ test("specialists see only their commercial's invoice payments in lists, details
     assert.equal(deniedShare.status, 404);
   }
 
+  const reference = `${tag}-TRANSFER-145`;
+  const paymentInput = {
+    amount: 5,
+    paidOn: "2026-10-21",
+    idempotencyKey: randomUUID(),
+    reference,
+  };
+  const paymentResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", paymentInput);
+  assert.equal(paymentResponse.status, 201);
+  const paymentResult = CreateInvoicePaymentResponse.parse(await paymentResponse.json());
+  const referencedPayment = paymentResult.payments.find(({ reference: value }) => value === reference);
+  assert.ok(referencedPayment);
+  const retryResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", paymentInput);
+  assert.equal(retryResponse.status, 200);
+  const mismatchedRetryResponse = await request(`/invoices/${invoiceOneId}/payments`, ownerId, "POST", {
+    ...paymentInput,
+    reference: `${reference}-different`,
+  });
+  assert.equal(mismatchedRetryResponse.status, 409);
+  assert.ok(paymentResult.payments
+    .filter(({ id }) => id !== referencedPayment.id)
+    .every(({ reference: value }) => value === null));
+  const updatedOwnSummary = { id: invoiceOneId, totalPaid: 40, balanceDue: 60, payments: [10, 25, 5] };
+
   const createdResponse = await request(`/invoices/${invoiceOneId}/share`, specialistOneId, "POST");
   assert.equal(createdResponse.status, 200);
   const createdShare = CreateInvoiceShareResponse.parse(await createdResponse.json());
@@ -232,7 +264,12 @@ test("specialists see only their commercial's invoice payments in lists, details
 
   const sharedResponse = await request(`/shared-invoices/${token}`, "");
   assert.equal(sharedResponse.status, 200);
-  assertPaymentSnapshot(GetSharedInvoiceResponse.parse(await sharedResponse.json()), ownSummary);
+  const sharedInvoice = GetSharedInvoiceResponse.parse(await sharedResponse.json());
+  assertPaymentSnapshot(sharedInvoice, updatedOwnSummary);
+  assert.equal(sharedInvoice.payments.find(({ id }) => id === referencedPayment.id)?.reference, reference);
+  assert.ok(sharedInvoice.payments
+    .filter(({ id }) => id !== referencedPayment.id)
+    .every(({ reference: value }) => value === null));
 
   const ownerListResponse = await request("/invoices", ownerId);
   assert.equal(ownerListResponse.status, 200);
@@ -240,9 +277,9 @@ test("specialists see only their commercial's invoice payments in lists, details
   const ownerInvoiceIds = ownerInvoices.map(({ id }) => id);
   assert.ok(ownerInvoiceIds.includes(invoiceOneId));
   assert.ok(ownerInvoiceIds.includes(invoiceTwoId));
-  assertPaymentSnapshot(ownerInvoices.find(({ id }) => id === invoiceOneId)!, ownSummary);
+  assertPaymentSnapshot(ownerInvoices.find(({ id }) => id === invoiceOneId)!, updatedOwnSummary);
   assertPaymentSnapshot(ownerInvoices.find(({ id }) => id === invoiceTwoId)!, otherSummary);
-  for (const expected of [ownSummary, otherSummary]) {
+  for (const expected of [updatedOwnSummary, otherSummary]) {
     const ownerDetail = await request(`/invoices/${expected.id}`, ownerId);
     assert.equal(ownerDetail.status, 200);
     assertPaymentSnapshot(GetInvoiceResponse.parse(await ownerDetail.json()), expected);

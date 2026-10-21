@@ -29,7 +29,7 @@ export function validPaymentDate(value: string): boolean {
 }
 
 export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paymentStatus" | "total">,
-  payments: Array<Pick<typeof invoicePaymentsTable.$inferSelect, "id" | "amount" | "currency" | "paidOn" | "recordedAt">>,
+  payments: Array<Pick<typeof invoicePaymentsTable.$inferSelect, "id" | "amount" | "currency" | "paidOn" | "recordedAt" | "reference">>,
   corrections: Array<typeof invoicePaymentCorrectionsTable.$inferSelect> = []) {
   const reversedPaymentIds = new Set(corrections.flatMap(({ reversedPaymentId }) =>
     reversedPaymentId === null ? [] : [reversedPaymentId]));
@@ -49,8 +49,8 @@ export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paym
       totalPaidCents >= cents(invoice.total) ? "paid" as const : "pending" as const,
     totalPaid: totalPaidCents / 100,
     balanceDue: Math.max(0, cents(invoice.total) - totalPaidCents) / 100,
-    payments: payments.map(({ id, amount, currency, paidOn, recordedAt }) => ({
-      id, amount, currency, paidOn, recordedAt: recordedAt.toISOString(),
+    payments: payments.map(({ id, amount, currency, paidOn, recordedAt, reference }) => ({
+      id, amount, currency, paidOn, recordedAt: recordedAt.toISOString(), reference,
     })),
     paymentCorrections: corrections.map((correction) => ({
       ...correction,
@@ -111,7 +111,7 @@ export class InvoicePaymentError extends Error {
 
 export async function recordInvoicePayment(
   id: number,
-  input: { amount: number; paidOn: string; idempotencyKey: string },
+  input: { amount: number; paidOn: string; idempotencyKey: string; reference?: string },
   actor: Pick<CurrentTeamMember, "role" | "userId">,
 ) {
   if (actor.role !== "owner") throw new InvoicePaymentError("Solo el administrador puede registrar abonos.", 403);
@@ -120,6 +120,10 @@ export async function recordInvoicePayment(
     throw new InvoicePaymentError("El importe debe ser positivo y tener como máximo dos decimales.", 422);
   }
   if (!validPaymentDate(input.paidOn)) throw new InvoicePaymentError("Indica una fecha de pago válida.", 422);
+  const reference = input.reference?.trim() || null;
+  if (reference && reference.length > 120) {
+    throw new InvoicePaymentError("La referencia no puede superar 120 caracteres.", 422);
+  }
   return db.transaction(async (tx) => {
     const [invoice] = await tx.select().from(invoicesTable).where(eq(invoicesTable.id, id)).for("update");
     if (!invoice) throw new InvoicePaymentError("Factura no encontrada.", 404);
@@ -131,7 +135,8 @@ export async function recordInvoicePayment(
       .where(eq(invoicePaymentCorrectionsTable.invoiceId, id))
       .orderBy(invoicePaymentCorrectionsTable.id);
     if (duplicate) {
-      if (cents(duplicate.amount) !== amountCents || duplicate.paidOn !== input.paidOn) {
+      if (cents(duplicate.amount) !== amountCents || duplicate.paidOn !== input.paidOn ||
+          duplicate.reference !== reference) {
         throw new InvoicePaymentError("Esta solicitud ya se usó para otro abono.", 409);
       }
       const entries = await tx.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, id));
@@ -154,7 +159,8 @@ export async function recordInvoicePayment(
     const nextPaidCents = alreadyPaidCents + amountCents;
     const [payment] = await tx.insert(invoicePaymentsTable).values({
       invoiceId: id, idempotencyKey: input.idempotencyKey,
-      amount: amountCents / 100, currency: invoice.currency, paidOn: input.paidOn, paidBy: actor.userId,
+      amount: amountCents / 100, currency: invoice.currency, paidOn: input.paidOn,
+      paidBy: actor.userId, reference,
     }).returning();
     const nextPayments = [...entries, payment];
     const acceptance = acceptanceFromWorkflowEvent(invoice, actor.userId);

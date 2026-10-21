@@ -12,4 +12,9 @@ export interface InvoicePayment {
   currency: string;
   paidOn: Date;
   recordedAt: Date;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  reference: string | null;
 }

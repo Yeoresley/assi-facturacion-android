@@ -10,6 +10,7 @@ export const invoicePaymentsTable = pgTable("invoice_payments", {
   amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
   currency: text("currency").notNull(),
   paidOn: date("paid_on", { mode: "string" }).notNull(),
+  reference: text("reference"),
   paidBy: text("paid_by").notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
