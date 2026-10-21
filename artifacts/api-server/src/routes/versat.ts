@@ -3,6 +3,8 @@ import { Router, type IRouter } from "express";
 import { strToU8, zipSync } from "fflate";
 import {
   CreateVersatCatalogEntryBody, CreateVersatCatalogEntryResponse,
+  CompareVersatCatalogsBody, CompareVersatCatalogsResponse,
+  DownloadInvoiceVersatFileBody, DownloadVersatExportFileBody,
   DownloadInvoiceVersatFileParams, DownloadInvoiceVersatFileResponse,
   DownloadVersatExportFileQueryParams, DownloadVersatExportFileResponse,
   ExportVersatInvoicesQueryParams, ExportVersatInvoicesResponse,
@@ -16,6 +18,7 @@ import { buildFac, encodeFac, facWarnings, getVersatIssues } from "../services/v
 import type { BillingTransaction } from "../services/invoice-numbering";
 import { facFilename, facNumber } from "../services/versat-identity";
 import { acceptanceFromWorkflowEvent } from "../services/invoice-status";
+import { compareCatalogCsv } from "../services/versat-catalog-check";
 
 const router: IRouter = Router();
 
@@ -57,6 +60,22 @@ async function catalogCodeExists(kind: CatalogKind, code: string, exceptId?: num
   return !!match;
 }
 
+async function compareWithActiveCatalog(csv: string) {
+  const activeEntries = await db.select({
+    kind: versatCatalogTable.kind,
+    sourceId: versatCatalogTable.sourceId,
+    code: versatCatalogTable.code,
+    exportValue: versatCatalogTable.exportValue,
+  }).from(versatCatalogTable).where(eq(versatCatalogTable.active, true));
+  return CompareVersatCatalogsResponse.parse(compareCatalogCsv(csv, activeEntries));
+}
+
+function catalogMismatchMessage(differences: Array<{ detail: string }>): string {
+  const shown = differences.slice(0, 12).map(({ detail }) => detail).join(" ");
+  const remaining = differences.length > 12 ? ` Y ${differences.length - 12} diferencias más.` : "";
+  return `No se generó ningún .Fac: el catálogo activo no coincide con el archivo reciente de Versat. Corrige la configuración o carga un archivo actualizado y vuelve a comparar. ${shown}${remaining}`;
+}
+
 router.get("/versat/catalogs", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
@@ -70,6 +89,20 @@ router.get("/versat/catalogs", async (req, res): Promise<void> => {
     customerCount: customers.total,
     entries: entries.map(serializeCatalogEntry),
   }));
+});
+
+router.post("/versat/catalogs/compare", async (req, res): Promise<void> => {
+  if (!await requireOwner(req, res)) return;
+  const body = CompareVersatCatalogsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  try {
+    res.json(await compareWithActiveCatalog(body.data.catalogCsv));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo leer el catálogo de Versat." });
+  }
 });
 
 router.post("/versat/catalogs", async (req, res): Promise<void> => {
@@ -199,7 +232,11 @@ router.post("/invoices/:id/versat-file", async (req, res): Promise<void> => {
   if (!owner) return;
   const params = DownloadInvoiceVersatFileParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Identificador inválido." }); return; }
+  const body = DownloadInvoiceVersatFileBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   try {
+    const comparison = await compareWithActiveCatalog(body.data.catalogCsv);
+    if (!comparison.compatible) throw new Error(catalogMismatchMessage(comparison.differences));
     const result = await db.transaction(async (tx) => {
       const [locked] = await tx.select({ id: invoicesTable.id }).from(invoicesTable)
         .where(eq(invoicesTable.id, params.data.id)).for("share");
@@ -234,7 +271,11 @@ router.post("/versat/export-file", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Selecciona un intervalo y una codificación válidos." });
     return;
   }
+  const body = DownloadVersatExportFileBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   try {
+    const comparison = await compareWithActiveCatalog(body.data.catalogCsv);
+    if (!comparison.compatible) throw new Error(catalogMismatchMessage(comparison.differences));
     const result = await db.transaction(async (tx) => {
     const invoices = await periodInvoices(parsed.data.from, parsed.data.to, tx);
     if (!invoices.length) {

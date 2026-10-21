@@ -65,7 +65,9 @@ import type {
   TeamInvitationInput,
   TeamMember,
   TeamMemberAccessInput,
+  VersatCatalogComparison,
   VersatCatalogEntry,
+  VersatCatalogFileInput,
   VersatCatalogInput,
   VersatCatalogUpdate,
   VersatCatalogs,
@@ -3171,6 +3173,94 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateVersatCatalogEntryMutationOptions(options));
     }
 
+export const getCompareVersatCatalogsUrl = () => {
+
+
+
+
+  return `/api/versat/catalogs/compare`
+}
+
+/**
+ * @summary Compare active catalog entries with an administrator-provided Versat CSV
+ */
+export const compareVersatCatalogs = async (versatCatalogFileInput: VersatCatalogFileInput, options?: Parameters<typeof customFetch>[1]): Promise<VersatCatalogComparison> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VersatCatalogComparison>(getCompareVersatCatalogsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(versatCatalogFileInput)
+  }
+);}
+
+
+
+
+
+export const getCompareVersatCatalogsMutationKey = () => ['compareVersatCatalogs'] as const;
+
+export const getCompareVersatCatalogsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compareVersatCatalogs>>, TError,CompareVersatCatalogsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof compareVersatCatalogs>>, TError,CompareVersatCatalogsMutationVariables, TContext> => {
+
+const mutationKey = getCompareVersatCatalogsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compareVersatCatalogs>>, CompareVersatCatalogsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  compareVersatCatalogs(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompareVersatCatalogsMutationResult = NonNullable<Awaited<ReturnType<typeof compareVersatCatalogs>>>
+    export type CompareVersatCatalogsMutationBody = BodyType<VersatCatalogFileInput>
+    export type CompareVersatCatalogsMutationError = ErrorType<void>
+    export type CompareVersatCatalogsMutationVariables = {data: BodyType<VersatCatalogFileInput>}
+
+    /**
+ * @summary Compare active catalog entries with an administrator-provided Versat CSV
+ */
+export const useCompareVersatCatalogs = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compareVersatCatalogs>>, TError,CompareVersatCatalogsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof compareVersatCatalogs>>,
+        TError,
+        CompareVersatCatalogsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompareVersatCatalogsMutationOptions(options));
+    }
+
 export const getUpdateVersatCatalogEntryUrl = (id: number,) => {
 
 
@@ -3263,16 +3353,31 @@ export const getDownloadInvoiceVersatFileUrl = (id: number,) => {
 }
 
 /**
- * @summary Download a valid Versat invoice file and record acceptance
+ * @summary Compare catalogs, then download a valid Versat invoice file and record acceptance
  */
-export const downloadInvoiceVersatFile = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
+export const downloadInvoiceVersatFile = async (id: number,
+    versatCatalogFileInput: VersatCatalogFileInput, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
 
-  return customFetch<VersatDownload>(getDownloadInvoiceVersatFileUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VersatDownload>(getDownloadInvoiceVersatFileUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(versatCatalogFileInput)
   }
 );}
 
@@ -3297,9 +3402,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, DownloadInvoiceVersatFileMutationVariables> = (props) => {
-          const {id} = props ?? {};
+          const {id,data} = props ?? {};
 
-          return  downloadInvoiceVersatFile(id,requestOptions)
+          return  downloadInvoiceVersatFile(id,data,requestOptions)
         }
 
 
@@ -3310,12 +3415,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type DownloadInvoiceVersatFileMutationResult = NonNullable<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>>
-
+    export type DownloadInvoiceVersatFileMutationBody = BodyType<VersatCatalogFileInput>
     export type DownloadInvoiceVersatFileMutationError = ErrorType<void>
-    export type DownloadInvoiceVersatFileMutationVariables = {id: number}
+    export type DownloadInvoiceVersatFileMutationVariables = {id: number;data: BodyType<VersatCatalogFileInput>}
 
     /**
- * @summary Download a valid Versat invoice file and record acceptance
+ * @summary Compare catalogs, then download a valid Versat invoice file and record acceptance
  */
 export const useDownloadInvoiceVersatFile = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, TError,DownloadInvoiceVersatFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -3344,16 +3449,31 @@ export const getDownloadVersatExportFileUrl = (params: DownloadVersatExportFileP
 }
 
 /**
- * @summary Download a Versat batch and record acceptance
+ * @summary Compare catalogs, then download a Versat batch and record acceptance
  */
-export const downloadVersatExportFile = async (params: DownloadVersatExportFileParams, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
+export const downloadVersatExportFile = async (versatCatalogFileInput: VersatCatalogFileInput,
+    params: DownloadVersatExportFileParams, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
 
-  return customFetch<VersatDownload>(getDownloadVersatExportFileUrl(params),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VersatDownload>(getDownloadVersatExportFileUrl(params),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(versatCatalogFileInput)
   }
 );}
 
@@ -3378,9 +3498,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof downloadVersatExportFile>>, DownloadVersatExportFileMutationVariables> = (props) => {
-          const {params} = props ?? {};
+          const {data,params} = props ?? {};
 
-          return  downloadVersatExportFile(params,requestOptions)
+          return  downloadVersatExportFile(data,params,requestOptions)
         }
 
 
@@ -3391,12 +3511,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type DownloadVersatExportFileMutationResult = NonNullable<Awaited<ReturnType<typeof downloadVersatExportFile>>>
-
+    export type DownloadVersatExportFileMutationBody = BodyType<VersatCatalogFileInput>
     export type DownloadVersatExportFileMutationError = ErrorType<void>
-    export type DownloadVersatExportFileMutationVariables = {params: DownloadVersatExportFileParams}
+    export type DownloadVersatExportFileMutationVariables = {data: BodyType<VersatCatalogFileInput>;params: DownloadVersatExportFileParams}
 
     /**
- * @summary Download a Versat batch and record acceptance
+ * @summary Compare catalogs, then download a Versat batch and record acceptance
  */
 export const useDownloadVersatExportFile = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadVersatExportFile>>, TError,DownloadVersatExportFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

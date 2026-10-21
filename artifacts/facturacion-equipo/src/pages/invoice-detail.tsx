@@ -17,6 +17,7 @@ import { CorrectPaidButton, InvoicePaymentHistory, MarkPaidButton, PaymentBadge 
 import { InvoiceShareList } from '@/components/invoice-share-list';
 import { PaymentReceiptPaper } from '@/components/payment-receipt';
 import { getPaymentReceiptInfo } from '@/components/payment-receipt-data';
+import { VERSAT_CATALOG_CSV_SESSION_KEY } from '@/lib/versat-catalog';
 
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -70,7 +71,9 @@ export default function InvoiceDetailPage() {
     setFileError('');
     setFileInfo([]);
     try {
-      const result = await file.mutateAsync({ id });
+      const catalogCsv = window.sessionStorage.getItem(VERSAT_CATALOG_CSV_SESSION_KEY);
+      if (!catalogCsv) throw new Error('Compara primero el catálogo de Versat desde Exportar.');
+      const result = await file.mutateAsync({ id, data: { catalogCsv } });
       downloadBase64File(result.base64, result.filename, result.contentType);
       setFileInfo(result.warnings || []);
       setNotice(`Archivo ${result.filename} descargado; la factura quedó Aceptada.`);
@@ -113,6 +116,7 @@ export default function InvoiceDetailPage() {
   const terminal = ['confirmed', 'voided', 'cancelled'].includes(st);
   const canFinishHint = st === 'draft' && !hasLegal;
   const shareUrl = share?.url && !shares.isError && shares.data?.some(link => link.id === share.id && Date.parse(link.expiresAt) > Date.now()) ? new URL(share.url, window.location.origin).toString() : '';
+  const versatCatalogCsv = window.sessionStorage.getItem(VERSAT_CATALOG_CSV_SESSION_KEY);
 
   if (receiptParam) {
     if (!isOwner || !receiptInfo) return <div className="mx-auto max-w-[620px]"><div className="panel p-7"><Link href={`/invoices/${inv.id}`} className="button button-plain !min-h-9"><ArrowLeft size={14} />Volver a la factura</Link><h1 className="font-display mt-5 text-xl font-bold">{isOwner ? 'Comprobante no disponible' : 'Acceso no permitido'}</h1><p className="mt-2 text-sm leading-6 text-[#71817b]">{isOwner ? 'El abono no existe o fue corregido. Actualiza la factura antes de generar un comprobante.' : 'Solo el administrador puede generar comprobantes de abono.'}</p></div></div>;
@@ -147,7 +151,8 @@ export default function InvoiceDetailPage() {
     </div>}
     {pending && <div className="no-print fixed inset-0 z-50 grid place-items-center bg-[#1b2f2c]/50 px-4" role="alertdialog" aria-modal="true" aria-labelledby="status-dialog-title" aria-describedby="status-dialog-description"><div className="panel max-w-[440px] p-6"><h3 id="status-dialog-title" className="font-display text-lg font-bold">{pending.title}</h3><p id="status-dialog-description" className="mt-3 text-[13px] leading-6 text-[#5f736c]">{pending.body}</p><div className="mt-5 flex justify-end gap-2"><button autoFocus className="button button-plain" onClick={() => setPending(null)}>Volver</button><button className={`button ${pending.danger ? 'button-danger' : 'button-primary'}`} disabled={updateStatus.isPending} onClick={() => { const s2 = pending.status; setPending(null); changeStatus(s2); }} data-testid="button-confirm-status">Confirmar</button></div></div></div>}
 
-    {issued && isOwner && st !== 'error' && <section className="no-print panel mb-5 p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="eyebrow">Versat · propietario</div><h2 className="font-display mt-1 text-base font-bold">Archivo .Fac de prueba</h2></div><button className="button button-soft" onClick={downloadFac} disabled={file.isPending || !['finished', 'accepted'].includes(st)} title={['finished', 'accepted'].includes(st) ? undefined : 'Disponible para facturas Terminadas o Aceptadas'} data-testid="button-download-fac"><ArrowDownToLine size={15} />{file.isPending ? 'Generando…' : st === 'confirmed' ? 'Ya importada' : 'Descargar .Fac (prueba)'}</button></div>
+    {issued && isOwner && st !== 'error' && <section className="no-print panel mb-5 p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="eyebrow">Versat · propietario</div><h2 className="font-display mt-1 text-base font-bold">Archivo .Fac de prueba</h2></div><button className="button button-soft" onClick={downloadFac} disabled={file.isPending || !['finished', 'accepted'].includes(st) || !versatCatalogCsv} title={!versatCatalogCsv ? 'Compara primero el catálogo desde Exportar' : ['finished', 'accepted'].includes(st) ? undefined : 'Disponible para facturas Terminadas o Aceptadas'} data-testid="button-download-fac"><ArrowDownToLine size={15} />{file.isPending ? 'Generando…' : st === 'confirmed' ? 'Ya importada' : 'Descargar .Fac (prueba)'}</button></div>
+      {!versatCatalogCsv && <p className="mt-3 text-[11px] leading-5 text-[#8a6a25]">Antes de generar el archivo, <Link className="font-bold underline" href="/export">compara el catálogo reciente de Versat</Link>. La descarga se habilita al confirmar que no hay diferencias.</p>}
       {st === 'confirmed' && <p className="mt-3 text-[12px] text-[#5f736c]">Esta factura ya fue importada y no se puede descargar de nuevo.</p>}{st === 'finished' && <p className="mt-3 text-[12px] text-[#5f736c]">Al generar el .Fac, la factura quedará marcada como Aceptada. Después de importarla, confírmala aquí.</p>}{st === 'accepted' && <p className="mt-3 text-[12px] text-[#5f736c]">La factura está Aceptada. Descargarla no confirma su importación en Versat.</p>}
       <div className="mt-3"><TestFileNotice>Codificación Windows-1252. No es un archivo certificado ni final.</TestFileNotice></div>
       {fileError && <div className="mt-3 rounded-lg bg-[#fbefeb] px-4 py-3 text-[12px] leading-5 text-[#a04539]" role="alert"><div className="font-bold">No se pudo generar el archivo</div>{fileError}</div>}

@@ -3007,6 +3007,34 @@ export const CreateVersatCatalogEntryResponse = zod.object({
 })
 
 
+/**
+ * @summary Compare active catalog entries with an administrator-provided Versat CSV
+ */
+export const compareVersatCatalogsBodyCatalogCsvMax = 1500000;
+
+
+
+export const CompareVersatCatalogsBody = zod.object({
+  "catalogCsv": zod.string().min(1).max(compareVersatCatalogsBodyCatalogCsvMax).describe('CSV or TSV with kind, sourceId, code and exportValue columns')
+})
+
+export const CompareVersatCatalogsResponse = zod.object({
+  "compatible": zod.boolean(),
+  "activeEntryCount": zod.number().int(),
+  "fileEntryCount": zod.number().int(),
+  "differences": zod.array(zod.object({
+  "type": zod.enum(['missing_in_file', 'missing_in_system', 'code_mismatch', 'export_value_mismatch', 'invalid_row', 'duplicate_source_id']),
+  "kind": zod.union([zod.literal('service'),zod.literal('unit'),zod.literal('currency'),zod.literal('concept'),zod.literal('operation'),zod.literal('commercial'),zod.literal('payment'),zod.literal(null)]).nullable(),
+  "sourceId": zod.number().int().nullable(),
+  "systemCode": zod.string().nullable(),
+  "fileCode": zod.string().nullable(),
+  "systemExportValue": zod.string().nullable(),
+  "fileExportValue": zod.string().nullable(),
+  "detail": zod.string()
+}))
+})
+
+
 export const UpdateVersatCatalogEntryParams = zod.object({
   "id": zod.coerce.number().int()
 })
@@ -3054,10 +3082,18 @@ export const UpdateVersatCatalogEntryResponse = zod.object({
 
 
 /**
- * @summary Download a valid Versat invoice file and record acceptance
+ * @summary Compare catalogs, then download a valid Versat invoice file and record acceptance
  */
 export const DownloadInvoiceVersatFileParams = zod.object({
   "id": zod.coerce.number().int()
+})
+
+export const downloadInvoiceVersatFileBodyCatalogCsvMax = 1500000;
+
+
+
+export const DownloadInvoiceVersatFileBody = zod.object({
+  "catalogCsv": zod.string().min(1).max(downloadInvoiceVersatFileBodyCatalogCsvMax).describe('CSV or TSV with kind, sourceId, code and exportValue columns')
 })
 
 export const DownloadInvoiceVersatFileResponse = zod.object({
@@ -3070,7 +3106,7 @@ export const DownloadInvoiceVersatFileResponse = zod.object({
 
 
 /**
- * @summary Download a Versat batch and record acceptance
+ * @summary Compare catalogs, then download a Versat batch and record acceptance
  */
 export const downloadVersatExportFileQueryEncodingDefault = `windows-1252`;
 
@@ -3078,6 +3114,14 @@ export const DownloadVersatExportFileQueryParams = zod.object({
   "from": zod.date(),
   "to": zod.date(),
   "encoding": zod.enum(['windows-1252', 'utf-8']).default(downloadVersatExportFileQueryEncodingDefault)
+})
+
+export const downloadVersatExportFileBodyCatalogCsvMax = 1500000;
+
+
+
+export const DownloadVersatExportFileBody = zod.object({
+  "catalogCsv": zod.string().min(1).max(downloadVersatExportFileBodyCatalogCsvMax).describe('CSV or TSV with kind, sourceId, code and exportValue columns')
 })
 
 export const DownloadVersatExportFileResponse = zod.object({

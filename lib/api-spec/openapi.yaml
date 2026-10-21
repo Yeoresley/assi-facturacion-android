@@ -667,6 +667,23 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VersatCatalogEntry" }
         "409": { description: A catalog entry with this source ID or code already exists }
+  /versat/catalogs/compare:
+    post:
+      operationId: compareVersatCatalogs
+      tags: [Billing]
+      summary: Compare active catalog entries with an administrator-provided Versat CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersatCatalogFileInput" }
+      responses:
+        "200":
+          description: Read-only catalog comparison
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatCatalogComparison" }
+        "400": { description: Invalid or unsupported CSV file }
   /versat/catalogs/{id}:
     patch:
       operationId: updateVersatCatalogEntry
@@ -690,9 +707,14 @@ paths:
     post:
       operationId: downloadInvoiceVersatFile
       tags: [Billing]
-      summary: Download a valid Versat invoice file and record acceptance
+      summary: Compare catalogs, then download a valid Versat invoice file and record acceptance
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersatCatalogFileInput" }
       responses:
         "200":
           description: Candidate Fac file; successful generation marks the invoice accepted in this app
@@ -700,16 +722,21 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VersatDownload" }
         "422":
-          description: Missing or unsupported Versat fields
+          description: Catalog mismatch or missing/unsupported Versat fields
   /versat/export-file:
     post:
       operationId: downloadVersatExportFile
       tags: [Billing]
-      summary: Download a Versat batch and record acceptance
+      summary: Compare catalogs, then download a Versat batch and record acceptance
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
         - { name: encoding, in: query, schema: { type: string, enum: [windows-1252, utf-8], default: windows-1252 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersatCatalogFileInput" }
       responses:
         "200":
           description: ZIP with one candidate Fac per invoice; successful generation marks included invoices accepted in this app
@@ -717,7 +744,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VersatDownload" }
         "422":
-          description: No invoices or incomplete mappings; no partial download
+          description: Catalog mismatch, no invoices, or incomplete mappings; no partial download
   /versat/export:
     get:
       operationId: exportVersatInvoices
@@ -1219,6 +1246,37 @@ components:
       properties:
         entries: { type: array, items: { $ref: "#/components/schemas/VersatCatalogEntry" } }
         customerCount: { type: integer }
+    VersatCatalogFileInput:
+      type: object
+      required: [catalogCsv]
+      properties:
+        catalogCsv:
+          type: string
+          minLength: 1
+          maxLength: 1500000
+          description: CSV or TSV with kind, sourceId, code and exportValue columns
+    VersatCatalogDifference:
+      type: object
+      required: [type, kind, sourceId, systemCode, fileCode, systemExportValue, fileExportValue, detail]
+      properties:
+        type: { type: string, enum: [missing_in_file, missing_in_system, code_mismatch, export_value_mismatch, invalid_row, duplicate_source_id] }
+        kind: { type: ["string", "null"], enum: [service, unit, currency, concept, operation, commercial, payment, null] }
+        sourceId: { type: ["integer", "null"] }
+        systemCode: { type: ["string", "null"] }
+        fileCode: { type: ["string", "null"] }
+        systemExportValue: { type: ["string", "null"] }
+        fileExportValue: { type: ["string", "null"] }
+        detail: { type: string }
+    VersatCatalogComparison:
+      type: object
+      required: [compatible, activeEntryCount, fileEntryCount, differences]
+      properties:
+        compatible: { type: boolean }
+        activeEntryCount: { type: integer }
+        fileEntryCount: { type: integer }
+        differences:
+          type: array
+          items: { $ref: "#/components/schemas/VersatCatalogDifference" }
     SettlementSalesType:
       type: string
       enum: [license, service]

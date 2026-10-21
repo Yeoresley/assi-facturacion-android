@@ -726,6 +726,67 @@ export interface VersatCatalogs {
   customerCount: number;
 }
 
+export interface VersatCatalogFileInput {
+  /**
+     * CSV or TSV with kind, sourceId, code and exportValue columns
+     * @minLength 1
+     * @maxLength 1500000
+     */
+  catalogCsv: string;
+}
+
+export type VersatCatalogDifferenceType = typeof VersatCatalogDifferenceType[keyof typeof VersatCatalogDifferenceType];
+
+
+export const VersatCatalogDifferenceType = {
+  missing_in_file: 'missing_in_file',
+  missing_in_system: 'missing_in_system',
+  code_mismatch: 'code_mismatch',
+  export_value_mismatch: 'export_value_mismatch',
+  invalid_row: 'invalid_row',
+  duplicate_source_id: 'duplicate_source_id',
+} as const;
+
+/**
+ * @nullable
+ */
+export type VersatCatalogDifferenceKind = typeof VersatCatalogDifferenceKind[keyof typeof VersatCatalogDifferenceKind] | null;
+
+
+export const VersatCatalogDifferenceKind = {
+  service: 'service',
+  unit: 'unit',
+  currency: 'currency',
+  concept: 'concept',
+  operation: 'operation',
+  commercial: 'commercial',
+  payment: 'payment',
+} as const;
+
+export interface VersatCatalogDifference {
+  type: VersatCatalogDifferenceType;
+  /** @nullable */
+  kind: VersatCatalogDifferenceKind;
+  /** @nullable */
+  sourceId: number | null;
+  /** @nullable */
+  systemCode: string | null;
+  /** @nullable */
+  fileCode: string | null;
+  /** @nullable */
+  systemExportValue: string | null;
+  /** @nullable */
+  fileExportValue: string | null;
+  detail: string;
+}
+
+export interface VersatCatalogComparison {
+  compatible: boolean;
+  activeEntryCount: number;
+  fileEntryCount: number;
+  differences: VersatCatalogDifference[];
+}
+
 export type SettlementSalesType = typeof SettlementSalesType[keyof typeof SettlementSalesType];
 
 
