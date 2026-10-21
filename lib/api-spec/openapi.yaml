@@ -159,6 +159,26 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SettlementExchangeRate" }
+  /settlements/payments:
+    post:
+      operationId: createSettlementPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementPaymentInput" }
+      responses:
+        "201":
+          description: Transferencia registrada para una liquidación mensual revisada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementPayment" }
+        "403":
+          description: Solo el propietario puede registrar transferencias.
+        "409":
+          description: La liquidación cambió o ya no tiene saldo pendiente.
+        "422":
+          description: El cálculo tiene bloqueos o el importe excede el saldo pendiente.
   /issuer:
     get:
       operationId: getIssuer
@@ -1219,6 +1239,31 @@ components:
         rateToCup: { type: number }
         updatedBy: { type: string }
         updatedAt: { type: string, format: date-time }
+    SettlementPaymentInput:
+      type: object
+      required: [period, specialistId, amount, paidOn, reference, confirmReview]
+      properties:
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        specialistId: { type: string, minLength: 1, maxLength: 255 }
+        amount: { type: number, exclusiveMinimum: 0, maximum: 999999999999.99 }
+        paidOn: { type: string, format: date }
+        reference: { type: string, minLength: 1, maxLength: 200 }
+        confirmReview: { type: boolean }
+    SettlementPayment:
+      type: object
+      required: [id, period, specialistId, amount, paidOn, reference, recordedBy, recordedAt]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        specialistId: { type: string }
+        amount: { type: number }
+        paidOn: { type: string, format: date }
+        reference: { type: string }
+        recordedBy: { type: string }
+        recordedAt: { type: string, format: date-time }
+    SettlementPaymentStatus:
+      type: string
+      enum: [pending, partial, paid]
     SettlementLine:
       type: object
       required: [invoiceLineId, description, serviceCode, quantity, amount, salesType]
@@ -1266,7 +1311,7 @@ components:
         netPayable: { type: number }
     SettlementSpecialistResult:
       type: object
-      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies]
+      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies, payments, paidAmount, pendingAmount, paymentStatus]
       properties:
         specialistId: { type: string }
         specialistName: { type: string }
@@ -1275,6 +1320,10 @@ components:
         totals: { $ref: "#/components/schemas/SettlementTotals" }
         missingServiceCount: { type: integer }
         missingCurrencies: { type: array, items: { type: string } }
+        payments: { type: array, items: { $ref: "#/components/schemas/SettlementPayment" } }
+        paidAmount: { type: number }
+        pendingAmount: { type: number }
+        paymentStatus: { $ref: "#/components/schemas/SettlementPaymentStatus" }
     SettlementServiceCatalogEntry:
       type: object
       required: [serviceCode, name, salesType]

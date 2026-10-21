@@ -54,6 +54,8 @@ import type {
   SettlementExpenseInput,
   SettlementInvoiceInclusion,
   SettlementInvoiceInclusionInput,
+  SettlementPayment,
+  SettlementPaymentInput,
   SettlementVoidInput,
   TeamInvitation,
   TeamInvitationInput,
@@ -899,6 +901,88 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateSettlementExchangeRateMutationOptions(options));
+    }
+
+export const getCreateSettlementPaymentUrl = () => {
+
+
+
+
+  return `/api/settlements/payments`
+}
+
+export const createSettlementPayment = async (settlementPaymentInput: SettlementPaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<SettlementPayment> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SettlementPayment>(getCreateSettlementPaymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(settlementPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSettlementPaymentMutationKey = () => ['createSettlementPayment'] as const;
+
+export const getCreateSettlementPaymentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlementPayment>>, TError,CreateSettlementPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSettlementPayment>>, TError,CreateSettlementPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateSettlementPaymentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSettlementPayment>>, CreateSettlementPaymentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSettlementPayment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSettlementPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createSettlementPayment>>>
+    export type CreateSettlementPaymentMutationBody = BodyType<SettlementPaymentInput>
+    export type CreateSettlementPaymentMutationError = ErrorType<void>
+    export type CreateSettlementPaymentMutationVariables = {data: BodyType<SettlementPaymentInput>}
+
+    export const useCreateSettlementPayment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlementPayment>>, TError,CreateSettlementPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSettlementPayment>>,
+        TError,
+        CreateSettlementPaymentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSettlementPaymentMutationOptions(options));
     }
 
 export const getGetIssuerUrl = () => {

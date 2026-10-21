@@ -857,6 +857,48 @@ export interface SettlementExchangeRate {
   updatedAt: string;
 }
 
+export interface SettlementPaymentInput {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  specialistId: string;
+  /**
+     * @maximum 999999999999.99
+     * @exclusiveMinimum 0
+     */
+  amount: number;
+  paidOn: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  reference: string;
+  confirmReview: boolean;
+}
+
+export interface SettlementPayment {
+  id: number;
+  period: string;
+  specialistId: string;
+  amount: number;
+  paidOn: string;
+  reference: string;
+  recordedBy: string;
+  recordedAt: string;
+}
+
+export type SettlementPaymentStatus = typeof SettlementPaymentStatus[keyof typeof SettlementPaymentStatus];
+
+
+export const SettlementPaymentStatus = {
+  pending: 'pending',
+  partial: 'partial',
+  paid: 'paid',
+} as const;
+
 export interface SettlementLine {
   invoiceLineId: number;
   description: string;
@@ -919,6 +961,10 @@ export interface SettlementSpecialistResult {
   totals: SettlementTotals;
   missingServiceCount: number;
   missingCurrencies: string[];
+  payments: SettlementPayment[];
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: SettlementPaymentStatus;
 }
 
 export interface SettlementServiceCatalogEntry {

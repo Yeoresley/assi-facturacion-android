@@ -7,6 +7,8 @@
  */
 import type { SettlementExpense } from './settlementExpense';
 import type { SettlementInvoice } from './settlementInvoice';
+import type { SettlementPayment } from './settlementPayment';
+import type { SettlementPaymentStatus } from './settlementPaymentStatus';
 import type { SettlementTotals } from './settlementTotals';
 
 export interface SettlementSpecialistResult {
@@ -17,4 +19,8 @@ export interface SettlementSpecialistResult {
   totals: SettlementTotals;
   missingServiceCount: number;
   missingCurrencies: string[];
+  payments: SettlementPayment[];
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: SettlementPaymentStatus;
 }

@@ -159,7 +159,20 @@ export const GetMonthlySettlementResponse = zod.object({
   "netPayable": zod.number()
 }),
   "missingServiceCount": zod.number().int(),
-  "missingCurrencies": zod.array(zod.string())
+  "missingCurrencies": zod.array(zod.string()),
+  "payments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "amount": zod.number(),
+  "paidOn": zod.coerce.date(),
+  "reference": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date()
+})),
+  "paidAmount": zod.number(),
+  "pendingAmount": zod.number(),
+  "paymentStatus": zod.enum(['pending', 'partial', 'paid'])
 })),
   "serviceCatalog": zod.array(zod.object({
   "serviceCode": zod.string(),
@@ -363,6 +376,37 @@ export const UpdateSettlementExchangeRateResponse = zod.object({
   "rateToCup": zod.number(),
   "updatedBy": zod.string(),
   "updatedAt": zod.coerce.date()
+})
+
+
+export const createSettlementPaymentBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const createSettlementPaymentBodySpecialistIdMax = 255;
+
+export const createSettlementPaymentBodyAmountExclusiveMin = 0;
+export const createSettlementPaymentBodyAmountMax = 999999999999.99;
+
+export const createSettlementPaymentBodyReferenceMax = 200;
+
+
+
+export const CreateSettlementPaymentBody = zod.object({
+  "period": zod.string().regex(createSettlementPaymentBodyPeriodRegExp),
+  "specialistId": zod.string().min(1).max(createSettlementPaymentBodySpecialistIdMax),
+  "amount": zod.number().gt(createSettlementPaymentBodyAmountExclusiveMin).max(createSettlementPaymentBodyAmountMax),
+  "paidOn": zod.coerce.date(),
+  "reference": zod.string().min(1).max(createSettlementPaymentBodyReferenceMax),
+  "confirmReview": zod.boolean()
+})
+
+export const CreateSettlementPaymentResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "amount": zod.number(),
+  "paidOn": zod.coerce.date(),
+  "reference": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date()
 })
 
 

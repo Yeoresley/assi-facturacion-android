@@ -1,5 +1,6 @@
 import {
   check,
+  date,
   index,
   integer,
   numeric,
@@ -94,7 +95,23 @@ export const settlementExchangeRatesTable = pgTable("settlement_exchange_rates",
   uniqueIndex("settlement_exchange_rates_period_currency_uq").on(table.period, table.currency),
 ]);
 
+export const settlementPaymentsTable = pgTable("settlement_payments", {
+  id: serial("id").primaryKey(),
+  period: text("period").notNull(),
+  specialistId: text("specialist_id").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
+  paidOn: date("paid_on", { mode: "string" }).notNull(),
+  reference: text("reference").notNull(),
+  recordedBy: text("recorded_by").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("settlement_payments_period_check", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  check("settlement_payments_positive_amount_check", sql`${table.amount} > 0`),
+  index("settlement_payments_period_specialist_idx").on(table.period, table.specialistId),
+]);
+
 export type SettlementClassification = typeof settlementClassificationsTable.$inferSelect;
 export type SettlementExpense = typeof settlementExpensesTable.$inferSelect;
 export type SettlementInvoiceInclusion = typeof settlementInvoiceInclusionsTable.$inferSelect;
 export type SettlementExchangeRate = typeof settlementExchangeRatesTable.$inferSelect;
+export type SettlementPayment = typeof settlementPaymentsTable.$inferSelect;

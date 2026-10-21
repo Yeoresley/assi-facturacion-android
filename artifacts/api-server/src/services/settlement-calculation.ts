@@ -40,6 +40,21 @@ export function settlementPaymentCompletionDate(
     !latest || payment.paidOn > latest ? payment.paidOn : latest, null);
 }
 
+export type SettlementPaymentStatus = "pending" | "partial" | "paid";
+
+export function calculateSettlementPaymentBalance(
+  netPayable: Decimal.Value,
+  payments: Array<{ amount: Decimal.Value }>,
+): { paidAmount: number; pendingAmount: number; paymentStatus: SettlementPaymentStatus } {
+  const paid = payments.reduce((total, payment) => total.plus(payment.amount), new Decimal(0));
+  const pending = Decimal.max(0, new Decimal(netPayable).minus(paid));
+  return {
+    paidAmount: paid.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
+    pendingAmount: pending.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
+    paymentStatus: paid.isZero() ? "pending" : pending.isZero() ? "paid" : "partial",
+  };
+}
+
 function rounded(value: Decimal) {
   return value.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
 }

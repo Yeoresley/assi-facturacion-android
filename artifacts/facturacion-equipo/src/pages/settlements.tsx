@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetCurrentTeamMemberQueryKey, getGetMonthlySettlementQueryKey, useCreateSettlementClassification,
   useCreateSettlementExpense, useCreateSettlementInvoiceInclusion, useGetCurrentTeamMember,
-  useGetMonthlySettlement, useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
+  useCreateSettlementPayment, useGetMonthlySettlement, useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
   useVoidSettlementExpense,
 } from '@workspace/api-client-react';
 import type { SettlementExpense, SettlementSalesType } from '@workspace/api-client-react';
@@ -25,6 +25,7 @@ const monthLabel = (period: string) => {
 };
 
 const amount = (value: number) => money(value, 'CUP');
+const todayISO = () => new Date().toISOString().slice(0, 10);
 const salesLabels: Record<SettlementSalesType, string> = { license: 'Licencia', service: 'Servicio' };
 const expenseLabels: Record<SettlementExpense['expenseType'], string> = {
   license_cost: 'Costo de licencia',
@@ -77,7 +78,8 @@ export default function SettlementsPage() {
   const createInclusion = useCreateSettlementInvoiceInclusion();
   const revokeInclusion = useRevokeSettlementInvoiceInclusion();
   const updateRate = useUpdateSettlementExchangeRate();
-  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending;
+  const createPayment = useCreateSettlementPayment();
+  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending;
   const data = settlement.data;
   const results = data?.results ?? [];
   const activeResult = useMemo(() => results.find((result) => result.specialistId === selectedSpecialist) ?? results[0], [results, selectedSpecialist]);
@@ -130,6 +132,22 @@ export default function SettlementsPage() {
       onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError,
     }));
   }
+  function addSettlementPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeResult) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    runMutation(() => createPayment.mutate({
+      data: {
+        period,
+        specialistId: activeResult.specialistId,
+        amount: Number(form.get('amount')),
+        paidOn: String(form.get('paidOn') || ''),
+        reference: String(form.get('reference') || '').trim(),
+        confirmReview: form.get('confirmReview') === 'on',
+      },
+    }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
+  }
   const currencies = useMemo(() => {
     const values = new Set<string>(['CUP']);
     for (const result of results) {
@@ -167,7 +185,7 @@ export default function SettlementsPage() {
   return <div className="fade-in mx-auto max-w-[1180px]">
     <PageHeading eyebrow="Cierre y transparencia" title="Liquidación mensual" description="Misma plantilla para todos. Cada especialista ve solo su cálculo; el administrador puede consultar todo el equipo y descargar la nómina del mes." action={<label className="flex items-center gap-2 rounded-xl border border-[#e1ded2] bg-[#fffefa] px-3 py-2"><CalendarDays size={15} className="text-[#688078]" /><span className="sr-only">Período mensual</span><input type="month" className="border-0 bg-transparent text-[12px] font-semibold text-[#29443e] outline-none" value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Período mensual" data-testid="input-settlement-period" /></label>} />
     <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#e8d8b2] bg-[#fbf2df] px-4 py-3.5 text-[#725b2c]" role="note">
-      <ShieldCheck size={17} className="mt-0.5 shrink-0" /><p className="text-[11px] leading-5"><strong className="font-bold">Importante:</strong> el importe payable es una estimación preliminar, no un registro de pago. La aplicación todavía no registra la transferencia bancaria al especialista.</p>
+      <ShieldCheck size={17} className="mt-0.5 shrink-0" /><p className="text-[11px] leading-5"><strong className="font-bold">Importante:</strong> el neto estimado no se considera pagado hasta que el propietario registre la transferencia. Si el cálculo tiene bloqueos, el saldo aún no está listo para pagar.</p>
     </div>
 
     {mutationError && <ErrorNotice>{mutationError}{mutationError.includes('403') || mutationError.toLowerCase().includes('forbidden') ? ' Tu cuenta no tiene permiso para esta acción.' : ''}</ErrorNotice>}
@@ -206,6 +224,38 @@ export default function SettlementsPage() {
             <Metric label="Servicios brutos" value={activeResult.totals.grossServices} note="Ingresos clasificados como servicio" />
             <Metric label="Base de distribución" value={activeResult.totals.distributionBase} note="Tras impuestos y costos aplicables" />
             <Metric label="Neto estimado" value={activeResult.totals.netPayable} note="Preliminar · no es un pago registrado" emphasis />
+          </section>
+          <section className="panel mb-5 overflow-hidden" aria-labelledby="settlement-payment-title">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4">
+              <div><div className="eyebrow">{monthLabel(period)} · Pago al especialista</div><h2 id="settlement-payment-title" className="font-display mt-1 text-lg font-bold">Estado de la liquidación</h2></div>
+              <span className={`status-pill ${activeResult.paymentStatus === 'paid' ? 'status-paid' : activeResult.paymentStatus === 'partial' ? 'status-sent' : 'status-draft'}`}>
+                {activeResult.paymentStatus === 'paid' ? 'Pagada' : activeResult.paymentStatus === 'partial' ? 'Pago parcial' : 'Pendiente'}
+              </span>
+            </div>
+            <div className="grid gap-3 border-b border-[#eeece4] p-5 sm:grid-cols-3">
+              <Metric label="Neto estimado" value={activeResult.totals.netPayable} note="El cálculo sigue siendo preliminar" />
+              <Metric label="Pagado" value={activeResult.paidAmount} note={activeResult.payments.length ? `${activeResult.payments.length} transferencia(s) registrada(s)` : 'Sin transferencias registradas'} />
+              <Metric label="Pendiente estimado" value={activeResult.pendingAmount} note={blockers ? 'Estimación incompleta; revisa los bloqueos antes de usarla' : 'Saldo calculado después de los pagos registrados'} emphasis />
+            </div>
+            {activeResult.payments.length > 0 && <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left">
+                <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Fecha de pago</th><th className="px-4 py-3 font-medium">Referencia</th><th className="px-4 py-3 text-right font-medium">Importe</th><th className="px-5 py-3 font-medium">Registrado</th></tr></thead>
+                <tbody>{activeResult.payments.map((payment) => <tr key={payment.id} className="table-row" data-testid={`settlement-payment-${payment.id}`}>
+                  <td className="px-5 py-3 text-[11px]">{date(payment.paidOn)}</td>
+                  <td className="px-4 py-3 font-mono text-[11px]">{payment.reference}</td>
+                  <td className="px-4 py-3 text-right font-mono text-[11px]">{amount(payment.amount)}</td>
+                  <td className="px-5 py-3 text-[10px] text-[#78847d]">{date(payment.recordedAt)}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>}
+            {owner && <form key={`${activeResult.specialistId}-${activeResult.pendingAmount}`} className="grid gap-3 border-t border-[#eeece4] bg-[#fbfaf5] p-5 md:grid-cols-[1fr_1fr_1.4fr_auto]" onSubmit={addSettlementPayment}>
+              <label><span className="field-label">Importe transferido (CUP)</span><input name="amount" className="field" type="number" min="0.01" max={activeResult.pendingAmount} step="0.01" required defaultValue={activeResult.pendingAmount > 0 ? activeResult.pendingAmount.toFixed(2) : ''} disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-amount" /></label>
+              <label><span className="field-label">Fecha del pago</span><input name="paidOn" className="field" type="date" required max={todayISO()} defaultValue={todayISO()} disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-date" /></label>
+              <label><span className="field-label">Referencia de transferencia</span><input name="reference" className="field" required maxLength={200} placeholder="Número de operación o comprobante" disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-reference" /></label>
+              <div className="flex items-end"><button className="button button-primary w-full" type="submit" disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} data-testid="button-record-settlement-payment">{createPayment.isPending ? 'Registrando…' : 'Registrar pago'}</button></div>
+              <label className="flex items-start gap-2 text-[10px] leading-4 text-[#68776f] md:col-span-4"><input name="confirmReview" type="checkbox" required disabled={busy || blockers > 0 || activeResult.pendingAmount <= 0} className="mt-0.5 accent-[#28665e]" data-testid="checkbox-confirm-settlement-review" /><span>Confirmo que revisé este cálculo antes de registrar el pago.</span></label>
+              {blockers > 0 && <p className="text-[10px] leading-4 text-[#9c6a27] md:col-span-4">Completa las clasificaciones y tasas pendientes antes de registrar el pago.</p>}
+            </form>}
           </section>
           {blockers > 0 && <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#e6c69f] bg-[#fbf0df] px-4 py-3 text-[#77551d]" role="alert"><LockKeyhole size={16} className="mt-0.5 shrink-0" /><div className="text-[11px] leading-5"><strong className="font-bold">Cálculo incompleto: hay bloqueos que no se excluyen en silencio.</strong><br />{activeResult.missingServiceCount > 0 && `${activeResult.missingServiceCount} línea(s) sin clasificación.`} {activeResult.missingCurrencies.length > 0 && `Falta la tasa de cambio para ${activeResult.missingCurrencies.join(', ')}.`} Revisa las alertas del detalle antes de usar esta estimación.</div></div>}
           <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">

@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateSettlementClassificationBody,
@@ -8,6 +8,8 @@ import {
   CreateSettlementExpenseResponse,
   CreateSettlementInvoiceInclusionBody,
   CreateSettlementInvoiceInclusionResponse,
+  CreateSettlementPaymentBody,
+  CreateSettlementPaymentResponse,
   GetMonthlySettlementQueryParams,
   GetMonthlySettlementResponse,
   RevokeSettlementInvoiceInclusionBody,
@@ -27,13 +29,15 @@ import {
   settlementExchangeRatesTable,
   settlementExpensesTable,
   settlementInvoiceInclusionsTable,
+  settlementPaymentsTable,
   teamMembersTable,
   versatCatalogTable,
 } from "@workspace/db";
 import { resolveTeamMember } from "../middlewares/team-access";
 import { getInvoiceRows } from "../services/invoice-records";
 import {
-  convertToCup, calculateSettlementTotals, settlementPaymentCompletionDate, settlementRules,
+  calculateSettlementPaymentBalance, convertToCup, calculateSettlementTotals,
+  settlementPaymentCompletionDate, settlementRules,
 } from "../services/settlement-calculation";
 
 const router: IRouter = Router();
@@ -87,6 +91,84 @@ function serializedInclusion(inclusion: typeof settlementInvoiceInclusionsTable.
   };
 }
 
+function serializedSettlementPayment(payment: typeof settlementPaymentsTable.$inferSelect) {
+  return { ...payment, recordedAt: payment.recordedAt.toISOString() };
+}
+
+async function settlementNetPayableForPayment(period: string, specialistId: string): Promise<number> {
+  const invoiceScope = and(
+    eq(invoicesTable.status, "confirmed"),
+    eq(invoicesTable.specialistId, specialistId),
+  );
+  const [invoices, classifications, expenses, periodInclusions, activeInclusions, rates] = await Promise.all([
+    getInvoiceRows(undefined, invoiceScope),
+    db.select().from(settlementClassificationsTable),
+    db.select().from(settlementExpensesTable).where(and(
+      eq(settlementExpensesTable.period, period),
+      eq(settlementExpensesTable.specialistId, specialistId),
+    )),
+    db.select().from(settlementInvoiceInclusionsTable).where(and(
+      eq(settlementInvoiceInclusionsTable.period, period),
+      isNull(settlementInvoiceInclusionsTable.revokedAt),
+    )),
+    db.select({ invoiceId: settlementInvoiceInclusionsTable.invoiceId })
+      .from(settlementInvoiceInclusionsTable).where(isNull(settlementInvoiceInclusionsTable.revokedAt)),
+    db.select().from(settlementExchangeRatesTable).where(eq(settlementExchangeRatesTable.period, period)),
+  ]);
+  const activeInclusionIds = new Set(activeInclusions.map(({ invoiceId }) => invoiceId));
+  const manualInclusionIds = new Set(periodInclusions.map(({ invoiceId }) => invoiceId));
+  const includedInvoices = invoices.filter((invoice) => manualInclusionIds.has(invoice.id)
+    || (invoice.paymentStatus === "paid" && !activeInclusionIds.has(invoice.id)
+      && settlementPaidOn(invoice)?.startsWith(period)));
+  const byServiceCode = new Map(classifications.flatMap((entry) =>
+    entry.serviceCode ? [[entry.serviceCode, entry.salesType] as const] : []));
+  const byInvoiceLine = new Map(classifications.flatMap((entry) =>
+    entry.invoiceLineId !== null ? [[entry.invoiceLineId, entry.salesType] as const] : []));
+  const rateByCurrency = new Map<string, number>([[settlementRules.baseCurrency, 1]]);
+  for (const rate of rates) rateByCurrency.set(rate.currency.toUpperCase(), rate.rateToCup);
+  let grossLicenses = new Decimal(0);
+  let grossServices = new Decimal(0);
+  let missingServiceCount = 0;
+  const missingCurrencies = new Set<string>();
+
+  for (const invoice of includedInvoices) {
+    const rateToCup = rateByCurrency.get(invoice.currency.toUpperCase());
+    if (rateToCup === undefined) missingCurrencies.add(invoice.currency);
+    for (const line of invoice.lines) {
+      const salesType = byInvoiceLine.get(line.id) ?? (line.serviceCode ? byServiceCode.get(line.serviceCode) : undefined);
+      if (!salesType) {
+        missingServiceCount++;
+      } else if (rateToCup !== undefined) {
+        const convertedAmount = convertToCup(line.amount, rateToCup);
+        if (salesType === "license") grossLicenses = grossLicenses.plus(convertedAmount);
+        else grossServices = grossServices.plus(convertedAmount);
+      }
+    }
+  }
+
+  let licenseCosts = new Decimal(0);
+  let operatingExpenses = new Decimal(0);
+  for (const expense of expenses) {
+    if (expense.voidedAt) continue;
+    const rateToCup = rateByCurrency.get(expense.currency.toUpperCase());
+    if (rateToCup === undefined) {
+      missingCurrencies.add(expense.currency);
+      continue;
+    }
+    const convertedAmount = convertToCup(expense.amount, rateToCup);
+    if (expense.expenseType === "license_cost") licenseCosts = licenseCosts.plus(convertedAmount);
+    else operatingExpenses = operatingExpenses.plus(convertedAmount);
+  }
+
+  if (missingServiceCount > 0 || missingCurrencies.size > 0) {
+    throw new SettlementRequestError(
+      "No se puede registrar el pago: primero completa las clasificaciones y tasas de la liquidación.",
+      422,
+    );
+  }
+  return calculateSettlementTotals({ grossLicenses, grossServices, licenseCosts, operatingExpenses }).netPayable;
+}
+
 router.get("/settlements", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
@@ -102,7 +184,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     eq(invoicesTable.status, "confirmed"),
     owner ? undefined : eq(invoicesTable.specialistId, member.userId),
   );
-  const [invoices, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers] =
+  const [invoices, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments] =
     await Promise.all([
       getInvoiceRows(undefined, invoiceScope),
       db.select().from(settlementClassificationsTable),
@@ -126,6 +208,10 @@ router.get("/settlements", async (req, res): Promise<void> => {
         ? db.select({ userId: teamMembersTable.userId, name: teamMembersTable.name })
           .from(teamMembersTable).where(eq(teamMembersTable.role, "specialist"))
         : Promise.resolve([]),
+      db.select().from(settlementPaymentsTable).where(and(
+        eq(settlementPaymentsTable.period, period),
+        owner ? undefined : eq(settlementPaymentsTable.specialistId, member.userId),
+      )),
     ]);
 
   const byServiceCode = new Map(classifications.flatMap((entry) =>
@@ -165,6 +251,15 @@ router.get("/settlements", async (req, res): Promise<void> => {
   }
   for (const expense of expenses) {
     specialistNames.set(expense.specialistId, specialistNames.get(expense.specialistId) || "Especialista");
+  }
+  for (const payment of settlementPayments) {
+    specialistNames.set(payment.specialistId, specialistNames.get(payment.specialistId) || "Especialista");
+  }
+  const paymentsBySpecialist = new Map<string, ReturnType<typeof serializedSettlementPayment>[]>();
+  for (const payment of settlementPayments) {
+    const payments = paymentsBySpecialist.get(payment.specialistId) ?? [];
+    payments.push(serializedSettlementPayment(payment));
+    paymentsBySpecialist.set(payment.specialistId, payments);
   }
 
   const resultsBySpecialist = new Map<string, {
@@ -269,20 +364,28 @@ router.get("/settlements", async (req, res): Promise<void> => {
     else result.operatingExpenses = result.operatingExpenses.plus(convertedAmount);
   }
 
-  const results = [...resultsBySpecialist.values()].map((result) => ({
-    specialistId: result.specialistId,
-    specialistName: result.specialistName,
-    invoices: result.invoices,
-    expenses: result.expenses.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    totals: calculateSettlementTotals({
+  const results = [...resultsBySpecialist.values()].map((result) => {
+    const totals = calculateSettlementTotals({
       grossLicenses: result.grossLicenses,
       grossServices: result.grossServices,
       licenseCosts: result.licenseCosts,
       operatingExpenses: result.operatingExpenses,
-    }),
-    missingServiceCount: result.missingServiceCount,
-    missingCurrencies: [...result.missingCurrencies].sort(),
-  })).sort((a, b) => a.specialistName.localeCompare(b.specialistName));
+    });
+    const payments = (paymentsBySpecialist.get(result.specialistId) ?? [])
+      .sort((a, b) => a.paidOn.localeCompare(b.paidOn) || a.id - b.id);
+    const balance = calculateSettlementPaymentBalance(totals.netPayable, payments);
+    return {
+      specialistId: result.specialistId,
+      specialistName: result.specialistName,
+      invoices: result.invoices,
+      expenses: result.expenses.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      totals,
+      missingServiceCount: result.missingServiceCount,
+      missingCurrencies: [...result.missingCurrencies].sort(),
+      payments,
+      ...balance,
+    };
+  }).sort((a, b) => a.specialistName.localeCompare(b.specialistName));
 
   const serviceTypes = new Map(byServiceCode);
   const serviceCatalog = catalogServices.map((entry) => ({
@@ -518,6 +621,80 @@ router.put("/settlements/exchange-rates", async (req, res): Promise<void> => {
     set: { rateToCup: input.rateToCup, updatedBy: member.userId, updatedAt: new Date() },
   }).returning();
   res.json(UpdateSettlementExchangeRateResponse.parse(serializedRate(saved)));
+});
+
+router.post("/settlements/payments", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "owner") {
+    res.status(403).json({ error: "Solo el propietario puede registrar pagos de liquidación." });
+    return;
+  }
+
+  const parsed = CreateSettlementPaymentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Revisa el período, importe, fecha y referencia del pago." });
+    return;
+  }
+  const input = parsed.data;
+  const reference = input.reference.trim();
+  if (!input.confirmReview) {
+    res.status(400).json({ error: "Confirma que revisaste el cálculo antes de registrar el pago." });
+    return;
+  }
+  if (!reference) {
+    res.status(400).json({ error: "La referencia de transferencia es obligatoria." });
+    return;
+  }
+  if (new Decimal(input.amount).decimalPlaces() > 2) {
+    res.status(422).json({ error: "El importe del pago admite como máximo dos decimales." });
+    return;
+  }
+  const paidOn = input.paidOn.toISOString().slice(0, 10);
+  const rawPaidOn = (req.body as { paidOn?: unknown } | undefined)?.paidOn;
+  if (typeof rawPaidOn !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rawPaidOn)
+    || paidOn !== rawPaidOn || paidOn > new Date().toISOString().slice(0, 10)) {
+    res.status(400).json({ error: "La fecha del pago debe ser válida y no futura." });
+    return;
+  }
+
+  try {
+    const netPayable = await settlementNetPayableForPayment(input.period, input.specialistId);
+    if (netPayable <= 0) {
+      res.status(422).json({ error: "El neto estimado debe ser positivo para registrar un pago." });
+      return;
+    }
+    const created = await db.transaction(async (tx) => {
+      const lockKey = `${input.period}:${input.specialistId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      const previousPayments = await tx.select().from(settlementPaymentsTable).where(and(
+        eq(settlementPaymentsTable.period, input.period),
+        eq(settlementPaymentsTable.specialistId, input.specialistId),
+      ));
+      const balance = calculateSettlementPaymentBalance(netPayable, previousPayments);
+      if (balance.pendingAmount <= 0 || new Decimal(input.amount).gt(balance.pendingAmount)) {
+        throw new SettlementRequestError(
+          "El importe supera el saldo pendiente de la liquidación. Actualiza la página y revisa el cálculo.",
+          409,
+        );
+      }
+      const [payment] = await tx.insert(settlementPaymentsTable).values({
+        period: input.period,
+        specialistId: input.specialistId,
+        amount: input.amount,
+        paidOn,
+        reference,
+        recordedBy: member.userId,
+      }).returning();
+      return payment;
+    });
+    res.status(201).json(CreateSettlementPaymentResponse.parse(serializedSettlementPayment(created)));
+  } catch (error) {
+    const knownError = error instanceof SettlementRequestError;
+    res.status(knownError ? error.status : 500).json({
+      error: knownError ? error.message : "No se pudo registrar el pago de liquidación.",
+    });
+  }
 });
 
 export default router;
