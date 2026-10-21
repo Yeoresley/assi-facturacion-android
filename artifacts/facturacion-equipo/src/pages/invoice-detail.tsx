@@ -30,12 +30,15 @@ export default function InvoiceDetailPage() {
   const client = useQueryClient();
   const [share, setShare] = useState<{ id: number; url: string; expiresAt: string } | null>(null);
   const [notice, setNotice] = useState('');
+  const [actionError, setActionError] = useState('');
   const [pending, setPending] = useState<null | { status: InvoiceStatusInputStatus; title: string; body: string; danger?: boolean }>(null);
   const [fileError, setFileError] = useState('');
   const [fileInfo, setFileInfo] = useState<string[]>([]);
   const [receiptShare, setReceiptShare] = useState<{ paymentId: number; url: string; expiresAt: string } | null>(null);
 
   function changeStatus(status: InvoiceStatusInputStatus) {
+    setActionError('');
+    setNotice('');
     updateStatus.mutate({ id, data: { status } }, {
       onSuccess: async (updated) => {
         await client.cancelQueries({ queryKey: getGetInvoiceQueryKey(id) });
@@ -49,7 +52,7 @@ export default function InvoiceDetailPage() {
         client.invalidateQueries({ queryKey: getGetInvoiceVersatFileQueryKey(id) });
         setNotice(updated.versat?.number ? `Estado actualizado. Número de Versat: ${updated.versat.number} · Talón: ${updated.versat.talon}.` : 'Estado actualizado.');
       },
-      onError: (err) => setNotice(`No se pudo actualizar el estado. ${errorDetail(err, '')}`),
+      onError: (err) => setActionError(`No se pudo completar la acción. ${errorDetail(err, 'Revisa los datos requeridos y vuelve a intentarlo.')}`),
     });
   }
   function makeShare() {
@@ -122,16 +125,17 @@ export default function InvoiceDetailPage() {
       {inv.status === 'draft' && <Link href={`/invoices/${inv.id}/edit`} className="button button-soft" data-testid="link-edit-invoice"><Pencil size={15} />Editar borrador</Link>}
       <button className="button button-plain" onClick={() => printInvoice().catch(err => setNotice(err.message))} data-testid="button-print-invoice"><Printer size={15} />Imprimir / Guardar PDF</button>
       <button className="button button-primary" onClick={makeShare} disabled={createShare.isPending} data-testid="button-create-share"><ArrowUpRight size={15} />{createShare.isPending ? 'Creando enlace…' : 'Compartir'}</button></div></div>
-    {shareUrl && <div className="no-print panel mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[12px] font-bold text-[#315b52]">Enlace público creado</div><input className="field mt-2 !h-9 font-mono text-[11px]" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} data-testid="input-share-url" /><div className="mt-1 text-[10px] text-[#818c85]">Caduca: {date(share?.expiresAt)}</div></div><div className="flex gap-2"><button className="button button-soft !min-h-9" onClick={() => { navigator.clipboard?.writeText(shareUrl); setNotice('Enlace copiado.'); }}><Clipboard size={14} />Copiar</button><a className="button button-plain !min-h-9" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Factura ${inv.number}: ${shareUrl}`)}`}><ArrowUpRight size={14} />WhatsApp</a><a className="button button-plain !min-h-9" href={`mailto:?subject=${encodeURIComponent(`Factura ${inv.number}`)}&body=${encodeURIComponent(`Hola, aquí tienes tu factura: ${shareUrl}`)}`}><Mail size={14} />Email</a></div></div>}
+     {shareUrl && <div className="no-print panel mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[12px] font-bold text-[#315b52]">Enlace público creado</div><input className="field mt-2 !h-9 font-mono text-[11px]" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} data-testid="input-share-url" /><div className="mt-1 text-[10px] text-[#818c85]">Caduca: {date(share?.expiresAt)}</div></div><div className="flex gap-2"><button className="button button-soft !min-h-9" onClick={() => { navigator.clipboard?.writeText(shareUrl); setNotice('Enlace copiado.'); }}><Clipboard size={14} />Copiar</button><a className="button button-plain !min-h-9" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Factura ${inv.number}: ${shareUrl}`)}`}><ArrowUpRight size={14} />WhatsApp</a><a className="button button-plain !min-h-9" href={`mailto:?subject=${encodeURIComponent(`Factura ${inv.number}`)}&body=${encodeURIComponent(`Hola, aquí tienes tu factura: ${shareUrl}`)}`}><Mail size={14} />Email</a></div></div>}
     <InvoiceShareList key={id} invoiceId={id} />
-    {notice && <div className="no-print mb-4 text-[12px] font-semibold text-[#377668]" role="status">{notice}</div>}
+     {actionError && <div className="no-print mb-4 rounded-xl border border-[#efd2cc] bg-[#fbefeb] px-4 py-3 text-[12px] font-semibold leading-5 text-[#9a453a]" role="alert" data-testid="invoice-status-error">{actionError}</div>}
+     {notice && <div className="no-print mb-4 rounded-xl bg-[#e6f2e9] px-4 py-3 text-[12px] font-semibold text-[#377668]" role="status">{notice}</div>}
     <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3"><span className="text-xs font-semibold">Pago</span><PaymentBadge invoice={inv} />{inv.paidAt && <span className="text-xs text-[#738079]">Registrado: {new Date(inv.paidAt).toLocaleString('es-ES')}</span>}</div>
       <MarkPaidButton invoice={inv} />
       <CorrectPaidButton invoice={inv} />
     </div>
     <InvoicePaymentHistory invoice={inv} canGenerateReceipts={isOwner} />
-    <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] px-4 py-3"><div className="flex flex-wrap items-center gap-3"><Status status={inv.status} /><span className="text-[11px] text-[#738079]">{terminal ? 'Estado final: sin más transiciones.' : canFinishHint ? 'Confirma primero el modelo legal para poder terminar.' : st === 'accepted' && !isOwner ? 'Aceptada: el propietario confirma tras importar en Versat.' : 'Acciones permitidas para tu rol'}</span>{inv.acceptedAt && <span className="text-[10px] text-[#85918a]">Aceptada {date(inv.acceptedAt)}</span>}{inv.confirmedAt && <span className="text-[10px] text-[#85918a]">Confirmada {date(inv.confirmedAt)}</span>}</div><div className="flex flex-wrap gap-2">{!terminal && actions.map((a) => <button key={a.status} className={`button ${a.danger ? 'button-danger' : 'button-soft'} !min-h-8 !px-3 text-[11px]`} disabled={updateStatus.isPending || (a.status === 'finished' && !hasLegal)} onClick={() => setPending(a)} data-testid={`button-status-${a.status}`}>{a.label}</button>)}</div></div>
+     <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] px-4 py-3"><div className="flex flex-wrap items-center gap-3"><Status status={inv.status} /><span className="text-[11px] text-[#738079]">{terminal ? 'Estado final: sin más transiciones.' : canFinishHint ? 'Completa y guarda el pie de factura para poder terminar.' : st === 'accepted' && !isOwner ? 'Aceptada: el propietario confirma tras importar en Versat.' : 'Acciones permitidas para tu rol'}</span>{inv.acceptedAt && <span className="text-[10px] text-[#85918a]">Aceptada {date(inv.acceptedAt)}</span>}{inv.confirmedAt && <span className="text-[10px] text-[#85918a]">Confirmada {date(inv.confirmedAt)}</span>}</div><div className="flex flex-wrap gap-2">{!terminal && actions.map((a) => <button key={a.status} className={`button ${a.danger ? 'button-danger' : 'button-soft'} !min-h-8 !px-3 text-[11px]`} disabled={updateStatus.isPending} onClick={() => { if (a.status === 'finished' && !hasLegal) { setActionError('Antes de terminar, completa y guarda el pie de factura de este borrador.'); document.getElementById('invoice-document-authorization')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; } setActionError(''); setPending(a); }} data-testid={`button-status-${a.status}`}>{a.label}</button>)}</div></div>
     {(inv.acceptedAt || inv.confirmedAt) && <div className="no-print mb-4 space-y-1 text-xs text-[#5f736c]">
       {inv.acceptedAt && <p>Aceptación del cliente registrada: {new Date(inv.acceptedAt).toLocaleString('es-ES')}</p>}
       {inv.confirmedAt && <p>Importación en Versat confirmada: {new Date(inv.confirmedAt).toLocaleString('es-ES')}</p>}

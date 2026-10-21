@@ -118,6 +118,9 @@ export default function InvoiceFormPage() {
   const currencyOptions = byKind.currency.filter((entry) => entry.active);
   const selectableServices = services.filter((service) =>
     service.active || lines.some((line) => line.serviceId === String(service.id)));
+  const selectedPayment = byKind.payment.find((entry) => String(entry.id) === paymentId);
+  const transferMissingBank = /transfer/i.test(`${selectedPayment?.name ?? ''} ${selectedPayment?.exportValue ?? ''}`)
+    && !bankMC.trim() && !bankOM.trim();
   const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0), 0);
   const saving = create.isPending || update.isPending;
 
@@ -217,6 +220,7 @@ export default function InvoiceFormPage() {
   return <div className="fade-in mx-auto max-w-[980px]">
     <Link href={backHref} className="mb-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />{isEdit ? 'Volver a la factura' : 'Volver a facturas'}</Link>
     <PageHeading eyebrow={isEdit ? 'Editar borrador' : 'Nuevo documento'} title={isEdit ? 'Editar factura' : 'Preparar factura'} description="Puedes guardar un borrador incompleto. Elige numeración manual o una serie declarada por el propietario; la serie asigna número y talón al emitir." />
+    {isEdit && invoice.data?.legalDocument && <div className="mb-5 rounded-xl border border-[#ead9b6] bg-[#fcf5e6] px-4 py-3 text-[12px] leading-5 text-[#775d2d]" role="note">Al guardar cambios en los datos de esta factura, tendrás que confirmar de nuevo el pie antes de terminarla.</div>}
     {invoiceHasInactiveCatalogRefs && <div className="mb-5 rounded-xl border border-[#ead9b6] bg-[#fcf5e6] px-4 py-3 text-[12px] leading-5 text-[#775d2d]" role="status">Este borrador conserva uno o más códigos que el administrador desactivó. Puedes mantenerlos en este borrador; para volver a elegirlos o usarlos en facturas nuevas, el administrador debe reactivarlos.</div>}
     {catalogs.isError && <div className="mb-5"><QueryError retry={() => catalogs.refetch()} message="No pudimos cargar los catálogos de Versat." detail={errorDetail(catalogs.error, '')} /></div>}
     <form onSubmit={submit} className="space-y-5">
@@ -241,6 +245,7 @@ export default function InvoiceFormPage() {
           <label><span className="field-label">Talón (solo dígitos)</span><input className="field font-mono" inputMode="numeric" value={talon} onChange={(e) => setTalon(e.target.value.replace(/[^0-9]/g, ''))} maxLength={20} autoComplete="off" data-testid="input-talon" /></label></>}
           <label><span className="field-label">Cuenta bancaria MC</span><input className="field font-mono" value={bankMC} onChange={(e) => setBankMC(e.target.value)} maxLength={100} autoComplete="off" /></label>
           <label><span className="field-label">Cuenta bancaria OM</span><input className="field font-mono" value={bankOM} onChange={(e) => setBankOM(e.target.value)} maxLength={100} autoComplete="off" /></label>
+          {transferMissingBank && <p className="md:col-span-2 rounded-lg border border-[#ead9b6] bg-[#fcf5e6] px-3 py-2 text-[11px] leading-5 text-[#775d2d]" role="status">La forma de pago es por transferencia. Para terminar esta factura, indica al menos una cuenta bancaria MC u OM.</p>}
           <label className="md:col-span-2"><span className="field-label">Contrato</span><input className="field" value={contract} onChange={(e) => setContract(e.target.value)} maxLength={100} autoComplete="off" /></label>
         </div>
       </section>

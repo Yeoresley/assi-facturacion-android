@@ -65,6 +65,14 @@ test("no exporta borradores, anuladas, mercancías ni líneas sin correspondenci
   assert.ok(getVersatIssues(invoice).some((issue) => issue.includes("mercancías")));
 });
 
+test("exige una cuenta MC u OM cuando la forma de pago es transferencia", () => {
+  const invoice = fixture();
+  invoice.versat!.paymentName = "Transferencias";
+  assert.ok(getVersatIssues(invoice).some((issue) => issue.includes("cuenta bancaria MC u OM")));
+  invoice.versat!.bankAccountOM = "Cuenta OM de prueba";
+  assert.ok(!getVersatIssues(invoice).some((issue) => issue.includes("cuenta bancaria MC u OM")));
+});
+
 test("bloquea numeración peligrosa, campos multilínea y detalles con separadores", () => {
   const invoice = fixture();
   invoice.versat!.number = "../PRUEBA";
