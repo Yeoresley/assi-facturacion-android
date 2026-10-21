@@ -227,7 +227,7 @@ function Shell({ children }: { children: ReactNode }) {
   const sidebarItems = [...visibleNavItems, ...(me.role === 'owner' ? [{ href: '/team/members', label: 'Equipo', icon: Users }] : [])];
   return <div className="app-shell flex bg-[#f6f4eb]">
     <aside className="sidebar fixed inset-y-0 left-0 z-20 flex w-[238px] flex-col px-4 py-5">
-      <Link href="/dashboard" className="mb-9 px-2"><BrandMark /></Link>
+      <Link href="/dashboard" className="mb-9 px-2"><BrandMark tone="dark" /></Link>
       <div className="mb-3 px-3 eyebrow !text-[#98aaa2]">Espacio de trabajo</div>
       <nav className="space-y-1">{sidebarItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={`side-link ${location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}`}><Icon size={17} />{label}{href === '/export' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#eab45c]" />}</Link>)}</nav>
       <div className="mt-auto">
@@ -236,7 +236,7 @@ function Shell({ children }: { children: ReactNode }) {
       </div>
     </aside>
     <div className="app-content ml-0 flex min-h-[100dvh] w-full flex-col md:ml-[238px]">
-      <header className="topbar sticky top-0 z-10 flex h-[66px] items-center justify-between border-b border-[#e6e3d8] bg-[#f8f7f0]/95 px-5 backdrop-blur md:px-9">
+      <header className="topbar sticky top-0 z-10 flex h-[66px] items-center justify-between border-b border-[#d9e4e7] bg-[#e9f0f2]/95 px-5 backdrop-blur md:px-9">
         <div className="text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
         <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
       </header>

@@ -1,0 +1,72 @@
+.assi-settlement.assi-rested {
+  --assi-canvas: #e9f0f2;
+  --assi-border: #d3e1e5;
+  background: #e9f0f2;
+}
+.assi-rested .assi-frame { background: #e9f0f2; }
+.assi-rested .assi-topbar {
+  border-bottom-color: #d9e4e7;
+  background: #f2f6f5;
+}
+.assi-rested .assi-content { padding-top: 30px; }
+.assi-rested .assi-brand {
+  min-height: 52px;
+  gap: 7px;
+  margin: 0 1px 19px;
+}
+.assi-rested .rested-symbol {
+  display: block;
+  width: 39px;
+  height: 39px;
+  flex: none;
+  object-fit: contain;
+}
+.assi-rested .rested-brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.1;
+}
+.assi-rested .rested-brand-copy strong {
+  color: #eaf7fa;
+  font: 700 16px/1 var(--assi-display);
+  letter-spacing: .07em;
+}
+.assi-rested .rested-brand-copy span {
+  color: #b9dce4;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  line-height: 1.3;
+}
+.assi-rested .assi-warning {
+  border-color: #e1d7bd;
+  background: #f6eedf;
+}
+.assi-rested .assi-roster {
+  border-color: #d3e0e4;
+  background: #f4f7f5;
+  box-shadow: 0 3px 12px rgba(18,54,90,.035);
+}
+.assi-rested .assi-roster-head {
+  border-bottom-color: #dfe8e9;
+  background: #f4f7f5;
+}
+.assi-rested .assi-empty {
+  background: #edf3f3;
+}
+.assi-rested .assi-empty-icon { background: #dfeae8; }
+.assi-rested .assi-metric {
+  border-color: #d3e0e4;
+  background: #f4f7f5;
+}
+.assi-rested .assi-metric.is-emphasis {
+  border-color: #244d6a;
+  background: #204967;
+}
+.assi-rested .assi-footnote { border-top-color: #d3e0e4; }
+@media (max-width: 700px) {
+  .assi-rested .assi-content { padding-top: 22px; }
+  .assi-rested .assi-brand { display: none; }
+}

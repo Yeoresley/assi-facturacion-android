@@ -1,11 +1,16 @@
 import type { ReactNode } from 'react';
 import { CircleHelp, FileText, TriangleAlert } from 'lucide-react';
 
-export function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <div className="flex items-center gap-3" data-testid="brand-assi">
-    {compact
-      ? <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="ASSI" className="brand-emblem" />
-      : <><img src={`${import.meta.env.BASE_URL}brand/assi-wordmark.png`} alt="ASSI" className="brand-image" /><span className="sr-only">Facturación de equipo</span></>}
+export function BrandMark({ compact = false, tone = 'light' }: { compact?: boolean; tone?: 'light' | 'dark' }) {
+  if (compact) {
+    return <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="ASSI" className="brand-emblem" data-testid="brand-assi" />;
+  }
+  return <div className={`brand-mark brand-mark-${tone}`} data-testid="brand-assi">
+    <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="" aria-hidden="true" className="brand-emblem" />
+    <span className="brand-copy">
+      <strong className="brand-name">ASSI</strong>
+      <span className="brand-slogan">Tu visión. Nuestro futuro.</span>
+    </span>
   </div>;
 }
 
