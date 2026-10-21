@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetInvoiceVersatFileQueryKey,
-  getListInvoicesQueryKey, useCreateInvoiceShare, useGetCurrentTeamMember, useGetInvoice, useGetInvoiceVersatFile, useUpdateInvoiceStatus,
+  getListInvoicesQueryKey, getListInvoiceSeriesQueryKey, useCreateInvoiceShare, useGetCurrentTeamMember, useGetInvoice, useGetInvoiceVersatFile, useUpdateInvoiceStatus,
 } from '@workspace/api-client-react';
 import type { InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Clipboard, Mail, Pencil, Printer } from 'lucide-react';
@@ -35,7 +35,8 @@ export default function InvoiceDetailPage() {
         client.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) });
         client.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
         client.invalidateQueries({ queryKey: getGetBillingOverviewQueryKey() });
-        setNotice('Estado actualizado.');
+        client.invalidateQueries({ queryKey: getListInvoiceSeriesQueryKey() });
+        setNotice(updated.versat?.number ? `Estado actualizado. Número de Versat: ${updated.versat.number} · Talón: ${updated.versat.talon}.` : 'Estado actualizado.');
       },
       onError: (err) => setNotice(`No se pudo actualizar el estado. ${errorDetail(err, '')}`),
     });
@@ -81,6 +82,8 @@ export default function InvoiceDetailPage() {
 
     {inv.status === 'draft' && <DocumentAuthorizationForm key={`${inv.id}-${inv.legalDocument?.authorizedAt || 'new'}`} invoice={inv} />}
     {inv.status === 'draft' && !inv.legalDocument && <p className="no-print mb-4 text-xs">Debes confirmar el modelo imprimible (emisor y responsables) antes de emitir esta factura.</p>}
+    {inv.status === 'draft' && inv.seriesId && <p className="no-print mb-4 text-xs" data-testid="automatic-number-notice">Serie automática seleccionada. Al marcar enviada se asignarán el número de Versat y el talón definitivos. No hay sincronización directa con Versat de escritorio.</p>}
+    {v?.number && <div className="no-print panel mb-4 px-4 py-3 text-xs" data-testid="invoice-versat-numbering"><span className="font-semibold">Numeración de Versat</span><span className="ml-3 font-mono">{v.number}</span><span className="ml-3">Talón: <span className="font-mono">{v.talon || 'Pendiente'}</span></span><p className="mt-2 text-[#738079]">Datos guardados en esta factura. No hay sincronización directa con Versat de escritorio.</p></div>}
     <InvoiceDocument invoice={inv} />
     {!v && <p className="no-print mx-auto mt-4 max-w-[780px] text-[11px] text-[#85918a]">Esta factura aún no tiene datos de Versat. {inv.status === 'draft' ? 'Edita el borrador para completarlos.' : ''}</p>}
   </div>;

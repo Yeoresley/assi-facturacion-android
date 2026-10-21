@@ -19,6 +19,44 @@ tags:
   - name: team
     description: Current user and team access
 paths:
+  /billing/series:
+    get:
+      operationId: listInvoiceSeries
+      responses:
+        "200":
+          description: Series declaradas por el propietario; lectura para miembros activos.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/InvoiceSeries" } }
+    post:
+      operationId: createInvoiceSeries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSeriesInput" }
+      responses:
+        "201":
+          description: Serie confirmada por propietario.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSeries" }
+  /billing/series/{id}:
+    patch:
+      operationId: updateInvoiceSeries
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSeriesUpdate" }
+      responses:
+        "200":
+          description: Serie actualizada sin retroceder el contador.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSeries" }
   /issuer:
     get:
       operationId: getIssuer
@@ -418,6 +456,36 @@ paths:
               schema: { $ref: "#/components/schemas/TeamInvitation" }
 components:
   schemas:
+    InvoiceSeriesInput:
+      type: object
+      required: [name, prefix, suffix, width, talon, nextNumber, confirmedWithVersat]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        prefix: { type: string, pattern: '^[A-Za-z0-9_-]*$', maxLength: 20 }
+        suffix: { type: string, pattern: '^[A-Za-z0-9_-]*$', maxLength: 10 }
+        width: { type: integer, minimum: 1, maximum: 10 }
+        talon: { type: string, pattern: '^[0-9]+$', maxLength: 20 }
+        nextNumber: { type: integer, minimum: 0, maximum: 2147483646 }
+        confirmedWithVersat: { type: boolean, enum: [true] }
+    InvoiceSeriesUpdate:
+      type: object
+      required: [active, nextNumber, confirmedWithVersat]
+      properties:
+        active: { type: boolean }
+        nextNumber: { type: integer, minimum: 0, maximum: 2147483647 }
+        confirmedWithVersat: { type: boolean, enum: [true] }
+    InvoiceSeries:
+      type: object
+      required: [id, name, prefix, suffix, width, talon, nextNumber, active]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        prefix: { type: string }
+        suffix: { type: string }
+        width: { type: integer }
+        talon: { type: string }
+        nextNumber: { type: integer }
+        active: { type: boolean }
     IssuerProfile:
       type: object
       required: [name, nit, ircc, address, organization, paymentBeneficiary, bankAccount, bankBranch, bankName]
@@ -532,6 +600,7 @@ components:
       type: object
       required: [id, number, customerId, customerName, specialistId, specialistName, issueDate, dueDate, currency, status, notes, subtotal, total, lines, createdAt]
       properties:
+        seriesId: { type: ["integer", "null"] }
         id: { type: integer }
         number: { type: string }
         customerId: { type: integer }
@@ -561,6 +630,7 @@ components:
       type: object
       required: [customerId, issueDate, currency, lines]
       properties:
+        seriesId: { type: ["integer", "null"], minimum: 1 }
         customerId: { type: integer }
         issueDate: { type: string, format: date }
         dueDate: { type: ["string", "null"], format: date }
@@ -690,4 +760,3 @@ components:
         contentType: { type: string }
         invoiceCount: { type: integer }
         warnings: { type: array, items: { type: string } }
-

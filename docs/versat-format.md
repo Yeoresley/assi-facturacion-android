@@ -28,7 +28,21 @@
 - Codificación para nombres con acentos: el ejemplo no permite distinguir ASCII, Windows-1252 u otra codificación.
 - Numeración y prevención de duplicados al importar, así como si Versat admite lotes o requiere un archivo por factura.
 
-El número de Versat y el talón se introducen explícitamente. La aplicación impide reutilizar un número, pero no puede detectar números que solo existen en el Versat de escritorio.
+## Numeración y talones
+
+El número interno `FAC-…` identifica el documento en esta aplicación y no es la numeración de Versat. No se renumera ninguna factura histórica.
+
+Solo el propietario puede declarar series en Ajustes. Debe introducir explícitamente nombre, prefijo y sufijo (vacíos si no aplican), ancho fijo de la parte numérica, talón y siguiente contador libre, confirmando que los contrastó con su Versat. No se precarga ni se deduce ningún valor de la factura histórica. El formato se expresa como prefijo + contador con ceros hasta el ancho declarado + sufijo; no se admiten otros formatos sin declararlos y desarrollarlos antes.
+
+Los especialistas eligen una serie activa en el borrador. Guardar el borrador no consume el contador: se asigna el número y el talón al pasar de borrador a enviada o pagada, en la misma transacción que valida los datos y guarda el estado. Un bloqueo de PostgreSQL coordina las emisiones, las reservas manuales y los cambios del propietario, incluso entre procesos o series con formatos solapados. La instantánea emitida alimenta el documento y la exportación `.Fac`.
+
+El modo manual sigue disponible: número y talón se introducen explícitamente, y el número se reserva al guardar. El registro de reservas es permanente; cambiarlo en un borrador no permite que otra factura lo reutilice. Los números de anuladas tampoco se liberan. El talón identifica un conjunto/serie, no es un identificador único por factura; el número Versat es único globalmente en la aplicación, conservando la restricción previa.
+
+El formato y talón de una serie son inmutables. El propietario puede desactivarla o avanzar su siguiente contador con una nueva confirmación, nunca retroceder. Para cambiar formato o talón debe crear otra serie. Si el contador alcanza el límite del ancho o encuentra un número histórico/manual ocupado, la emisión se rechaza sin saltarlo silenciosamente: el propietario debe contrastar el siguiente libre y avanzar el contador o declarar otra serie. No se resetea automáticamente por año.
+
+Ante un fallo antes del commit se revierten tanto contador como reserva y estado: ese intento no llegó a emitir. Tras un commit, repetir la misma transición sobre la misma factura no asigna otro número. Si la respuesta se pierde, recargar la factura permite comprobar el resultado antes de repetir; no crear otra factura para reintentar. Las reservas confirmadas nunca se reutilizan.
+
+**No hay sincronización directa con Versat de escritorio.** La app no puede detectar números que solo existen allí. El propietario debe coordinar rangos de uso y contrastar las series antes de habilitarlas; la confirmación no equivale a una consulta automática al escritorio.
 
 La descarga es de prueba: se ofrece Windows-1252 o UTF-8 en el lote, CRLF y un `.Fac` por factura dentro de un ZIP. El ZIP no se importa directamente. Se bloquea todo el lote si alguna factura tiene campos pendientes, sin omitir documentos en silencio.
 

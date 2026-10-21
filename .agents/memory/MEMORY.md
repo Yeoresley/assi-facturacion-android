@@ -2,3 +2,4 @@
 - [Límites de compatibilidad con Versat](versat-compatibility.md) — una muestra .Fac no equivale a especificación; mantener la etiqueta de prueba hasta verificar en el escritorio.
 - [Alcance de imágenes autorizadas](invoice-image-authorization.md) — permiso del propietario para reproducir los escaneos; no implica firma criptográfica ni responsables automáticos.
 - [Impresión en navegador](browser-invoice-printing.md) — comprobar ambas vistas: transformaciones, márgenes del escritorio y cabeceras altas pueden romper la paginación de Chromium.
+- [Unicidad de numeración Versat](versat-numbering-scope.md) — conservar unicidad global mientras no se confirme si el escritorio permite repetir números entre talones.

@@ -16,6 +16,7 @@ export type FacInvoice = {
 export const facWarnings = [
   "Archivo de prueba basado en el ejemplo recibido; pendiente validar una importación real en Versat.",
   "Solo servicios sin descuentos, recargos ni impuestos. No importar dos veces la misma numeración.",
+  "La numeración se controla solo en esta app; no hay sincronización directa con Versat de escritorio.",
 ];
 
 export function getVersatIssues(invoice: FacInvoice): string[] {

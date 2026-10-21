@@ -33,6 +33,8 @@ export const invoicesTable = pgTable("invoices", {
   legalDocument: jsonb("legal_document").$type<LegalDocument>(),
   versat: jsonb("versat").$type<VersatInvoiceSnapshot>(),
   versatNumber: text("versat_number").unique(),
+  // Kept without a circular FK; series are never deleted.
+  seriesId: integer("series_id"),
   subtotal: numeric("subtotal", { precision: 14, scale: 2, mode: "number" })
     .notNull()
     .default(0),

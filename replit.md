@@ -30,6 +30,7 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/facturacion-equipo/src/lib/invoice-print.test.ts` — comprobar importes en letras
+- `pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/services/invoice-numbering.test.ts` — concurrencia y recuperación de numeración con fixtures sintéticos en la base de desarrollo; requiere aplicar el esquema primero
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack

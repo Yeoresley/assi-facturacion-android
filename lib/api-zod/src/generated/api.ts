@@ -8,6 +8,92 @@
 import * as zod from 'zod';
 
 
+export const ListInvoiceSeriesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "prefix": zod.string(),
+  "suffix": zod.string(),
+  "width": zod.number().int(),
+  "talon": zod.string(),
+  "nextNumber": zod.number().int(),
+  "active": zod.boolean()
+})
+export const ListInvoiceSeriesResponse = zod.array(ListInvoiceSeriesResponseItem)
+
+
+export const createInvoiceSeriesBodyNameMax = 80;
+
+export const createInvoiceSeriesBodyPrefixMax = 20;
+
+
+export const createInvoiceSeriesBodyPrefixRegExp = new RegExp('^[A-Za-z0-9_-]*$');
+export const createInvoiceSeriesBodySuffixMax = 10;
+
+
+export const createInvoiceSeriesBodySuffixRegExp = new RegExp('^[A-Za-z0-9_-]*$');
+export const createInvoiceSeriesBodyWidthMax = 10;
+
+export const createInvoiceSeriesBodyTalonMax = 20;
+
+
+export const createInvoiceSeriesBodyTalonRegExp = new RegExp('^[0-9]+$');
+export const createInvoiceSeriesBodyNextNumberMin = 0;
+export const createInvoiceSeriesBodyNextNumberMax = 2147483646;
+
+
+
+export const CreateInvoiceSeriesBody = zod.object({
+  "name": zod.string().min(1).max(createInvoiceSeriesBodyNameMax),
+  "prefix": zod.string().max(createInvoiceSeriesBodyPrefixMax).regex(createInvoiceSeriesBodyPrefixRegExp),
+  "suffix": zod.string().max(createInvoiceSeriesBodySuffixMax).regex(createInvoiceSeriesBodySuffixRegExp),
+  "width": zod.number().int().min(1).max(createInvoiceSeriesBodyWidthMax),
+  "talon": zod.string().max(createInvoiceSeriesBodyTalonMax).regex(createInvoiceSeriesBodyTalonRegExp),
+  "nextNumber": zod.number().int().min(createInvoiceSeriesBodyNextNumberMin).max(createInvoiceSeriesBodyNextNumberMax),
+  "confirmedWithVersat": zod.literal(true)
+})
+
+export const CreateInvoiceSeriesResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "prefix": zod.string(),
+  "suffix": zod.string(),
+  "width": zod.number().int(),
+  "talon": zod.string(),
+  "nextNumber": zod.number().int(),
+  "active": zod.boolean()
+})
+
+
+
+
+
+export const UpdateInvoiceSeriesParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateInvoiceSeriesBodyNextNumberMin = 0;
+export const updateInvoiceSeriesBodyNextNumberMax = 2147483647;
+
+
+
+export const UpdateInvoiceSeriesBody = zod.object({
+  "active": zod.boolean(),
+  "nextNumber": zod.number().int().min(updateInvoiceSeriesBodyNextNumberMin).max(updateInvoiceSeriesBodyNextNumberMax),
+  "confirmedWithVersat": zod.literal(true)
+})
+
+export const UpdateInvoiceSeriesResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "prefix": zod.string(),
+  "suffix": zod.string(),
+  "width": zod.number().int(),
+  "talon": zod.string(),
+  "nextNumber": zod.number().int(),
+  "active": zod.boolean()
+})
+
+
 export const getIssuerResponseProfileOneNameMax = 200;
 
 export const getIssuerResponseProfileOneNitMax = 40;
@@ -229,6 +315,7 @@ export const authorizeInvoiceDocumentResponseLegalDocumentOneTwoIssuerBankNameMa
 
 
 export const AuthorizeInvoiceDocumentResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -411,6 +498,7 @@ export const GetBillingOverviewResponse = zod.object({
   "monthTotal": zod.number(),
   "currency": zod.string(),
   "recentInvoices": zod.array(zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -674,6 +762,7 @@ export const listInvoicesResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 export const ListInvoicesResponseItem = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -762,6 +851,7 @@ export const ListInvoicesResponse = zod.array(ListInvoicesResponseItem)
  * @summary Create an invoice
  */
 
+
 export const createInvoiceBodyVersatNumberMax = 50;
 
 
@@ -791,6 +881,7 @@ export const createInvoiceBodyLinesItemUnitPriceMax = 999999999999;
 
 
 export const CreateInvoiceBody = zod.object({
+  "seriesId": zod.number().int().min(1).nullish(),
   "customerId": zod.number().int(),
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullish(),
@@ -877,6 +968,7 @@ export const createInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 export const CreateInvoiceResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -1028,6 +1120,7 @@ export const getInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 export const GetInvoiceResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -1119,6 +1212,7 @@ export const UpdateInvoiceParams = zod.object({
 })
 
 
+
 export const updateInvoiceBodyVersatNumberMax = 50;
 
 
@@ -1148,6 +1242,7 @@ export const updateInvoiceBodyLinesItemUnitPriceMax = 999999999999;
 
 
 export const UpdateInvoiceBody = zod.object({
+  "seriesId": zod.number().int().min(1).nullish(),
   "customerId": zod.number().int(),
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullish(),
@@ -1234,6 +1329,7 @@ export const updateInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 export const UpdateInvoiceResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -1389,6 +1485,7 @@ export const updateInvoiceStatusResponseLegalDocumentOneTwoIssuerBankNameMax = 2
 
 
 export const UpdateInvoiceStatusResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),
@@ -1553,6 +1650,7 @@ export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
 
 
 export const GetSharedInvoiceResponse = zod.object({
+  "seriesId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "number": zod.string(),
   "customerId": zod.number().int(),

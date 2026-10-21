@@ -11,6 +11,8 @@ import type { LegalDocument } from './legalDocument';
 import type { VersatInvoiceSnapshot } from './versatInvoiceSnapshot';
 
 export interface Invoice {
+  /** @nullable */
+  seriesId?: number | null;
   id: number;
   number: string;
   customerId: number;

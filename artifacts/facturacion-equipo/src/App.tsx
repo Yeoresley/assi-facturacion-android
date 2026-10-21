@@ -32,6 +32,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { IssuerSettings } from '@/components/issuer-settings';
+import { NumberingSettings } from '@/components/numbering-settings';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -293,6 +294,7 @@ function Settings() {
         <aside className="panel p-5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e5f0e8] text-[#39776a]"><ShieldAlert size={17} /></span><h3 className="font-display mt-4 text-base font-bold">Acceso del equipo</h3><p className="mt-2 text-[12px] leading-5 text-[#77847e]">{me.role === 'owner' ? 'Tienes acceso de propietario para revisar la facturación del equipo.' : me.role === 'specialist' ? 'Tienes acceso de especialista para preparar y compartir facturas.' : 'El propietario debe habilitar tu acceso.'}</p><div className="mt-4 flex items-center gap-2 border-t border-[#eeece4] pt-4 text-[11px] font-semibold text-[#44776a]"><Check size={14} />Sesión verificada</div></aside>
       </div>}
     {me?.role === 'owner' && <IssuerSettings />}
+    {me?.role === 'owner' && <NumberingSettings />}
     <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[#e4e1d5] bg-[#efeee5] p-5"><div className="flex items-start gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7edd9] text-[#9d7739]"><Users size={16} /></span><div><div className="text-[12px] font-bold">Accesos del equipo</div><p className="mt-1 text-[11px] leading-5 text-[#77847e]">Consulta los especialistas autorizados y gestiona nuevas altas.</p></div></div><Link href="/team/members" className="button button-plain !min-h-9">Ver equipo <ArrowRight size={14} /></Link></div>
     <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e4e1d5] bg-[#fffefa] px-4 py-3"><div className="flex items-center gap-2 text-[11px] font-semibold text-[#61736c]"><span className={`h-2 w-2 rounded-full ${health.data?.status === 'ok' ? 'bg-[#4a9278]' : health.isError ? 'bg-[#b66050]' : 'bg-[#c9a44c]'}`} />Conexión con el servicio</div><div className="flex items-center gap-3 text-[10px] text-[#85918a]">{health.isLoading ? 'Comprobando…' : health.isError ? 'No disponible' : health.data?.status || 'Conectado'}{health.isError && <button className="font-semibold text-[#39746a]" onClick={() => health.refetch()}>Reintentar</button>}</div></div>
   </div>;

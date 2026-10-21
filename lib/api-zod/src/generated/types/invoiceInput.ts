@@ -9,6 +9,11 @@ import type { InvoiceLineInput } from './invoiceLineInput';
 import type { VersatInvoiceInput } from './versatInvoiceInput';
 
 export interface InvoiceInput {
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  seriesId?: number | null;
   customerId: number;
   issueDate: Date;
   /** @nullable */

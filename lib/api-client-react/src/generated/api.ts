@@ -30,6 +30,9 @@ import type {
   Invoice,
   InvoiceExportRow,
   InvoiceInput,
+  InvoiceSeries,
+  InvoiceSeriesInput,
+  InvoiceSeriesUpdate,
   InvoiceShare,
   InvoiceStatusInput,
   IssuerProfile,
@@ -69,6 +72,242 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListInvoiceSeriesUrl = () => {
+
+
+
+
+  return `/api/billing/series`
+}
+
+export const listInvoiceSeries = async ( options?: Parameters<typeof customFetch>[1]): Promise<InvoiceSeries[]> => {
+
+  return customFetch<InvoiceSeries[]>(getListInvoiceSeriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInvoiceSeriesQueryKey = () => {
+    return [
+    `/api/billing/series`
+    ] as const;
+    }
+
+
+export const getListInvoiceSeriesQueryOptions = <TData = Awaited<ReturnType<typeof listInvoiceSeries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInvoiceSeriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoiceSeries>>> = ({ signal }) => listInvoiceSeries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoiceSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInvoiceSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof listInvoiceSeries>>>
+export type ListInvoiceSeriesQueryError = ErrorType<unknown>
+
+
+
+export function useListInvoiceSeries<TData = Awaited<ReturnType<typeof listInvoiceSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInvoiceSeriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateInvoiceSeriesUrl = () => {
+
+
+
+
+  return `/api/billing/series`
+}
+
+export const createInvoiceSeries = async (invoiceSeriesInput: InvoiceSeriesInput, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceSeries> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InvoiceSeries>(getCreateInvoiceSeriesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invoiceSeriesInput)
+  }
+);}
+
+
+
+
+
+export const getCreateInvoiceSeriesMutationKey = () => ['createInvoiceSeries'] as const;
+
+export const getCreateInvoiceSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoiceSeries>>, TError,CreateInvoiceSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createInvoiceSeries>>, TError,CreateInvoiceSeriesMutationVariables, TContext> => {
+
+const mutationKey = getCreateInvoiceSeriesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoiceSeries>>, CreateInvoiceSeriesMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createInvoiceSeries(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateInvoiceSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof createInvoiceSeries>>>
+    export type CreateInvoiceSeriesMutationBody = BodyType<InvoiceSeriesInput>
+    export type CreateInvoiceSeriesMutationError = ErrorType<unknown>
+    export type CreateInvoiceSeriesMutationVariables = {data: BodyType<InvoiceSeriesInput>}
+
+    export const useCreateInvoiceSeries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoiceSeries>>, TError,CreateInvoiceSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createInvoiceSeries>>,
+        TError,
+        CreateInvoiceSeriesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateInvoiceSeriesMutationOptions(options));
+    }
+
+export const getUpdateInvoiceSeriesUrl = (id: number,) => {
+
+
+
+
+  return `/api/billing/series/${id}`
+}
+
+export const updateInvoiceSeries = async (id: number,
+    invoiceSeriesUpdate: InvoiceSeriesUpdate, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceSeries> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InvoiceSeries>(getUpdateInvoiceSeriesUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invoiceSeriesUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateInvoiceSeriesMutationKey = () => ['updateInvoiceSeries'] as const;
+
+export const getUpdateInvoiceSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateInvoiceSeries>>, TError,UpdateInvoiceSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateInvoiceSeries>>, TError,UpdateInvoiceSeriesMutationVariables, TContext> => {
+
+const mutationKey = getUpdateInvoiceSeriesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateInvoiceSeries>>, UpdateInvoiceSeriesMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateInvoiceSeries(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateInvoiceSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof updateInvoiceSeries>>>
+    export type UpdateInvoiceSeriesMutationBody = BodyType<InvoiceSeriesUpdate>
+    export type UpdateInvoiceSeriesMutationError = ErrorType<unknown>
+    export type UpdateInvoiceSeriesMutationVariables = {id: number;data: BodyType<InvoiceSeriesUpdate>}
+
+    export const useUpdateInvoiceSeries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateInvoiceSeries>>, TError,UpdateInvoiceSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateInvoiceSeries>>,
+        TError,
+        UpdateInvoiceSeriesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateInvoiceSeriesMutationOptions(options));
+    }
 
 export const getGetIssuerUrl = () => {
 

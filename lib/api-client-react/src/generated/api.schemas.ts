@@ -5,6 +5,61 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface InvoiceSeriesInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @maxLength 20
+     * @pattern ^[A-Za-z0-9_-]*$
+     */
+  prefix: string;
+  /**
+     * @maxLength 10
+     * @pattern ^[A-Za-z0-9_-]*$
+     */
+  suffix: string;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  width: number;
+  /**
+     * @maxLength 20
+     * @pattern ^[0-9]+$
+     */
+  talon: string;
+  /**
+     * @minimum 0
+     * @maximum 2147483646
+     */
+  nextNumber: number;
+  confirmedWithVersat: true;
+}
+
+export interface InvoiceSeriesUpdate {
+  active: boolean;
+  /**
+     * @minimum 0
+     * @maximum 2147483647
+     */
+  nextNumber: number;
+  confirmedWithVersat: true;
+}
+
+export interface InvoiceSeries {
+  id: number;
+  name: string;
+  prefix: string;
+  suffix: string;
+  width: number;
+  talon: string;
+  nextNumber: number;
+  active: boolean;
+}
+
 export interface IssuerProfile {
   /**
      * @minLength 1
@@ -255,6 +310,8 @@ export type VersatInvoiceSnapshot = VersatInvoiceInput & ({
 });
 
 export interface Invoice {
+  /** @nullable */
+  seriesId?: number | null;
   id: number;
   number: string;
   customerId: number;
@@ -277,6 +334,11 @@ export interface Invoice {
 }
 
 export interface InvoiceInput {
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  seriesId?: number | null;
   customerId: number;
   issueDate: string;
   /** @nullable */

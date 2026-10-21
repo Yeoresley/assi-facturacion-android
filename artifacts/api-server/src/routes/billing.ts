@@ -43,11 +43,14 @@ import {
 import { resolveTeamMember, requireOwner } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
 import { prepareInvoice } from "../services/prepare-invoice";
-import { getVersatIssues } from "../services/versat-file";
 import { canAccessInvoice, invoiceScope } from "../services/invoice-access";
 import { versatCatalogTable } from "@workspace/db";
+import seriesRouter from "./invoice-series";
+import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
+import { transitionInvoice } from "../services/issue-invoice";
 
 const router: IRouter = Router();
+router.use(seriesRouter);
 const shareTtlMs = 7 * 24 * 60 * 60 * 1000;
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -259,6 +262,8 @@ router.post("/invoices", async (req, res): Promise<void> => {
   let invoiceId: number;
   try {
     invoiceId = await db.transaction(async (tx) => {
+    await lockNumbering(tx);
+    await validateSeriesSelection(tx, parsed.data.seriesId ?? null, versat);
     const [invoice] = await tx
       .insert(invoicesTable)
       .values({
@@ -273,10 +278,12 @@ router.post("/invoices", async (req, res): Promise<void> => {
         notes: parsed.data.notes ?? null,
         versat,
         versatNumber: versat?.number ?? null,
+        seriesId: parsed.data.seriesId ?? null,
         subtotal,
         total: subtotal,
       })
       .returning();
+    await reserveNumber(tx, invoice.id, versat?.number ?? null, versat?.talon ?? null);
     const number = invoiceNumber(invoice.id, toDateOnly(parsed.data.issueDate));
     await tx
       .update(invoicesTable)
@@ -291,6 +298,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
     return invoice.id;
     });
   } catch (error) {
+    if (error instanceof NumberingError) { res.status(error.status).json({ error: error.message }); return; }
     if (!isDuplicate(error)) throw error;
     res.status(409).json({ error: "Ese número de Versat ya está reservado por otra factura." });
     return;
@@ -358,6 +366,10 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     await db.transaction(async (tx) => {
     const [locked] = await tx.select().from(invoicesTable).where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member))).for("update");
     if (!locked || locked.status !== "draft") throw new Error("INVOICE_NOT_DRAFT");
+    await lockNumbering(tx);
+    await validateSeriesSelection(tx, body.data.seriesId === undefined ? locked.seriesId : body.data.seriesId, versat);
+    await reserveNumber(tx, locked.id, locked.versatNumber, locked.versat?.talon ?? null);
+    await reserveNumber(tx, locked.id, versat?.number ?? null, versat?.talon ?? null);
     await tx
       .update(invoicesTable)
       .set({
@@ -369,6 +381,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
         legalDocument: null,
         versat,
         versatNumber: versat?.number ?? null,
+        seriesId: body.data.seriesId === undefined ? locked.seriesId : body.data.seriesId,
         subtotal,
         total: subtotal,
       })
@@ -384,7 +397,9 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     );
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "INVOICE_NOT_DRAFT") {
+    if (error instanceof NumberingError) {
+      res.status(error.status).json({ error: error.message });
+    } else if (error instanceof Error && error.message === "INVOICE_NOT_DRAFT") {
       res.status(409).json({ error: "La factura ya no es un borrador." });
     } else if (isDuplicate(error)) {
       res.status(409).json({ error: "Ese número de Versat ya está reservado por otra factura." });
@@ -404,36 +419,15 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error?.message ?? body.error?.message });
     return;
   }
-  const [current] = await db.select().from(invoicesTable).where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member))).limit(1);
-  if (!current) { res.status(404).json({ error: "Factura no encontrada." }); return; }
-  if ((body.data.status === "draft" && current.status !== "draft") ||
-      (current.status === "cancelled" && body.data.status !== "cancelled")) {
-    res.status(409).json({ error: "Una factura emitida no puede volver a borrador; una anulada no puede reactivarse." });
+  try {
+    await transitionInvoice(params.data.id, body.data.status, invoiceScope(member));
+  } catch (error) {
+    if (error instanceof NumberingError) { res.status(error.status).json({ error: error.message }); return; }
+    if (!isDuplicate(error)) throw error;
+    res.status(409).json({ error: "Número de Versat ocupado. El propietario debe revisar la serie con el escritorio." });
     return;
   }
-  if (current.status === "draft" && ["sent", "paid"].includes(body.data.status)) {
-    if (!current.legalDocument) {
-      res.status(422).json({ error: "Confirma el emisor y los responsables del documento antes de emitir." });
-      return;
-    }
-    const record = await getInvoiceRow(current.id);
-    const issues = record ? getVersatIssues({ ...record, status: body.data.status }) : ["Factura no encontrada."];
-    if (issues.length) {
-      res.status(422).json({ error: "Completa los datos de Versat en el borrador antes de emitir.", issues });
-      return;
-    }
-  }
-  const [invoice] = await db
-    .update(invoicesTable)
-    .set({ status: body.data.status })
-    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member), eq(invoicesTable.status, current.status),
-      ...((current.status === "draft" && ["sent", "paid"].includes(body.data.status)) ? [eq(invoicesTable.legalDocument, current.legalDocument!)] : [])))
-    .returning({ id: invoicesTable.id });
-  if (!invoice) {
-    res.status(409).json({ error: "La factura cambió en otra sesión. Actualiza la página." });
-    return;
-  }
-  const result = await getInvoiceRow(invoice.id);
+  const result = await getInvoiceRow(params.data.id);
   res.json(UpdateInvoiceStatusResponse.parse(serializeInvoice(result!)));
 });
 

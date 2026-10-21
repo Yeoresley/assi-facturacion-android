@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetVersatCatalogsQueryKey, useGetCurrentTeamMember, getListCustomersQueryKey,
-  getListInvoicesQueryKey, useCreateInvoice, useGetInvoice, useGetVersatCatalogs, useListCustomers, useUpdateInvoice,
+  getListInvoicesQueryKey, useCreateInvoice, useGetInvoice, useGetVersatCatalogs, useListCustomers, useUpdateInvoice, useListInvoiceSeries, getListInvoiceSeriesQueryKey,
 } from '@workspace/api-client-react';
 import type { InvoiceInput, VersatCatalogEntry } from '@workspace/api-client-react';
 import { ArrowLeft, ArrowRight, FilePlus2, Users, X } from 'lucide-react';
@@ -26,6 +26,7 @@ export default function InvoiceFormPage() {
   const assignedId = member.data?.commercialId ?? null;
   const locked = !!member.data && !isOwner;
   const customers = useListCustomers();
+  const series = useListInvoiceSeries({ query: { queryKey: getListInvoiceSeriesQueryKey(), refetchInterval: 15000 } });
   const catalogs = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
   const invoice = useGetInvoice(editId ?? 0, { query: { queryKey: getGetInvoiceQueryKey(editId ?? 0), enabled: isEdit } });
   const create = useCreateInvoice();
@@ -42,6 +43,7 @@ export default function InvoiceFormPage() {
   const [paymentId, setPaymentId] = useState('');
   const [versatNumber, setVersatNumber] = useState('');
   const [talon, setTalon] = useState('');
+  const [seriesId, setSeriesId] = useState('');
   const [bankMC, setBankMC] = useState('');
   const [bankOM, setBankOM] = useState('');
   const [contract, setContract] = useState('');
@@ -77,6 +79,7 @@ export default function InvoiceFormPage() {
     setDueDate(inv.dueDate ? inv.dueDate.slice(0, 10) : '');
     setCurrency(inv.currency);
     setNotes(inv.notes || '');
+    setSeriesId(inv.seriesId ? String(inv.seriesId) : '');
     const v = inv.versat;
     if (v) {
       setConceptId(String(v.conceptId));
@@ -144,6 +147,7 @@ export default function InvoiceFormPage() {
     if (versatNumber.trim() && !/^[A-Za-z0-9_-]*$/.test(versatNumber.trim())) return setError('El número de Versat solo admite letras, números, guion y guion bajo.');
     const optional = (value: string) => value.trim() || null;
     const payload: InvoiceInput = {
+      seriesId: seriesId ? Number(seriesId) : null,
       customerId: Number(customerId),
       issueDate,
       dueDate: dueDate || null,
@@ -159,7 +163,7 @@ export default function InvoiceFormPage() {
       ...(refs.every(Boolean) ? {
         versat: {
           conceptId: Number(conceptId), operationId: Number(operationId), commercialId: Number(effectiveCommercial), paymentId: Number(paymentId),
-          number: optional(versatNumber), talon: optional(talon), bankAccountMC: optional(bankMC), bankAccountOM: optional(bankOM), contract: optional(contract),
+          number: seriesId ? null : optional(versatNumber), talon: seriesId ? null : optional(talon), bankAccountMC: optional(bankMC), bankAccountOM: optional(bankOM), contract: optional(contract),
         },
       } : {}),
     };
@@ -196,7 +200,7 @@ export default function InvoiceFormPage() {
 
   return <div className="fade-in mx-auto max-w-[980px]">
     <Link href={backHref} className="mb-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />{isEdit ? 'Volver a la factura' : 'Volver a facturas'}</Link>
-    <PageHeading eyebrow={isEdit ? 'Editar borrador' : 'Nuevo documento'} title={isEdit ? 'Editar factura' : 'Preparar factura'} description="Cliente, conceptos y datos de Versat. Puedes guardar un borrador incompleto; antes de emitir debes completar los códigos, número y talón." />
+    <PageHeading eyebrow={isEdit ? 'Editar borrador' : 'Nuevo documento'} title={isEdit ? 'Editar factura' : 'Preparar factura'} description="Puedes guardar un borrador incompleto. Elige numeración manual o una serie declarada por el propietario; la serie asigna número y talón al emitir." />
     {catalogs.isError && <div className="mb-5"><QueryError retry={() => catalogs.refetch()} message="No pudimos cargar los catálogos de Versat." detail={errorDetail(catalogs.error, '')} /></div>}
     <form onSubmit={submit} className="space-y-5">
       <section className="panel p-5 md:p-7"><div className="mb-5 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e6f0e9] text-[#38776b]"><Users size={16} /></span><h2 className="font-display text-base font-bold">Cliente y fechas</h2></div>
@@ -215,8 +219,9 @@ export default function InvoiceFormPage() {
           <label><span className="field-label">Operación</span>{select(operationId, setOperationId, 'operation', 'select-operation', 'Selecciona operación')}</label>
           <label><span className="field-label">Comercial{locked ? ' (asignado)' : ''}</span>{locked ? <div className="field flex items-center bg-[#f1f0e8] text-[#5d716b]" data-testid="select-commercial">{(() => { const c = byKind.commercial.find((e) => e.id === assignedId); return c ? label(c) : catalogs.isLoading ? 'Cargando…' : `Comercial ${assignedId}`; })()}</div> : select(commercialId, setCommercialId, 'commercial', 'select-commercial', 'Selecciona comercial')}</label>
           <label className="md:col-span-2"><span className="field-label">Forma de pago</span>{select(paymentId, setPaymentId, 'payment', 'select-payment', 'Selecciona forma de pago')}</label>
-          <label><span className="field-label">Número de Versat</span><input className="field font-mono" value={versatNumber} onChange={(e) => setVersatNumber(e.target.value)} maxLength={50} autoComplete="off" data-testid="input-versat-number" /><span className="mt-1 block text-[10px] text-[#85918a]">Escríbelo tal como debe quedar en Versat. No se numera automáticamente.</span></label>
-          <label><span className="field-label">Talón (solo dígitos)</span><input className="field font-mono" inputMode="numeric" value={talon} onChange={(e) => setTalon(e.target.value.replace(/[^0-9]/g, ''))} maxLength={20} autoComplete="off" data-testid="input-talon" /></label>
+          <label className="md:col-span-2"><span className="field-label">Numeración de Versat</span><select className="field" value={seriesId} onChange={(e) => { setSeriesId(e.target.value); setVersatNumber(''); setTalon(''); }} data-testid="select-invoice-series"><option value="">Manual controlada</option>{series.data?.filter((s) => s.active || String(s.id) === seriesId).map((s) => <option key={s.id} value={s.id}>{s.name} · Talón {s.talon}{!s.active ? ' (inactiva)' : ''}</option>)}{seriesId && !series.data?.some((s) => String(s.id) === seriesId) && <option value={seriesId}>Serie guardada #{seriesId}</option>}</select>{series.isError && <span className="block text-xs" role="alert">No se pudieron cargar las series. <button type="button" onClick={() => series.refetch()}>Reintentar</button></span>}<span className="mt-2 block text-xs">{seriesId ? 'El número y talón definitivos se reservan al emitir; guardar el borrador no consume el contador.' : 'El número manual se reserva al guardar y no podrá utilizarlo otra factura, aunque se cambie este borrador o se anule.'} No hay sincronización directa con Versat de escritorio.</span></label>
+          {!seriesId && <><label><span className="field-label">Número de Versat</span><input className="field font-mono" value={versatNumber} onChange={(e) => setVersatNumber(e.target.value)} maxLength={50} autoComplete="off" data-testid="input-versat-number" /><span className="mt-1 block text-[10px] text-[#85918a]">Contrasta el número libre con tu Versat de escritorio.</span></label>
+          <label><span className="field-label">Talón (solo dígitos)</span><input className="field font-mono" inputMode="numeric" value={talon} onChange={(e) => setTalon(e.target.value.replace(/[^0-9]/g, ''))} maxLength={20} autoComplete="off" data-testid="input-talon" /></label></>}
           <label><span className="field-label">Cuenta bancaria MC</span><input className="field font-mono" value={bankMC} onChange={(e) => setBankMC(e.target.value)} maxLength={100} autoComplete="off" /></label>
           <label><span className="field-label">Cuenta bancaria OM</span><input className="field font-mono" value={bankOM} onChange={(e) => setBankOM(e.target.value)} maxLength={100} autoComplete="off" /></label>
           <label className="md:col-span-2"><span className="field-label">Contrato</span><input className="field" value={contract} onChange={(e) => setContract(e.target.value)} maxLength={100} autoComplete="off" /></label>
