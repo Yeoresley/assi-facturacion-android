@@ -37,6 +37,10 @@ export function InvoiceDocument({ invoice: inv, shareToken }: { invoice: Invoice
   return <article className="invoice-paper legal-invoice" data-testid="invoice-document">
     <header className="legal-header-cell">
           {(!legal || !issued || dead) && <div className="legal-watermark" style={dead ? { color: '#b3402f', borderColor: '#b3402f', opacity: .55 } : undefined}>{dead ? deadMark : inv.status === 'draft' ? 'BORRADOR · NO EMITIDA' : 'DOCUMENTO PRELIMINAR · EMISOR SIN CONFIRMAR'}</div>}
+          <div className="legal-brand" aria-label="ASSI · Tu visión. Nuestro futuro.">
+            <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="" aria-hidden="true" />
+            <span><strong>ASSI</strong><small>Tu visión. Nuestro futuro.</small></span>
+          </div>
           <div className="legal-heading">
             <div><strong className="legal-company">{issuer?.name || 'Emisor pendiente de configurar'}</strong><p>Organismo: {blank(issuer?.organization)}</p><p>IRCC: {blank(issuer?.ircc)}</p><p>Dirección: {blank(issuer?.address)}</p></div>
             <div className="legal-invoice-title"><p>Fecha emisión: {date(inv.issueDate)}</p><h1>FACTURA</h1><p>Número: <strong>{v?.number || inv.number}</strong></p><p>NIT: {blank(issuer?.nit)}</p><p>Contrato: {blank(v?.contract)}</p></div>

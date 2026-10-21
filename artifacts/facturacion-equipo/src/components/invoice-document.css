@@ -3,6 +3,11 @@
 .legal-invoice .legal-lines { width:100%; table-layout:fixed; border-collapse:collapse; }
 .legal-lines th,.legal-lines td { padding:5px 4px; vertical-align:top; text-align:left; overflow-wrap:anywhere; }
 .legal-header-cell { padding:0 0 10px; }
+.legal-brand { display:flex; align-items:center; gap:6px; min-height:24px; margin-bottom:6px; color:#12365a; }
+.legal-brand img { width:24px; height:24px; flex:none; object-fit:contain; }
+.legal-brand span,.payment-receipt-brand span { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
+.legal-brand strong { font-size:11px; letter-spacing:.08em; }
+.legal-brand small { color:#087eaf; font-size:8px; }
 .legal-running-header { font-size:9px; }
 .legal-heading { display:grid; grid-template-columns:1.2fr 1fr; gap:24px; }
 .legal-company { font-size:18px; }
@@ -33,16 +38,19 @@
 .legal-image-error { font-size:10px; color:#a22; border:1px solid #a22; padding:4px; }
 .legal-image-error button { text-decoration:underline; display:block; }
 .payment-receipt-paper { color:#111; background:#fff; font-family:Arial,sans-serif; max-width:720px; min-height:400px; margin:20px auto; padding:42px; border:1px solid #e4e1d5; }
-.payment-receipt-heading { display:flex; justify-content:space-between; gap:24px; border-bottom:2px solid #315b52; padding-bottom:22px; }
-.payment-receipt-brand { font-size:18px; font-weight:700; color:#315b52; }
-.payment-receipt-heading p { margin:6px 0 0; color:#63746d; font-size:12px; }
+.payment-receipt-heading { display:flex; justify-content:space-between; gap:24px; border-bottom:2px solid #087eaf; padding-bottom:22px; }
+.payment-receipt-brand { display:flex; align-items:center; gap:8px; color:#12365a; }
+.payment-receipt-brand img { width:34px; height:34px; flex:none; object-fit:contain; }
+.payment-receipt-brand strong { font-size:18px; letter-spacing:.08em; }
+.payment-receipt-brand small { color:#087eaf; font-size:9px; font-weight:500; }
+.payment-receipt-heading p { margin:6px 0 0; color:#526b7d; font-size:12px; }
 .payment-receipt-title { text-align:right; }
 .payment-receipt-title h1 { margin:8px 0 0; font-size:22px; line-height:1.15; }
 .payment-receipt-customer { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:30px; }
 .payment-receipt-customer div,.payment-receipt-amount,.payment-receipt-balance { display:flex; flex-direction:column; gap:8px; }
-.payment-receipt-customer span,.payment-receipt-amount span,.payment-receipt-balance span { color:#65756e; font-size:11px; }
+.payment-receipt-customer span,.payment-receipt-amount span,.payment-receipt-balance span { color:#526b7d; font-size:11px; }
 .payment-receipt-customer strong { font-size:14px; }
-.payment-receipt-amount { margin-top:32px; padding:20px; background:#f4f3eb; }
+.payment-receipt-amount { margin-top:32px; padding:20px; background:#eef6f8; border-left:3px solid #087eaf; }
 .payment-receipt-amount strong { font-size:25px; }
 .payment-receipt-balance { flex-direction:row; align-items:center; justify-content:space-between; gap:16px; border-top:1px solid #dedfd4; padding:16px 2px; }
 .payment-receipt-balance strong { font-size:16px; }
@@ -57,7 +65,7 @@
    .legal-stamp-placeholder { min-height:50px; }
   .payment-receipt-paper { min-height:0; padding:22px 16px; }
   .payment-receipt-heading { gap:12px; }
-  .payment-receipt-brand { font-size:15px; }
+  .payment-receipt-brand strong { font-size:15px; }
   .payment-receipt-title h1 { font-size:18px; }
   .payment-receipt-customer { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
   .payment-receipt-customer div { min-width:0; }
@@ -97,7 +105,7 @@
   .legal-totals { margin-top:10px; margin-bottom:12px; }
   .legal-notes { margin:12px 0; }
    .legal-image-error { color:#a22!important; }
-  .payment-receipt-paper { width:100%; max-width:none; min-height:0; margin:0; padding:12mm 8mm; border:0; }
+  .payment-receipt-paper { box-sizing:border-box; width:100%; max-width:none; min-height:0; margin:0; padding:12mm 8mm; border:0; }
   .printing-payment-receipt .main-content > *:not(.receipt-print-page),
   .printing-payment-receipt .shared-invoice-page > *:not(.receipt-print-page) { display:none!important; }
   .printing-payment-receipt .receipt-print-page { display:block!important; width:100%!important; max-width:none!important; margin:0!important; padding:0!important; }

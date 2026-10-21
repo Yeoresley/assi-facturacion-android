@@ -11,7 +11,13 @@ export function PaymentReceiptPaper({ invoice, paymentId }: { invoice: Invoice; 
 
   return <article className="payment-receipt-paper" data-testid="payment-receipt">
     <header className="payment-receipt-heading">
-      <div><div className="payment-receipt-brand">Cuenta Clara desk</div><p>Comprobante de cobro</p></div>
+      <div>
+        <div className="payment-receipt-brand">
+          <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="" aria-hidden="true" />
+          <span><strong>ASSI</strong><small>Tu visión. Nuestro futuro.</small></span>
+        </div>
+        <p>Comprobante de cobro</p>
+      </div>
       <div className="payment-receipt-title"><p>Factura {invoiceNumber}</p><h1>COMPROBANTE<br />DE ABONO</h1></div>
     </header>
     <section className="payment-receipt-customer">
