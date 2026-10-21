@@ -42,9 +42,6 @@ router.put("/invoices/:id/legal-document", async (req, res) => {
   const current = await getInvoiceRow(id, invoiceScope(member));
   if (!current) { res.status(404).json({ error: "Factura no encontrada." }); return; }
   const input = parsed.data;
-  if (input.useStamp || input.useSignature) {
-    res.status(422).json({ error: "El modelo actual deja en blanco los espacios del cuño y las firmas." }); return;
-  }
   if (!input.confirm || !input.preparedBy.trim() || !input.preparedPosition.trim()) {
     res.status(422).json({ error: "Indica el nombre de quien realiza la factura y su cargo antes de confirmar el modelo." }); return;
   }
@@ -52,13 +49,12 @@ router.put("/invoices/:id/legal-document", async (req, res) => {
   if (!row || !UpdateIssuerBody.safeParse(row.profile).success) {
     res.status(422).json({ error: "Configura primero los datos legales y de pago del emisor en Ajustes." }); return;
   }
-  if ((input.useStamp && (!row.stampPath || !row.authorization)) ||
-      (input.useSignature && (!row.signaturePath || !row.authorization))) {
-    res.status(422).json({ error: "No hay imágenes autorizadas disponibles." }); return;
+  if (!row.stampPath || !row.signaturePath || !row.authorization) {
+    res.status(422).json({ error: "El propietario debe configurar el cuño ASSI y la firma autorizada antes de terminar facturas." }); return;
   }
   const document: LegalDocument = {
-    ...input, useStamp: false, useSignature: false, confirm: true, issuer: row.profile,
-    stampPath: null, signaturePath: null,
+    ...input, useStamp: true, useSignature: true, confirm: true, issuer: row.profile,
+    stampPath: row.stampPath, signaturePath: row.signaturePath,
     authorizedAt: new Date().toISOString(), authorizedBy: member.userId,
   };
   const [saved] = await db.update(invoicesTable).set({ legalDocument: document })
@@ -74,7 +70,7 @@ async function sendImage(id: number, kind: string, res: Response, scope?: SQL) {
   const invoice = await getInvoiceRow(id, scope);
   // Drafts and cancellations never expose scans, even if an old share exists.
   const path = invoice?.legalDocument?.[kind === "stamp" ? "stampPath" : "signaturePath"];
-  if (!invoice || !["sent", "paid"].includes(invoice.status) || !path) { res.sendStatus(404); return; }
+  if (!invoice || !["finished", "accepted", "confirmed", "sent", "paid"].includes(invoice.status) || !path) { res.sendStatus(404); return; }
   try {
     const file = privateImage(path);
     const [data] = await file.download();

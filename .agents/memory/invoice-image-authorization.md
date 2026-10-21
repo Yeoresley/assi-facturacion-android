@@ -3,8 +3,8 @@ name: Alcance de imágenes autorizadas
 description: Límites de la autorización del propietario para reproducir cuño y firma escaneados en facturas.
 ---
 
-Para las facturas nuevas de esta aplicación, dejar en blanco los espacios del cuño y las firmas; no reproducir los escaneos del PDF de referencia.
+El propietario autorizó expresamente incorporar el cuño ASSI y la firma entregada para el bloque «Contabilizada por» en los PDF de facturas. Mantener en blanco las firmas de entrega, transporte y recepción. Las imágenes son reproducciones escaneadas, no firmas digitales criptográficas.
 
-**Why:** El usuario eligió dejar en blanco los espacios de los PDF nuevos, sustituyendo el permiso anterior para reutilizar escaneos.
+**Why:** El propietario proporcionó el cuño y la firma con la instrucción explícita de incorporarlos al formato de factura.
 
-**How to apply:** Mantener en blanco las nuevas facturas y conservar sin cambios los documentos históricos. No borrar los activos privados ya guardados sin autorización expresa; no adjuntarlos a una factura nueva.
+**How to apply:** Servirlos desde almacenamiento privado, asociarlos a cada factura emitida y reproducir la firma solo junto a «Contabilizada por». Los documentos emitidos antes de esta autorización conservan su instantánea original.

@@ -2,18 +2,19 @@
 .legal-invoice p { margin:3px 0; overflow-wrap:anywhere; }
 .legal-invoice .legal-lines { width:100%; table-layout:fixed; border-collapse:collapse; }
 .legal-lines th,.legal-lines td { padding:5px 4px; vertical-align:top; text-align:left; overflow-wrap:anywhere; }
-.legal-header-cell { padding:0 0 10px; }
+.legal-header-cell { padding:0 0 7px; }
 .legal-brand { display:flex; align-items:center; gap:6px; min-height:24px; margin-bottom:6px; color:#12365a; }
 .legal-brand img { width:24px; height:24px; flex:none; object-fit:contain; }
 .legal-brand span,.payment-receipt-brand span { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
 .legal-brand strong { font-size:11px; letter-spacing:.08em; }
 .legal-brand small { color:#087eaf; font-size:8px; }
 .legal-running-header { font-size:9px; }
-.legal-heading { display:grid; grid-template-columns:1.2fr 1fr; gap:24px; }
+.legal-heading { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:start; }
+.legal-issuer-details { min-width:0; }
 .legal-company { font-size:18px; }
 .legal-invoice-title { text-align:right; }
-.legal-invoice h1 { font-size:25px; font-style:italic; margin:15px 0 10px; font-weight:700; }
-.legal-invoice h2 { margin:20px 0 14px; text-align:center; font-weight:700; font-size:15px; }
+.legal-invoice h1 { font-size:25px; font-style:italic; margin:8px 0 5px; font-weight:700; }
+.legal-invoice h2 { margin:10px 0 6px; text-align:center; font-weight:700; font-size:14px; }
 .legal-pair { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
 .legal-column-head { border-top:1px solid #222; border-bottom:1px solid #222; }
 .legal-lines th { font-weight:700; }
@@ -27,13 +28,14 @@
 .legal-words { margin-bottom:18px!important; }
 .legal-reference { font-size:9px; margin-bottom:8px!important; }
 .legal-payment { margin-bottom:26px!important; }
-.legal-responsibilities { display:grid; grid-template-columns:1fr 1fr 1fr; gap:22px 15px; font-size:10px; }
+.legal-responsibilities { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px 18px; font-size:10px; align-items:start; }
 .legal-responsibilities > div { min-width:0; }
-.legal-stamp-placeholder { min-height:75px; }
-.legal-signature { width:95px; height:40px; object-fit:contain; margin:4px 0; }
-.legal-stamp { width:185px; max-width:100%; height:75px; object-fit:contain; }
+.legal-signature { display:block; width:112px; max-width:100%; height:42px; object-fit:contain; object-position:left center; margin:2px 0; }
+.legal-stamp-placeholder { min-height:84px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px; text-align:center; }
+.legal-stamp-placeholder > strong { font-size:9px; letter-spacing:.04em; }
+.legal-stamp-placeholder > span { font-size:8px; color:#555; }
+.legal-stamp { width:160px; max-width:100%; height:64px; object-fit:contain; }
 .legal-scan-notice { font-size:8px; margin-top:16px!important; color:#555; }
-.legal-stamp-placeholder { min-height:75px; }
 .legal-watermark { padding:7px; margin-bottom:15px; text-align:center; border:2px solid #777; font-weight:bold; letter-spacing:1px; }
 .legal-image-error { font-size:10px; color:#a22; border:1px solid #a22; padding:4px; }
 .legal-image-error button { text-decoration:underline; display:block; }
@@ -59,10 +61,13 @@
   .legal-invoice { padding:14px; font-size:9px; }
   .legal-lines .numeric { font-size:8px; white-space:normal; overflow-wrap:anywhere; }
   .legal-lines th,.legal-lines td { padding:4px 2px; }
-  .legal-heading { gap:10px; }
+  .legal-heading { grid-template-columns:minmax(0,1fr) minmax(0,.9fr); gap:10px; }
+  .legal-invoice-title h1 { font-size:20px; }
   .legal-company { font-size:14px; }
   .legal-responsibilities { font-size:8px; gap:15px 8px; }
-   .legal-stamp-placeholder { min-height:50px; }
+  .legal-stamp-placeholder { min-height:50px; }
+  .legal-signature { width:84px; height:34px; }
+  .legal-stamp { width:132px; height:48px; }
   .payment-receipt-paper { min-height:0; padding:22px 16px; }
   .payment-receipt-heading { gap:12px; }
   .payment-receipt-brand strong { font-size:15px; }
@@ -97,14 +102,14 @@
   .legal-lines .numeric { font-size:9px; }
   .legal-closing,.legal-totals { break-inside:avoid; page-break-inside:avoid; }
   .legal-invoice h1 { font-size:22px; line-height:1.1; margin:6px 0; }
-  .legal-invoice h2 { margin:10px 0 8px; }
+  .legal-invoice h2 { margin:8px 0 5px; }
   .legal-closing { margin-top:16px; }
   .legal-words { margin-bottom:12px!important; }
   .legal-payment { margin-bottom:14px!important; }
   .legal-responsibilities { gap:14px 15px; }
   .legal-totals { margin-top:10px; margin-bottom:12px; }
   .legal-notes { margin:12px 0; }
-   .legal-image-error { color:#a22!important; }
+  .legal-image-error { color:#a22!important; }
   .payment-receipt-paper { box-sizing:border-box; width:100%; max-width:none; min-height:0; margin:0; padding:12mm 8mm; border:0; }
   .printing-payment-receipt .main-content > *:not(.receipt-print-page),
   .printing-payment-receipt .shared-invoice-page > *:not(.receipt-print-page) { display:none!important; }

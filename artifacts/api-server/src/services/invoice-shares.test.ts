@@ -140,7 +140,7 @@ const request = (path: string, actor = specialist, method = "GET") =>
   fetch(`${base}${path}`, { method, headers: { "x-synthetic-id": actor } });
 
 test("public shares omit internal correction audit while team detail preserves it; scoped revocation preserves history", async () => {
-  const initialInvoices = await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId]));
+  const initialInvoices = await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId])).orderBy(invoicesTable.id);
   const initialSeries = await db.select().from(invoiceSeriesTable);
   const list = `/invoices/${invoiceId}/shares`;
   const revoke = `${list}/${shareId}`;
@@ -176,6 +176,16 @@ test("public shares omit internal correction audit while team detail preserves i
     assert.ok(!foreignBody.includes(tag) && !foreignBody.includes("synthetic-image"));
   }
   assert.equal(downloads, priorDownloads + 2);
+
+  for (const status of ["finished", "accepted", "confirmed", "sent", "paid"] as const) {
+    await db.update(invoicesTable).set({ status }).where(eq(invoicesTable.id, invoiceId));
+    const issuedImage = await request(`/invoices/${invoiceId}/images/stamp`, specialist);
+    assert.equal(issuedImage.status, 200, `stamp should be available for ${status} invoices`);
+    assert.equal(await issuedImage.text(), "synthetic-image");
+  }
+  await db.update(invoicesTable).set({ status: "draft" }).where(eq(invoicesTable.id, invoiceId));
+  assert.equal((await request(`/invoices/${invoiceId}/images/stamp`, specialist)).status, 404);
+  await db.update(invoicesTable).set({ status: "sent" }).where(eq(invoicesTable.id, invoiceId));
 
   const liveData = await request(`/shared-invoices/${token}`, "");
   assert.equal(liveData.status, 200);
@@ -231,6 +241,6 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.notEqual(renewed.id, newLink.id);
   assert.notEqual(renewed.url, newLink.url);
   assert.equal((await request(`/shared-invoices/${new URL(renewed.url).pathname.split("/").at(-1)}`, "")).status, 200);
-  assert.deepEqual(await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId])), initialInvoices);
+  assert.deepEqual(await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId])).orderBy(invoicesTable.id), initialInvoices);
   assert.deepEqual(await db.select().from(invoiceSeriesTable), initialSeries);
 });

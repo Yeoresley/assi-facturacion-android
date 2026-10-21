@@ -34,24 +34,31 @@ export function InvoiceDocument({ invoice: inv, shareToken }: { invoice: Invoice
   const issued = ['finished', 'accepted', 'confirmed', 'sent', 'paid'].includes(inv.status);
   const dead = inv.status === 'cancelled' || inv.status === 'voided' || inv.status === 'error';
   const deadMark = inv.status === 'voided' ? 'ANULADA' : inv.status === 'cancelled' ? 'CANCELADA' : 'CON ERROR · NO VÁLIDA';
+  const issueDate = date(inv.issueDate);
+  const accountedDate = inv.confirmedAt
+    ? new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Havana' }).format(new Date(inv.confirmedAt))
+    : issueDate;
   return <article className="invoice-paper legal-invoice" data-testid="invoice-document">
     <header className="legal-header-cell">
-          {(!legal || !issued || dead) && <div className="legal-watermark" style={dead ? { color: '#b3402f', borderColor: '#b3402f', opacity: .55 } : undefined}>{dead ? deadMark : inv.status === 'draft' ? 'BORRADOR · NO EMITIDA' : 'DOCUMENTO PRELIMINAR · EMISOR SIN CONFIRMAR'}</div>}
+      {(!legal || !issued || dead) && <div className="legal-watermark" style={dead ? { color: '#b3402f', borderColor: '#b3402f', opacity: .55 } : undefined}>{dead ? deadMark : inv.status === 'draft' ? 'BORRADOR · NO EMITIDA' : 'DOCUMENTO PRELIMINAR · EMISOR SIN CONFIRMAR'}</div>}
+      <div className="legal-heading">
+        <div className="legal-issuer-details">
           <div className="legal-brand" aria-label="ASSI · Tu visión. Nuestro futuro.">
             <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="" aria-hidden="true" />
             <span><strong>ASSI</strong><small>Tu visión. Nuestro futuro.</small></span>
           </div>
-          <div className="legal-heading">
-            <div><strong className="legal-company">{issuer?.name || 'Emisor pendiente de configurar'}</strong><p>Organismo: {blank(issuer?.organization)}</p><p>IRCC: {blank(issuer?.ircc)}</p><p>Dirección: {blank(issuer?.address)}</p></div>
-            <div className="legal-invoice-title"><p>Fecha emisión: {date(inv.issueDate)}</p><h1>FACTURA</h1><p>Número: <strong>{v?.number || inv.number}</strong></p><p>NIT: {blank(issuer?.nit)}</p><p>Contrato: {blank(v?.contract)}</p></div>
-          </div>
-          <h2>Ventas en {inv.currency}</h2>
-          <div className="legal-customer"><p>Código: {blank(v?.customerCode)} · Cliente: <strong>{v?.customerName || inv.customerName}</strong></p>
-            <p>Dirección: {blank(v?.customerAddress)}</p><p>NIT: {blank(v?.customerTaxId)} · Número Ins. RCC: {blank(legal?.customerIrcc)}</p>
-            <p>Cuenta bancaria: {blank(legal?.customerBankAccount)}</p>
-            <div className="legal-pair"><p>Forma de pago: {blank(v?.paymentName)}</p><p>Operación: {blank(v?.operationName)}</p></div>
-            {inv.dueDate && <p>Vencimiento: {date(inv.dueDate)}</p>}
-          </div>
+          <strong className="legal-company">{issuer?.name || 'Emisor pendiente de configurar'}</strong>
+          <p>Organismo: {blank(issuer?.organization)}</p><p>IRCC: {blank(issuer?.ircc)}</p><p>Dirección: {blank(issuer?.address)}</p>
+        </div>
+        <div className="legal-invoice-title"><p>Fecha emisión: {date(inv.issueDate)}</p><h1>FACTURA</h1><p>Número: <strong>{v?.number || inv.number}</strong></p><p>NIT: {blank(issuer?.nit)}</p><p>Contrato: {blank(v?.contract)}</p></div>
+      </div>
+      <h2>Ventas en {inv.currency}</h2>
+      <div className="legal-customer"><p>Código: {blank(v?.customerCode)} · Cliente: <strong>{v?.customerName || inv.customerName}</strong></p>
+        <p>Dirección: {blank(v?.customerAddress)}</p><p>NIT: {blank(v?.customerTaxId)} · Número Ins. RCC: {blank(legal?.customerIrcc)}</p>
+        <p>Cuenta bancaria: {blank(legal?.customerBankAccount)}</p>
+        <div className="legal-pair"><p>Forma de pago: {blank(v?.paymentName)}</p><p>Operación: {blank(v?.operationName)}</p></div>
+        {inv.dueDate && <p>Vencimiento: {date(inv.dueDate)}</p>}
+      </div>
     </header>
     <table className="legal-lines">
       <colgroup><col style={{ width: '21%' }} /><col style={{ width: '31%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '15%' }} /><col style={{ width: '13%' }} /></colgroup>
@@ -76,15 +83,16 @@ export function InvoiceDocument({ invoice: inv, shareToken }: { invoice: Invoice
       <p className="legal-words">Total en {inv.currency}: {amountInWords(inv.total)}</p>
       <p className="legal-payment"><strong>Páguese {inv.currency} a {blank(issuer?.paymentBeneficiary)}. Cuenta: {blank(issuer?.bankAccount)}. Sucursal: {blank(issuer?.bankBranch)} del {blank(issuer?.bankName)}.</strong></p>
       <div className="legal-responsibilities">
-        <div><strong>Realizada por:</strong><p>{blank(legal?.preparedBy)}</p><p>{blank(legal?.preparedPosition)}</p><p>Firma: __________ Fecha: ________</p></div>
+        <div><strong>Realizada por:</strong><p>{blank(legal?.preparedBy)}</p><p>{blank(legal?.preparedPosition)}</p><p>Firma: __________</p><p>Fecha: {issueDate}</p></div>
         <div><strong>Transportado por:</strong><p>{blank(legal?.transportedBy)}</p><p>CH: {blank(legal?.vehiclePlate)}</p><p>Lic.: {blank(legal?.drivingLicense)}</p><p>CI: {blank(legal?.transportId)}</p><p>Firma: __________ Fecha: ________</p></div>
         <div><strong>Contabilizada por:</strong><p>{blank(legal?.accountedBy)}</p>
-          {issued && legal?.signaturePath ? <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="signature" /> : <p>Firma: ________________</p>}<p>Fecha: ________________</p>
+          {issued && legal?.signaturePath ? <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="signature" /> : <p>Firma: ________________</p>}<p>Fecha: {accountedDate}</p>
         </div>
         <div><strong>Recibido por:</strong><p>Nombre: {blank(legal?.receivedBy)}</p><p>Cargo: {blank(legal?.receivedPosition)}</p><p>CI: {blank(legal?.receivedId)}</p><p>Firma: __________ Fecha: ________</p></div>
-        <div><strong>Entregada por:</strong><p>{blank(legal?.deliveredBy)}</p><p>Firma: __________ Fecha: ________</p></div>
-        <div className="legal-stamp-placeholder" aria-label={issued && legal?.stampPath ? 'Cuño autorizado en factura histórica' : 'Espacio en blanco para el cuño'}>
-          {issued && legal?.stampPath && <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="stamp" />}
+        <div><strong>Entregada por:</strong><p>{blank(legal?.deliveredBy)}</p><p>Firma: __________</p><p>Fecha: {issueDate}</p></div>
+        <div className="legal-stamp-placeholder" aria-label={issued && legal?.stampPath ? 'Cuño ASSI autorizado' : 'Cuño ASSI'}>
+          <strong>Cuño ASSI</strong>
+          {issued && legal?.stampPath ? <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="stamp" /> : <span>Se incorpora al emitir</span>}
         </div>
       </div>
       {issued && (legal?.signaturePath || legal?.stampPath) && <p className="legal-scan-notice">Cuño y/o firma manuscrita escaneados, reproducidos con autorización. No constituyen firma digital criptográfica.</p>}
