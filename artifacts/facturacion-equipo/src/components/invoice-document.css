@@ -59,6 +59,12 @@
   .payment-receipt-heading { gap:12px; }
   .payment-receipt-brand { font-size:15px; }
   .payment-receipt-title h1 { font-size:18px; }
+  .payment-receipt-customer { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .payment-receipt-customer div { min-width:0; }
+  .payment-receipt-customer strong { overflow-wrap:anywhere; }
+  .payment-receipt-amount strong { font-size:22px; overflow-wrap:anywhere; }
+  .payment-receipt-balance { align-items:flex-start; }
+  .payment-receipt-balance strong { text-align:right; }
 }
 @page { size:Letter; margin:12mm; @bottom-right { content:"Página " counter(page) " de " counter(pages); font-family:Arial,sans-serif; font-size:9px; } }
 @media print {
@@ -92,6 +98,16 @@
   .legal-notes { margin:12px 0; }
    .legal-image-error { color:#a22!important; }
   .payment-receipt-paper { width:100%; max-width:none; min-height:0; margin:0; padding:12mm 8mm; border:0; }
+  .printing-payment-receipt .main-content > *:not(.receipt-print-page),
+  .printing-payment-receipt .shared-invoice-page > *:not(.receipt-print-page) { display:none!important; }
+  .printing-payment-receipt .receipt-print-page { display:block!important; width:100%!important; max-width:none!important; margin:0!important; padding:0!important; }
+  .printing-payment-receipt .legal-invoice { display:none!important; }
+  .printing-payment-receipt .payment-receipt-paper { break-inside:avoid; page-break-inside:avoid; }
+  .printing-payment-receipt .payment-receipt-customer span,
+  .printing-payment-receipt .payment-receipt-amount span,
+  .printing-payment-receipt .payment-receipt-balance span { font-size:9pt; }
+  .printing-payment-receipt .payment-receipt-amount strong { font-size:22pt; }
+  .printing-payment-receipt .payment-receipt-balance strong { font-size:12pt; }
   .payment-receipt-heading { break-inside:avoid; }
   .payment-receipt-customer,.payment-receipt-amount,.payment-receipt-balance { break-inside:avoid; }
   .payment-receipt-note { margin-top:20px!important; }

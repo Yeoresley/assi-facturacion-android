@@ -19,11 +19,29 @@ export function amountInWords(value: number): string {
   return `${integerWords(Number(whole))} CON ${cents}/100`;
 }
 
-export async function printInvoice() {
+export async function printInvoice(options: { documentType?: 'invoice' | 'receipt' } = {}) {
+  const documentType = options.documentType ?? 'invoice';
   await document.fonts.ready;
-  const images = [...document.querySelectorAll<HTMLImageElement>('[data-authorized-image]')];
-  if (document.querySelector('[data-image-pending]') || images.some(img => !img.complete || !img.naturalWidth)) {
-    throw new Error('El cuño o la firma aún no se han cargado. Reintenta la carga antes de imprimir.');
+  if (documentType === 'receipt') {
+    if (!document.querySelector('.receipt-print-page .payment-receipt-paper')) {
+      throw new Error('No se encontró el comprobante que quieres imprimir.');
+    }
+  } else {
+    const images = [...document.querySelectorAll<HTMLImageElement>('[data-authorized-image]')];
+    if (document.querySelector('[data-image-pending]') || images.some(img => !img.complete || !img.naturalWidth)) {
+      throw new Error('El cuño o la firma aún no se han cargado. Reintenta la carga antes de imprimir.');
+    }
   }
-  window.print();
+
+  const cleanup = () => document.body.classList.remove('printing-payment-receipt');
+  if (documentType === 'receipt') {
+    document.body.classList.add('printing-payment-receipt');
+    window.addEventListener('afterprint', cleanup, { once: true });
+  }
+  try {
+    window.print();
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
