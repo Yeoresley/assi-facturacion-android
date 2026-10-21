@@ -27,6 +27,7 @@ import ExportPage from '@/pages/export';
 import InvoiceDetailPage from '@/pages/invoice-detail';
 import InvoiceFormPage from '@/pages/invoice-form';
 import SharedInvoicePage from '@/pages/shared-invoice';
+import TeamMembers from '@/pages/team-members';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -190,7 +191,17 @@ function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
+  const client = useQueryClient();
+  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false, refetchInterval: 30000 } });
+  const sig = member.data ? `${member.data.userId}|${member.data.role}|${member.data.commercialId ?? ''}` : null;
+  const lastSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sig) return;
+    if (lastSig.current !== null && lastSig.current !== sig) {
+      client.resetQueries({ predicate: (q) => { const k = String(q.queryKey[0] ?? ''); return k.startsWith('/api/invoices') || k.startsWith('/api/billing') || k.startsWith('/api/customers'); } });
+    }
+    lastSig.current = sig;
+  }, [sig, client]);
   if (member.isLoading) return <div className="grid min-h-[100dvh] place-items-center bg-[#f6f4eb]"><div className="w-[280px] space-y-3"><div className="skeleton h-5 w-36" /><div className="skeleton h-3 w-full" /><div className="skeleton h-3 w-2/3" /></div></div>;
   if (member.isError || !member.data) return <AccessMessage title="No pudimos comprobar tu acceso" body="La sesión está activa, pero el servicio de equipo no respondió. Comprueba la conexión e inténtalo de nuevo." retry={() => member.refetch()} />;
   const me = member.data;
@@ -199,7 +210,7 @@ function Shell({ children }: { children: ReactNode }) {
     <aside className="sidebar fixed inset-y-0 left-0 z-20 flex w-[238px] flex-col px-4 py-5">
       <Link href="/dashboard" className="mb-9 px-2"><BrandMark /></Link>
       <div className="mb-3 px-3 eyebrow !text-[#98aaa2]">Espacio de trabajo</div>
-      <nav className="space-y-1">{navItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={`side-link ${location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}`}><Icon size={17} />{label}{href === '/export' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#eab45c]" />}</Link>)}</nav>
+      <nav className="space-y-1">{[...navItems, ...(me.role === 'owner' ? [{ href: '/team/members', label: 'Equipo', icon: Users }] : [])].map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={`side-link ${location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}`}><Icon size={17} />{label}{href === '/export' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#eab45c]" />}</Link>)}</nav>
       <div className="mt-auto">
         <div className="mb-4 rounded-xl border border-white/10 bg-white/[.04] p-3.5"><div className="flex items-center gap-2 text-[11px] font-semibold text-[#e7c17c]"><span className="h-1.5 w-1.5 rounded-full bg-[#e7c17c]" />Todo en orden</div><p className="mt-2 text-[11px] leading-[1.6] text-[#b6c3bc]">Tu equipo factura desde un único sitio. El cierre puede esperar a cuando tú quieras.</p></div>
         <button className="side-link w-full" data-testid="button-sign-out" onClick={() => signOut({ redirectUrl: basePath || '/' })}><LogOut size={16} />Cerrar sesión</button>
@@ -284,45 +295,6 @@ function Settings() {
     {me?.role === 'owner' && <IssuerSettings />}
     <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[#e4e1d5] bg-[#efeee5] p-5"><div className="flex items-start gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7edd9] text-[#9d7739]"><Users size={16} /></span><div><div className="text-[12px] font-bold">Accesos del equipo</div><p className="mt-1 text-[11px] leading-5 text-[#77847e]">Consulta los especialistas autorizados y gestiona nuevas altas.</p></div></div><Link href="/team/members" className="button button-plain !min-h-9">Ver equipo <ArrowRight size={14} /></Link></div>
     <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e4e1d5] bg-[#fffefa] px-4 py-3"><div className="flex items-center gap-2 text-[11px] font-semibold text-[#61736c]"><span className={`h-2 w-2 rounded-full ${health.data?.status === 'ok' ? 'bg-[#4a9278]' : health.isError ? 'bg-[#b66050]' : 'bg-[#c9a44c]'}`} />Conexión con el servicio</div><div className="flex items-center gap-3 text-[10px] text-[#85918a]">{health.isLoading ? 'Comprobando…' : health.isError ? 'No disponible' : health.data?.status || 'Conectado'}{health.isError && <button className="font-semibold text-[#39746a]" onClick={() => health.refetch()}>Reintentar</button>}</div></div>
-  </div>;
-}
-
-function TeamMembers() {
-  const team = useListTeamMembers({ query: { queryKey: getListTeamMembersQueryKey(), retry: false } });
-  const current = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
-  const invite = useInviteTeamMember();
-  const client = useQueryClient();
-  const [email, setEmail] = useState('');
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const isOwner = current.data?.role === 'owner';
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    setNotice('');
-    setError('');
-    invite.mutate({ data: { email: email.trim().toLowerCase() } }, {
-      onSuccess: (result) => {
-        setEmail('');
-        setNotice(`Acceso autorizado para ${result.email}. Se activará al iniciar sesión con esa dirección verificada.`);
-        client.invalidateQueries({ queryKey: getListTeamMembersQueryKey() });
-      },
-      onError: () => setError('No se pudo autorizar esta dirección. Revisa el email y vuelve a intentarlo.'),
-    });
-  }
-  return <div className="fade-in mx-auto max-w-[1000px]">
-    <Link href="/settings" className="mb-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />Volver a ajustes</Link>
-    <PageHeading eyebrow="Acceso compartido" title="Equipo y permisos" description="Los especialistas acceden usando su email de Clerk verificado." />
-    {!isOwner && current.data?.role === 'specialist' && <div className="mb-5 rounded-xl border border-[#e5e2d6] bg-[#efeee5] p-4 text-[12px] leading-5 text-[#687a73]">Puedes consultar las personas con acceso. Solo el propietario puede autorizar nuevas cuentas.</div>}
-    {isOwner && <section className="panel mb-5 p-5 md:p-6"><div className="mb-4"><div className="eyebrow">Nueva autorización</div><h2 className="font-display mt-1 text-lg font-bold">Añadir especialista</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Introduce la dirección que utilizará para iniciar sesión. Debe coincidir con su email verificado de Clerk.</p></div>
-      <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={submit}><label className="flex-1"><span className="field-label">Email del especialista</span><input className="field" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="especialista@equipo.com" data-testid="input-team-email" /></label><button className="button button-primary" type="submit" disabled={invite.isPending}>{invite.isPending ? 'Autorizando…' : 'Autorizar acceso'}<ArrowRight size={14} /></button></form>
-      {notice && <div className="mt-3 rounded-lg bg-[#e6f2e9] px-4 py-3 text-[12px] leading-5 text-[#317060]" role="status">{notice}</div>}
-      {error && <div className="mt-3 rounded-lg bg-[#fbefeb] px-4 py-3 text-[12px] text-[#a04539]" role="alert">{error}</div>}
-      <div className="mt-4 border-t border-[#eeece4] pt-3 text-[10px] leading-5 text-[#85918a]">El propietario principal se gestiona mediante una autorización independiente del servidor. Esta acción autoriza únicamente cuentas especialistas.</div>
-    </section>}
-    <section className="panel overflow-hidden"><div className="flex items-center justify-between border-b border-[#eeece4] px-5 py-4"><div><div className="eyebrow">Acceso actual</div><h2 className="font-display mt-1 text-base font-bold">Personas del equipo</h2></div><span className="rounded-full bg-[#edf0e7] px-2.5 py-1 font-mono text-[10px] text-[#61736b]">{team.data?.length ?? '—'} miembros</span></div>
-      {team.isLoading ? <div className="space-y-3 p-5">{[0,1,2].map((index) => <div key={index} className="skeleton h-12" />)}</div> : team.isError ? <div className="p-5"><QueryError retry={() => team.refetch()} message="No pudimos cargar los accesos del equipo." /></div> : !team.data?.length ? <EmptyState title="Aún no hay accesos visibles" text="Las personas autorizadas aparecerán aquí cuando el servidor las asocie a una cuenta." /> :
-        <div className="overflow-x-auto"><table className="w-full min-w-[540px]"><thead><tr className="eyebrow text-left"><th className="px-5 py-3 font-medium">Miembro</th><th className="px-4 py-3 font-medium">Email</th><th className="px-5 py-3 text-right font-medium">Acceso</th></tr></thead><tbody>{team.data.map((member, index) => <tr key={`${member.userId}-${member.email || index}`} className="table-row" data-testid={`row-team-member-${member.userId}`}><td className="px-5 py-4"><div className="flex items-center gap-3"><span className={`grid h-9 w-9 place-items-center rounded-xl text-[10px] font-bold ${member.role === 'owner' ? 'bg-[#f7edd9] text-[#936d2d]' : member.role === 'pending' ? 'bg-[#efeee4] text-[#7c795e]' : 'bg-[#e3f0e8] text-[#377868]'}`}>{(member.name || member.email || 'T').split(/[\s@]+/).map((part) => part[0]).slice(0,2).join('').toUpperCase()}</span><div><div className="text-[12px] font-bold">{member.name || 'Invitación pendiente'}</div><div className="mt-1 text-[10px] text-[#87928b]">{member.role === 'owner' ? 'Propietario' : member.role === 'specialist' ? 'Especialista' : 'Pendiente'}</div></div></div></td><td className="px-4 py-4 text-[12px] text-[#61736c]">{member.email || '—'}</td><td className="px-5 py-4 text-right"><span className={`status-pill ${member.role === 'pending' ? 'status-sent' : 'status-paid'}`}>{member.role === 'pending' ? 'Pendiente' : 'Activo'}</span></td></tr>)}</tbody></table></div>}
-    </section>
   </div>;
 }
 

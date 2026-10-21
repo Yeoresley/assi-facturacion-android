@@ -8,6 +8,7 @@ export type CurrentTeamMember = {
   name: string;
   email: string | null;
   role: "owner" | "specialist" | "pending";
+  commercialId: number | null;
 };
 
 export async function resolveTeamMember(
@@ -41,16 +42,20 @@ export async function resolveTeamMember(
     .limit(1);
 
   let role: CurrentTeamMember["role"] = existing?.role ?? "pending";
+  let commercialId: number | null = null;
   const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
   if (email && ownerEmail && email === ownerEmail) {
     role = "owner";
   } else if (email) {
     const [invitation] = await db
-      .select({ email: teamInvitationsTable.email })
+      .select({ email: teamInvitationsTable.email, commercialId: teamInvitationsTable.commercialId })
       .from(teamInvitationsTable)
       .where(eq(teamInvitationsTable.email, email))
       .limit(1);
-    if (invitation) role = "specialist";
+    if (invitation) {
+      role = "specialist";
+      commercialId = invitation.commercialId;
+    }
   }
 
   const values = { userId, name, email, role };
@@ -67,7 +72,8 @@ export async function resolveTeamMember(
     res.status(403).json({ error: "Team access has not been granted" });
     return null;
   }
-  return member;
+  res.set("Cache-Control", "private, no-store");
+  return { ...member, commercialId };
 }
 
 export async function requireOwner(

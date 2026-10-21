@@ -351,14 +351,23 @@ export interface TeamMember {
   /** @nullable */
   email: string | null;
   role: TeamMemberRole;
+  /** @nullable */
+  commercialId: number | null;
 }
 
 export interface TeamInvitationInput {
   email: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  commercialId: number | null;
 }
 
 export interface TeamInvitation {
   email: string;
+  /** @nullable */
+  commercialId: number | null;
   createdAt: string;
 }
 

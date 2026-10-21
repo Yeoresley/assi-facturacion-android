@@ -6,6 +6,7 @@ import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, UpdateIssuerBody } fr
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
 import { getInvoiceRow, serializeInvoice } from "../services/invoice-records";
 import { privateImage } from "../lib/private-images";
+import { invoiceScope } from "../services/invoice-access";
 
 const router = Router();
 const settings = async () => (await db.select().from(issuerSettingsTable).where(eq(issuerSettingsTable.id, 1)))[0];
@@ -16,7 +17,7 @@ const toSettings = (row: Awaited<ReturnType<typeof settings>>) => ({
 });
 
 router.get("/issuer", async (req, res) => {
-  if (!await requireOwner(req, res)) return;
+  if (!await resolveTeamMember(req, res)) return;
   res.set("Cache-Control", "no-store").json(toSettings(await settings()));
 });
 
@@ -32,17 +33,21 @@ router.put("/issuer", async (req, res) => {
 });
 
 router.put("/invoices/:id/legal-document", async (req, res) => {
-  const owner = await requireOwner(req, res);
-  if (!owner) return;
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
   const id = Number(req.params.id);
   const parsed = AuthorizeInvoiceDocumentBody.safeParse(req.body);
   if (!Number.isSafeInteger(id) || id < 1 || !parsed.success) {
     res.status(400).json({ error: "Completa el responsable y su cargo, y confirma expresamente la autorización." }); return;
   }
+  const current = await getInvoiceRow(id, invoiceScope(member));
+  if (!current) { res.status(404).json({ error: "Factura no encontrada." }); return; }
   const input = parsed.data;
-  if (!input.confirm || !input.preparedBy.trim() || !input.preparedPosition.trim() ||
-      (input.useSignature && !input.accountedBy.trim())) {
-    res.status(422).json({ error: "Indica los responsables reales; la firma escaneada corresponde a «Contabilizada por»." }); return;
+  if (input.useStamp || input.useSignature) {
+    res.status(422).json({ error: "El modelo actual deja en blanco los espacios del cuño y las firmas." }); return;
+  }
+  if (!input.confirm || !input.preparedBy.trim() || !input.preparedPosition.trim()) {
+    res.status(422).json({ error: "Indica el nombre de quien realiza la factura y su cargo antes de confirmar el modelo." }); return;
   }
   const row = await settings();
   if (!row || !UpdateIssuerBody.safeParse(row.profile).success) {
@@ -53,13 +58,12 @@ router.put("/invoices/:id/legal-document", async (req, res) => {
     res.status(422).json({ error: "No hay imágenes autorizadas disponibles." }); return;
   }
   const document: LegalDocument = {
-    ...input, confirm: true, issuer: row.profile,
-    stampPath: input.useStamp ? row.stampPath : null,
-    signaturePath: input.useSignature ? row.signaturePath : null,
-    authorizedAt: new Date().toISOString(), authorizedBy: owner.userId,
+    ...input, useStamp: false, useSignature: false, confirm: true, issuer: row.profile,
+    stampPath: null, signaturePath: null,
+    authorizedAt: new Date().toISOString(), authorizedBy: member.userId,
   };
   const [saved] = await db.update(invoicesTable).set({ legalDocument: document })
-    .where(and(eq(invoicesTable.id, id), eq(invoicesTable.status, "draft"))).returning();
+    .where(and(eq(invoicesTable.id, id), invoiceScope(member), eq(invoicesTable.status, "draft"))).returning();
   if (!saved) {
     res.status(409).json({ error: "Solo se puede autorizar el modelo de un borrador; una factura emitida no se modifica." }); return;
   }
@@ -82,7 +86,9 @@ async function sendImage(id: number, kind: string, res: Response) {
 }
 
 router.get("/invoices/:id/images/:kind", async (req, res) => {
-  if (!await resolveTeamMember(req, res)) return;
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (!await getInvoiceRow(Number(req.params.id), invoiceScope(member))) { res.sendStatus(404); return; }
   await sendImage(Number(req.params.id), req.params.kind, res);
 });
 router.get("/shared-invoices/:token/images/:kind", async (req, res) => {

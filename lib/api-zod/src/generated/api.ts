@@ -1714,7 +1714,8 @@ export const GetCurrentTeamMemberResponse = zod.object({
   "userId": zod.string(),
   "name": zod.string(),
   "email": zod.string().nullable(),
-  "role": zod.enum(['owner', 'specialist', 'pending'])
+  "role": zod.enum(['owner', 'specialist', 'pending']),
+  "commercialId": zod.number().int().nullable()
 })
 
 
@@ -1725,7 +1726,8 @@ export const ListTeamMembersResponseItem = zod.object({
   "userId": zod.string(),
   "name": zod.string(),
   "email": zod.string().nullable(),
-  "role": zod.enum(['owner', 'specialist', 'pending'])
+  "role": zod.enum(['owner', 'specialist', 'pending']),
+  "commercialId": zod.number().int().nullable()
 })
 export const ListTeamMembersResponse = zod.array(ListTeamMembersResponseItem)
 
@@ -1733,12 +1735,17 @@ export const ListTeamMembersResponse = zod.array(ListTeamMembersResponseItem)
 /**
  * @summary Grant a specialist access by email
  */
+
+
+
 export const InviteTeamMemberBody = zod.object({
-  "email": zod.string().email()
+  "email": zod.string().email(),
+  "commercialId": zod.number().int().min(1).nullable()
 })
 
 export const InviteTeamMemberResponse = zod.object({
   "email": zod.string().email(),
+  "commercialId": zod.number().int().nullable(),
   "createdAt": zod.coerce.date()
 })
 

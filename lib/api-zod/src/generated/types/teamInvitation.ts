@@ -8,5 +8,7 @@
 
 export interface TeamInvitation {
   email: string;
+  /** @nullable */
+  commercialId: number | null;
   createdAt: Date;
 }

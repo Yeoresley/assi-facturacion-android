@@ -8,13 +8,19 @@ Aplicación web en español para que especialistas remotos preparen facturas y e
 - La primera versión incluye clientes, borradores, estados, impresión mediante navegador y enlaces temporales de factura. WhatsApp y correo abren el canal del usuario; no hay envío automático ni adjuntos automáticos.
 - El propietario se identifica por su correo verificado mediante `OWNER_EMAIL`, ya configurado. No conceder administración al primer registro. El propietario autoriza los correos de especialistas.
 - Se recibieron un PDF, un `.Fac` y ocho catálogos Excel. Están cargados en la base de datos sin incorporar los originales al bundle público. La exportación de prueba usa `.Fac`, con descarga individual o ZIP por período. Falta validar una importación real en Versat.
-- El modelo imprimible y compartido sigue el PDF aportado: emisor configurable por el propietario, detalle con 4/5/2 decimales y bloques de responsabilidad. El propietario debe confirmar emisor y responsables antes de emitir; editar el borrador invalida esa confirmación. Las facturas antiguas sin esa confirmación siguen etiquetadas como preliminares, sin alterar su historial.
-- El propietario autorizó expresamente reutilizar cuño y firma manuscrita escaneados del PDF. Son imágenes, no firmas digitales criptográficas. Se guardan en App Storage privado; la base de datos conserva solo rutas y metadatos. No se sirven para borradores o anuladas; el acceso requiere equipo autorizado o enlace vigente de esa factura.
-- En Ajustes se revisan los datos del emisor transcritos del ejemplo. Los responsables nunca se deducen de los nombres del PDF ni del especialista conectado. Las imágenes se eligen expresamente al confirmar cada factura y se muestran al emitir.
+- El modelo imprimible y compartido sigue el PDF aportado: emisor configurable solo por el propietario, detalle con 4/5/2 decimales y bloques de responsabilidad. El especialista puede confirmar el documento de su comercial usando el emisor administrado y responsables explícitos; editar el borrador invalida esa confirmación. Las facturas antiguas sin confirmación siguen etiquetadas como preliminares.
+- Para las facturas nuevas, el propietario eligió dejar en blanco los espacios del cuño y las firmas. No reutilizar en estos PDF las imágenes escaneadas del ejemplo. Los responsables nunca se deducen de los nombres del PDF ni del especialista conectado.
 - La moneda inicial es CUP, conforme al documento de referencia. No asumir que una factura guardada en la aplicación ya es compatible con Versat.
 - Los enlaces públicos caducan y la base de datos conserva solo el hash del token.
 - Ver `docs/versat-format.md` para las observaciones técnicas y preguntas abiertas sobre el formato.
 - El catálogo no trae precios. No inventar tarifas, numeración, talones ni agrupadores de servicios desconocidos.
+
+## Parámetros anuales confirmados
+
+- La numeración oficial es una única secuencia compartida por todos los especialistas, no una secuencia por persona.
+- Para 2026, la primera factura del aplicativo debe ser `HAB-26-091`; las siguientes continúan consecutivamente conservando ese formato. El número de registro del talón para la exportación es `1005`.
+- El administrador configura el número inicial completo, el registro del talón y los datos de la entidad. La emisión del nuevo año debe quedar bloqueada hasta que configure sus parámetros; los de 2026 no se reutilizan automáticamente.
+- El administrador vincula cada correo autorizado a un comercial del catálogo de Versat. Cada especialista solo accede a facturas de ese comercial, incluidas las preparadas por el administrador; el creador de la factura no determina el permiso. Sin comercial asignado no hay acceso a facturas. El propietario conserva acceso a todas.
 
 ## Run & Operate
 

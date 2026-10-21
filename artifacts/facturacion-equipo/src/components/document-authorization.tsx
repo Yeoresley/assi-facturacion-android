@@ -25,7 +25,7 @@ export function DocumentAuthorizationForm({ invoice }: { invoice: Invoice }) {
     const form = new FormData(e.currentTarget);
     const data = {
       ...Object.fromEntries(Object.keys(fields).map(key => [key, String(form.get(key) || '').trim()])),
-      useStamp: form.get('useStamp') === 'on', useSignature: form.get('useSignature') === 'on', confirm: true,
+      useStamp: false, useSignature: false, confirm: true,
     } as DocumentAuthorization;
     mutation.mutate({ id: invoice.id, data }, {
       onSuccess: () => {
@@ -37,17 +37,15 @@ export function DocumentAuthorizationForm({ invoice }: { invoice: Invoice }) {
     });
   }
   return <section className="no-print panel mb-5 p-5">
-    <h2 className="font-display font-bold">Modelo imprimible · autorización del propietario</h2>
-    <p className="my-3 text-xs leading-5">No se asignan responsables a partir del PDF de ejemplo. Completa los nombres reales; los campos pendientes se imprimen en blanco. La firma escaneada se ubica exclusivamente en «Contabilizada por».</p>
-    <Link href="/settings" className="text-xs underline">Revisar emisor y datos de pago</Link>
-    {settings.isError ? <p className="mt-3 text-xs" role="alert">No se pudo cargar el emisor. <button onClick={() => settings.refetch()}>Reintentar</button></p> : settings.isPending ? <p>Cargando emisor…</p> : !settings.data.profile ? <p className="mt-3 text-xs">Configura el emisor en Ajustes para continuar.</p> : <form onSubmit={save} className="mt-4 space-y-4">
+    <h2 className="font-display font-bold">Modelo imprimible · confirmación del documento</h2>
+    <p className="my-3 text-xs leading-5">No se asignan responsables a partir del PDF de ejemplo. Completa los nombres reales; el cuño y las firmas se dejan en blanco para completar después de imprimir. No se reutilizan las imágenes escaneadas del ejemplo.</p>
+    <Link href="/settings" className="text-xs underline">Ver emisor y datos de pago</Link>
+    {settings.isError ? <p className="mt-3 text-xs" role="alert">No se pudo cargar el emisor. <button onClick={() => settings.refetch()}>Reintentar</button></p> : settings.isPending ? <p>Cargando emisor…</p> : !settings.data.profile ? <p className="mt-3 text-xs">El propietario aún no ha configurado el emisor. Pídele que lo complete en Ajustes.</p> : <form onSubmit={save} className="mt-4 space-y-4">
       <p className="text-xs">Emisor: <strong>{settings.data.profile.name}</strong> · NIT {settings.data.profile.nit}</p>
       <div className="grid gap-3 sm:grid-cols-2">{Object.entries(fields).map(([key, label]) => <label className="text-xs font-semibold" key={key}>{label}{['preparedBy', 'preparedPosition'].includes(key) ? ' *' : ''}
         <input name={key} className="field mt-1" maxLength={key.endsWith('Id') || ['vehiclePlate', 'drivingLicense'].includes(key) ? 40 : key.startsWith('customer') ? 80 : 160} required={['preparedBy', 'preparedPosition'].includes(key)} defaultValue={invoice.legalDocument?.[key as keyof typeof fields] || ''} />
       </label>)}</div>
-      <label className="flex gap-2 text-xs"><input type="checkbox" name="useStamp" disabled={!settings.data.hasStamp} defaultChecked={invoice.legalDocument?.useStamp ?? false} />Incluir cuño escaneado autorizado</label>
-      <label className="flex gap-2 text-xs"><input type="checkbox" name="useSignature" disabled={!settings.data.hasSignature} defaultChecked={invoice.legalDocument?.useSignature ?? false} />Incluir firma escaneada autorizada de «Contabilizada por»</label>
-      <label className="flex items-start gap-2 text-xs leading-5"><input className="mt-1" type="checkbox" required name="confirm" />Confirmo el emisor, los responsables y, si se seleccionan, el permiso para aplicar estas imágenes a esta factura. No son firmas digitales criptográficas.</label>
+      <label className="flex items-start gap-2 text-xs leading-5"><input className="mt-1" type="checkbox" required name="confirm" />Confirmo el emisor y los responsables. El cuño y las firmas quedarán en blanco en el PDF.</label>
       <button className="button button-primary" disabled={mutation.isPending}>{mutation.isPending ? 'Guardando…' : 'Confirmar modelo y autorización'}</button>
     </form>}
     {notice && <p className="mt-3 text-xs" role="status">{notice}</p>}

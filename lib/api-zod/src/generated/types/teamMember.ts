@@ -13,4 +13,6 @@ export interface TeamMember {
   /** @nullable */
   email: string | null;
   role: TeamMemberRole;
+  /** @nullable */
+  commercialId: number | null;
 }

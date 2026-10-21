@@ -44,6 +44,8 @@ import { resolveTeamMember, requireOwner } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
 import { prepareInvoice } from "../services/prepare-invoice";
 import { getVersatIssues } from "../services/versat-file";
+import { canAccessInvoice, invoiceScope } from "../services/invoice-access";
+import { versatCatalogTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const shareTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -66,7 +68,7 @@ function isDuplicate(error: unknown): boolean {
 router.get("/billing/overview", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
-  const invoices = await getInvoiceRows();
+  const invoices = await getInvoiceRows(undefined, invoiceScope(member));
   const month = new Date().toISOString().slice(0, 7);
   const currency = invoices[0]?.currency ?? "CUP";
   const monthTotal = invoices
@@ -201,7 +203,7 @@ router.get("/invoices", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const filters: SQL[] = [];
+  const filters: SQL[] = [invoiceScope(member)];
   if (parsed.data.search) {
     filters.push(or(
       ilike(customersTable.name, `%${parsed.data.search}%`),
@@ -228,6 +230,14 @@ router.post("/invoices", async (req, res): Promise<void> => {
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+  if (member.role !== "owner") {
+    if (member.commercialId === null) {
+      res.status(403).json({ error: "El administrador debe asignarte un comercial antes de facturar." }); return;
+    }
+    if (!canAccessInvoice(member, { versat: parsed.data.versat })) {
+      res.status(422).json({ error: "Selecciona los datos de Versat correspondientes a tu comercial asignado." }); return;
+    }
   }
   const [customer] = await db
     .select()
@@ -297,7 +307,7 @@ router.get("/invoices/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const invoice = await getInvoiceRow(params.data.id);
+  const invoice = await getInvoiceRow(params.data.id, invoiceScope(member));
   if (!invoice) {
     res.status(404).json({ error: "Invoice not found" });
     return;
@@ -317,11 +327,15 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   const [current] = await db
     .select()
     .from(invoicesTable)
-    .where(eq(invoicesTable.id, params.data.id))
+    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member)))
     .limit(1);
   if (!current || current.status !== "draft") {
     res.status(current ? 409 : 404).json({ error: "Only draft invoices can be edited" });
     return;
+  }
+  const effectiveVersat = body.data.versat ?? current.versat ?? undefined;
+  if (!canAccessInvoice(member, { versat: effectiveVersat })) {
+    res.status(422).json({ error: "No puedes trasladar la factura a otro comercial." }); return;
   }
   const [customer] = await db
     .select()
@@ -334,7 +348,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   }
   let prepared: Awaited<ReturnType<typeof prepareInvoice>>;
   try {
-    prepared = await prepareInvoice({ ...body.data, versat: body.data.versat ?? current.versat ?? undefined }, customer);
+    prepared = await prepareInvoice({ ...body.data, versat: effectiveVersat }, customer);
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "Datos de Versat no válidos." });
     return;
@@ -342,7 +356,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   const { subtotal, versat } = prepared;
   try {
     await db.transaction(async (tx) => {
-    const [locked] = await tx.select().from(invoicesTable).where(eq(invoicesTable.id, params.data.id)).for("update");
+    const [locked] = await tx.select().from(invoicesTable).where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member))).for("update");
     if (!locked || locked.status !== "draft") throw new Error("INVOICE_NOT_DRAFT");
     await tx
       .update(invoicesTable)
@@ -390,7 +404,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error?.message ?? body.error?.message });
     return;
   }
-  const [current] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, params.data.id)).limit(1);
+  const [current] = await db.select().from(invoicesTable).where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member))).limit(1);
   if (!current) { res.status(404).json({ error: "Factura no encontrada." }); return; }
   if ((body.data.status === "draft" && current.status !== "draft") ||
       (current.status === "cancelled" && body.data.status !== "cancelled")) {
@@ -399,7 +413,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   }
   if (current.status === "draft" && ["sent", "paid"].includes(body.data.status)) {
     if (!current.legalDocument) {
-      res.status(422).json({ error: "El propietario debe confirmar el emisor y los responsables del documento antes de emitir." });
+      res.status(422).json({ error: "Confirma el emisor y los responsables del documento antes de emitir." });
       return;
     }
     const record = await getInvoiceRow(current.id);
@@ -412,7 +426,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   const [invoice] = await db
     .update(invoicesTable)
     .set({ status: body.data.status })
-    .where(and(eq(invoicesTable.id, params.data.id), eq(invoicesTable.status, current.status),
+    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member), eq(invoicesTable.status, current.status),
       ...((current.status === "draft" && ["sent", "paid"].includes(body.data.status)) ? [eq(invoicesTable.legalDocument, current.legalDocument!)] : [])))
     .returning({ id: invoicesTable.id });
   if (!invoice) {
@@ -434,7 +448,7 @@ router.post("/invoices/:id/share", async (req, res): Promise<void> => {
   const [invoice] = await db
     .select({ id: invoicesTable.id })
     .from(invoicesTable)
-    .where(eq(invoicesTable.id, params.data.id))
+    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member)))
     .limit(1);
   if (!invoice) {
     res.status(404).json({ error: "Invoice not found" });
@@ -489,7 +503,7 @@ router.get("/team/me", async (req, res): Promise<void> => {
 });
 
 router.get("/team/members", async (req, res): Promise<void> => {
-  const member = await resolveTeamMember(req, res);
+  const member = await requireOwner(req, res);
   if (!member) return;
   const members = await db.select().from(teamMembersTable).orderBy(teamMembersTable.name);
   const invites = await db.select().from(teamInvitationsTable).orderBy(teamInvitationsTable.createdAt);
@@ -510,6 +524,7 @@ router.get("/team/members", async (req, res): Promise<void> => {
     name: item.name,
     email: item.email,
     role: item.role,
+    commercialId: invites.find(invite => invite.email === item.email)?.commercialId ?? null,
   }));
   res.json(ListTeamMembersResponse.parse(combined));
 });
@@ -523,16 +538,28 @@ router.post("/team/invitations", async (req, res): Promise<void> => {
     return;
   }
   const email = parsed.data.email.trim().toLowerCase();
+  const commercialId = parsed.data.commercialId;
+  if (email === process.env.OWNER_EMAIL?.trim().toLowerCase()) {
+    res.status(422).json({ error: "El propietario no necesita una asignación de comercial." }); return;
+  }
+  if (commercialId !== null) {
+    const [commercial] = await db.select({ id: versatCatalogTable.id }).from(versatCatalogTable)
+      .where(and(eq(versatCatalogTable.id, commercialId), eq(versatCatalogTable.kind, "commercial")));
+    if (!commercial) {
+      res.status(422).json({ error: "Selecciona un comercial del catálogo de Versat." }); return;
+    }
+  }
   const [invitation] = await db
     .insert(teamInvitationsTable)
-    .values({ email })
+    .values({ email, commercialId })
     .onConflictDoUpdate({
       target: teamInvitationsTable.email,
-      set: { createdAt: new Date() },
+      set: { commercialId, createdAt: new Date() },
     })
     .returning();
   res.status(201).json({
     email: invitation.email,
+    commercialId: invitation.commercialId,
     createdAt: invitation.createdAt.toISOString(),
   });
 });

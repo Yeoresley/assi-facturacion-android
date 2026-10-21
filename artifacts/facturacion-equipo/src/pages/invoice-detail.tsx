@@ -79,8 +79,8 @@ export default function InvoiceDetailPage() {
       {fileInfo.length > 0 && <ul className="mt-3 list-disc pl-5 text-[11px] leading-5 text-[#8a6a25]">{fileInfo.map((w, i) => <li key={i}>{w}</li>)}</ul>}
     </section>}
 
-    {isOwner && inv.status === 'draft' && <DocumentAuthorizationForm key={`${inv.id}-${inv.legalDocument?.authorizedAt || 'new'}`} invoice={inv} />}
-    {inv.status === 'draft' && !inv.legalDocument && <p className="no-print mb-4 text-xs">El propietario debe confirmar el emisor y los responsables antes de emitir esta factura.</p>}
+    {inv.status === 'draft' && <DocumentAuthorizationForm key={`${inv.id}-${inv.legalDocument?.authorizedAt || 'new'}`} invoice={inv} />}
+    {inv.status === 'draft' && !inv.legalDocument && <p className="no-print mb-4 text-xs">Debes confirmar el modelo imprimible (emisor y responsables) antes de emitir esta factura.</p>}
     <InvoiceDocument invoice={inv} />
     {!v && <p className="no-print mx-auto mt-4 max-w-[780px] text-[11px] text-[#85918a]">Esta factura aún no tiene datos de Versat. {inv.status === 'draft' ? 'Edita el borrador para completarlos.' : ''}</p>}
   </div>;

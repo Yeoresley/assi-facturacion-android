@@ -26,9 +26,8 @@ export function IssuerSettings() {
   }
   return <section className="panel mt-5 p-6 no-print" data-testid="issuer-settings">
     <h2 className="font-display text-lg font-bold">Emisor y datos de pago</h2>
-    <p className="my-3 text-xs leading-5">Solo el propietario puede cambiarlos. Revisa los datos transcritos del PDF antes de autorizar una factura. Cuño y firma son imágenes escaneadas, no firmas digitales criptográficas.</p>
+    <p className="my-3 text-xs leading-5">Solo el propietario puede cambiarlos. Revisa los datos transcritos del PDF antes de autorizar una factura. En los PDF nuevos, el cuño y las firmas permanecen en blanco.</p>
     {query.isPending ? <p>Cargando…</p> : query.isError ? <button className="button button-soft" onClick={() => query.refetch()}>Reintentar carga del emisor</button> : <>
-      <p className="mb-4 text-xs">Cuño autorizado: {query.data.hasStamp ? 'disponible' : 'no disponible'} · Firma autorizada: {query.data.hasSignature ? 'disponible' : 'no disponible'}</p>
       {editing || !query.data.profile ? <form onSubmit={save} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">{Object.entries(labels).map(([key, label]) => <label key={key} className="text-xs font-semibold">{label}<input className="field mt-1" name={key} required maxLength={key === 'address' ? 400 : 200} defaultValue={query.data.profile?.[key as keyof IssuerProfile] || ''} /></label>)}</div>
         <button className="button button-primary" disabled={update.isPending}>Guardar emisor</button>

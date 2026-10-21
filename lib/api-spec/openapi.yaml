@@ -613,22 +613,25 @@ components:
           items: { $ref: "#/components/schemas/Invoice" }
     TeamMember:
       type: object
-      required: [userId, name, email, role]
+      required: [userId, name, email, role, commercialId]
       properties:
         userId: { type: string }
         name: { type: string }
         email: { type: ["string", "null"] }
         role: { type: string, enum: [owner, specialist, pending] }
+        commercialId: { type: ["integer", "null"] }
     TeamInvitationInput:
       type: object
-      required: [email]
+      required: [email, commercialId]
       properties:
         email: { type: string, format: email }
+        commercialId: { type: ["integer", "null"], minimum: 1 }
     TeamInvitation:
       type: object
-      required: [email, createdAt]
+      required: [email, createdAt, commercialId]
       properties:
         email: { type: string, format: email }
+        commercialId: { type: ["integer", "null"] }
         createdAt: { type: string, format: date-time }
     VersatCatalogEntry:
       type: object

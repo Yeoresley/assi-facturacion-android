@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
 import { customersTable, db, invoiceLinesTable, invoicesTable } from "@workspace/db";
 
 export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
@@ -6,13 +6,13 @@ export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
   lines: Array<typeof invoiceLinesTable.$inferSelect>;
 };
 
-export async function getInvoiceRows(ids?: number[]): Promise<InvoiceRecord[]> {
+export async function getInvoiceRows(ids?: number[], scope?: SQL): Promise<InvoiceRecord[]> {
   if (ids && !ids.length) return [];
   const query = db.select({ invoice: invoicesTable, customerName: customersTable.name })
     .from(invoicesTable)
     .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
     .orderBy(desc(invoicesTable.createdAt));
-  const rows = ids ? await query.where(inArray(invoicesTable.id, ids)) : await query;
+  const rows = await query.where(and(ids ? inArray(invoicesTable.id, ids) : undefined, scope));
   if (!rows.length) return [];
   const lines = await db.select().from(invoiceLinesTable)
     .where(inArray(invoiceLinesTable.invoiceId, rows.map(({ invoice }) => invoice.id)));
@@ -23,8 +23,8 @@ export async function getInvoiceRows(ids?: number[]): Promise<InvoiceRecord[]> {
   }));
 }
 
-export async function getInvoiceRow(id: number): Promise<InvoiceRecord | null> {
-  return (await getInvoiceRows([id]))[0] ?? null;
+export async function getInvoiceRow(id: number, scope?: SQL): Promise<InvoiceRecord | null> {
+  return (await getInvoiceRows([id], scope))[0] ?? null;
 }
 
 export function serializeInvoice(invoice: InvoiceRecord) {

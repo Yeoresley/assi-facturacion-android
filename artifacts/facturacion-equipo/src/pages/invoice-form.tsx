@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetBillingOverviewQueryKey, getGetInvoiceQueryKey, getGetVersatCatalogsQueryKey, getListCustomersQueryKey,
+  getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetVersatCatalogsQueryKey, useGetCurrentTeamMember, getListCustomersQueryKey,
   getListInvoicesQueryKey, useCreateInvoice, useGetInvoice, useGetVersatCatalogs, useListCustomers, useUpdateInvoice,
 } from '@workspace/api-client-react';
 import type { InvoiceInput, VersatCatalogEntry } from '@workspace/api-client-react';
@@ -21,6 +21,10 @@ export default function InvoiceFormPage() {
   const [, navigate] = useLocation();
   const client = useQueryClient();
 
+  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
+  const isOwner = member.data?.role === 'owner';
+  const assignedId = member.data?.commercialId ?? null;
+  const locked = !!member.data && !isOwner;
   const customers = useListCustomers();
   const catalogs = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
   const invoice = useGetInvoice(editId ?? 0, { query: { queryKey: getGetInvoiceQueryKey(editId ?? 0), enabled: isEdit } });
@@ -53,6 +57,10 @@ export default function InvoiceFormPage() {
   const services = byKind.service;
   const serviceById = useMemo(() => new Map(services.map((service) => [String(service.id), service])), [services]);
 
+  useEffect(() => {
+    if (locked && assignedId != null) setCommercialId(String(assignedId));
+  }, [locked, assignedId]);
+
   // Default the currency to the first imported currency once catalogs arrive (new invoices only).
   useEffect(() => {
     if (!isEdit && !currency && byKind.currency.length) setCurrency(byKind.currency[0].code);
@@ -73,7 +81,7 @@ export default function InvoiceFormPage() {
     if (v) {
       setConceptId(String(v.conceptId));
       setOperationId(String(v.operationId));
-      setCommercialId(String(v.commercialId));
+      setCommercialId(locked && assignedId != null ? String(assignedId) : String(v.commercialId));
       setPaymentId(String(v.paymentId));
       setVersatNumber(v.number || '');
       setTalon(v.talon || '');
@@ -89,6 +97,7 @@ export default function InvoiceFormPage() {
       unitPrice: String(line.unitPrice),
       groupCode: line.groupCode || '',
     })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice.data, isEdit]);
 
   const currencyOptions = byKind.currency;
@@ -115,6 +124,8 @@ export default function InvoiceFormPage() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (!member.data) return setError('Aún se está comprobando tu acceso.');
+    if (locked && assignedId == null) return setError('No tienes un comercial asignado. Pide al propietario que te asigne uno.');
     if (!customerId) return setError('Elige un cliente.');
     if (!currency) return setError('Elige una moneda del catálogo importado.');
     for (const line of lines) {
@@ -123,9 +134,11 @@ export default function InvoiceFormPage() {
       if (line.unitPrice === '' || Number(line.unitPrice) < 0) return setError('Escribe el precio unitario de cada línea (el catálogo no trae precios).');
       if (line.groupCode && !/^[A-Za-z0-9.-]*$/.test(line.groupCode)) return setError('El grupo solo admite letras, números, punto y guion.');
     }
-    const refs = [conceptId, operationId, commercialId, paymentId];
-    const anyRef = refs.some(Boolean);
+    const effectiveCommercial = locked ? String(assignedId) : commercialId;
+    const refs = [conceptId, operationId, effectiveCommercial, paymentId];
+    const anyRef = [conceptId, operationId, commercialId, paymentId].some(Boolean);
     const anyExtra = [versatNumber, talon, bankMC, bankOM, contract].some((value) => value.trim());
+    if (locked && !refs.every(Boolean)) return setError('Como especialista debes elegir concepto, operación y forma de pago; tu comercial se aplica automáticamente.');
     if ((anyRef || anyExtra) && !refs.every(Boolean)) return setError('Si completas datos de Versat, elige también concepto, operación, comercial y forma de pago.');
     if (talon.trim() && !/^[0-9]*$/.test(talon.trim())) return setError('El talón solo admite dígitos.');
     if (versatNumber.trim() && !/^[A-Za-z0-9_-]*$/.test(versatNumber.trim())) return setError('El número de Versat solo admite letras, números, guion y guion bajo.');
@@ -145,7 +158,7 @@ export default function InvoiceFormPage() {
       })),
       ...(refs.every(Boolean) ? {
         versat: {
-          conceptId: Number(conceptId), operationId: Number(operationId), commercialId: Number(commercialId), paymentId: Number(paymentId),
+          conceptId: Number(conceptId), operationId: Number(operationId), commercialId: Number(effectiveCommercial), paymentId: Number(paymentId),
           number: optional(versatNumber), talon: optional(talon), bankAccountMC: optional(bankMC), bankAccountOM: optional(bankOM), contract: optional(contract),
         },
       } : {}),
@@ -169,6 +182,10 @@ export default function InvoiceFormPage() {
   if (isEdit && invoice.data && invoice.data.status !== 'draft') {
     return <div className="panel mx-auto max-w-[560px] p-8 text-center"><h1 className="font-display text-xl font-bold">Solo se pueden editar borradores</h1><p className="mt-2 text-[13px] text-[#77847e]">La factura {invoice.data.number} ya fue emitida y no admite cambios.</p><Link href={`/invoices/${invoice.data.id}`} className="button button-primary mt-5">Volver a la factura</Link></div>;
   }
+
+  if (member.isLoading) return <div className="mx-auto max-w-[930px] space-y-4"><div className="skeleton h-6 w-40" /><div className="panel space-y-4 p-8"><div className="skeleton h-8 w-56" /><div className="skeleton h-24" /></div></div>;
+  if (member.isError || !member.data) return <QueryError retry={() => member.refetch()} message="No pudimos comprobar tu acceso." />;
+  if (locked && assignedId == null) return <div className="panel mx-auto max-w-[560px] p-8 text-center" data-testid="invoice-no-commercial"><h1 className="font-display text-xl font-bold">Sin comercial asignado</h1><p className="mt-2 text-[13px] text-[#77847e]">Tu cuenta aún no tiene un comercial. El propietario debe asignártelo para que puedas crear o editar facturas.</p><Link href="/invoices" className="button button-primary mt-5">Volver a facturas</Link></div>;
 
   const select = (value: string, onChange: (value: string) => void, kind: string, testId: string, placeholder: string) => (
     <select className="field" value={value} onChange={(e) => onChange(e.target.value)} data-testid={testId}>
@@ -196,7 +213,7 @@ export default function InvoiceFormPage() {
           <label><span className="field-label">Moneda *</span><select className="field" value={currency} onChange={(e) => setCurrency(e.target.value)} data-testid="select-currency">{!currencyOptions.length && currency && <option value={currency}>{currency}</option>}{!currencyOptions.length && !currency && <option value="">Sin monedas importadas</option>}{currencyOptions.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.name}</option>)}{currencyOptions.length > 0 && currency && !currencyOptions.some((entry) => entry.code === currency) && <option value={currency}>{currency}</option>}</select></label>
           <label><span className="field-label">Concepto</span>{select(conceptId, setConceptId, 'concept', 'select-concept', 'Selecciona concepto')}</label>
           <label><span className="field-label">Operación</span>{select(operationId, setOperationId, 'operation', 'select-operation', 'Selecciona operación')}</label>
-          <label><span className="field-label">Comercial</span>{select(commercialId, setCommercialId, 'commercial', 'select-commercial', 'Selecciona comercial')}</label>
+          <label><span className="field-label">Comercial{locked ? ' (asignado)' : ''}</span>{locked ? <div className="field flex items-center bg-[#f1f0e8] text-[#5d716b]" data-testid="select-commercial">{(() => { const c = byKind.commercial.find((e) => e.id === assignedId); return c ? label(c) : catalogs.isLoading ? 'Cargando…' : `Comercial ${assignedId}`; })()}</div> : select(commercialId, setCommercialId, 'commercial', 'select-commercial', 'Selecciona comercial')}</label>
           <label className="md:col-span-2"><span className="field-label">Forma de pago</span>{select(paymentId, setPaymentId, 'payment', 'select-payment', 'Selecciona forma de pago')}</label>
           <label><span className="field-label">Número de Versat</span><input className="field font-mono" value={versatNumber} onChange={(e) => setVersatNumber(e.target.value)} maxLength={50} autoComplete="off" data-testid="input-versat-number" /><span className="mt-1 block text-[10px] text-[#85918a]">Escríbelo tal como debe quedar en Versat. No se numera automáticamente.</span></label>
           <label><span className="field-label">Talón (solo dígitos)</span><input className="field font-mono" inputMode="numeric" value={talon} onChange={(e) => setTalon(e.target.value.replace(/[^0-9]/g, ''))} maxLength={20} autoComplete="off" data-testid="input-talon" /></label>

@@ -77,7 +77,9 @@ export function InvoiceDocument({ invoice: inv, shareToken }: { invoice: Invoice
         </div>
         <div><strong>Recibido por:</strong><p>Nombre: {blank(legal?.receivedBy)}</p><p>Cargo: {blank(legal?.receivedPosition)}</p><p>CI: {blank(legal?.receivedId)}</p><p>Firma: __________ Fecha: ________</p></div>
         <div><strong>Entregada por:</strong><p>{blank(legal?.deliveredBy)}</p><p>Firma: __________ Fecha: ________</p></div>
-        <div>{issued && legal?.stampPath && <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="stamp" />}</div>
+        <div className="legal-stamp-placeholder" aria-label={issued && legal?.stampPath ? 'Cuño autorizado en factura histórica' : 'Espacio en blanco para el cuño'}>
+          {issued && legal?.stampPath && <AuthorizedImage invoiceId={inv.id} token={shareToken} kind="stamp" />}
+        </div>
       </div>
       {issued && (legal?.signaturePath || legal?.stampPath) && <p className="legal-scan-notice">Cuño y/o firma manuscrita escaneados, reproducidos con autorización. No constituyen firma digital criptográfica.</p>}
     </section>

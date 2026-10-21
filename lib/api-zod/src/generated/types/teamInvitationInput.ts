@@ -8,4 +8,9 @@
 
 export interface TeamInvitationInput {
   email: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  commercialId: number | null;
 }
