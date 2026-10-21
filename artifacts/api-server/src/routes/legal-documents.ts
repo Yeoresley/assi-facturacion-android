@@ -1,12 +1,11 @@
-import { createHash } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Router, type Response } from "express";
-import { db, invoicesTable, invoiceSharesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
+import { db, invoicesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
 import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, UpdateIssuerBody } from "@workspace/api-zod";
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
 import { getInvoiceRow, serializeInvoice } from "../services/invoice-records";
 import { privateImage } from "../lib/private-images";
-import { invoiceScope } from "../services/invoice-access";
+import { getActiveInvoiceShare, invoiceScope } from "../services/invoice-access";
 
 const router = Router();
 const settings = async () => (await db.select().from(issuerSettingsTable).where(eq(issuerSettingsTable.id, 1)))[0];
@@ -92,9 +91,8 @@ router.get("/invoices/:id/images/:kind", async (req, res) => {
   await sendImage(Number(req.params.id), req.params.kind, res);
 });
 router.get("/shared-invoices/:token/images/:kind", async (req, res) => {
-  const hash = createHash("sha256").update(req.params.token).digest("hex");
-  const [share] = await db.select().from(invoiceSharesTable)
-    .where(and(eq(invoiceSharesTable.tokenHash, hash), gt(invoiceSharesTable.expiresAt, new Date()))).limit(1);
+  res.set("Cache-Control", "private, no-store");
+  const share = await getActiveInvoiceShare(req.params.token);
   if (!share) { res.sendStatus(404); return; }
   await sendImage(share.invoiceId, req.params.kind, res);
 });

@@ -368,6 +368,42 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/InvoiceShare" }
+  /invoices/{id}/shares:
+    get:
+      operationId: listInvoiceShares
+      tags: [invoices]
+      summary: List active links without exposing tokens or hashes
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Active links
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/InvoiceShareInfo" }
+        "404": { description: Invoice unavailable }
+  /invoices/{id}/shares/{shareId}:
+    delete:
+      operationId: revokeInvoiceShare
+      tags: [invoices]
+      summary: Revoke only this link, preserving the invoice and share history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: path
+          name: shareId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "204": { description: Revoked (also succeeds if already revoked) }
+        "404": { description: Invoice or link unavailable }
   /shared-invoices/{token}:
     get:
       operationId: getSharedInvoice
@@ -748,9 +784,17 @@ components:
         status: { type: string, enum: [draft, finished, accepted, confirmed, voided, cancelled, error] }
     InvoiceShare:
       type: object
-      required: [url, expiresAt]
+      required: [id, url, expiresAt]
       properties:
+        id: { type: integer }
         url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    InvoiceShareInfo:
+      type: object
+      required: [id, createdAt, expiresAt]
+      properties:
+        id: { type: integer }
+        createdAt: { type: ["string", "null"], format: date-time, description: Unknown for legacy links }
         expiresAt: { type: string, format: date-time }
     InvoiceExportRow:
       type: object

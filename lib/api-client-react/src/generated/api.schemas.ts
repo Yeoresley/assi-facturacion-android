@@ -439,7 +439,18 @@ export interface InvoiceStatusInput {
 }
 
 export interface InvoiceShare {
+  id: number;
   url: string;
+  expiresAt: string;
+}
+
+export interface InvoiceShareInfo {
+  id: number;
+  /**
+     * Unknown for legacy links
+     * @nullable
+     */
+  createdAt: string | null;
   expiresAt: string;
 }
 

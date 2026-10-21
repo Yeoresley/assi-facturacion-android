@@ -1758,9 +1758,43 @@ export const CreateInvoiceShareParams = zod.object({
 })
 
 export const CreateInvoiceShareResponse = zod.object({
+  "id": zod.number().int(),
   "url": zod.string().url(),
   "expiresAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary List active links without exposing tokens or hashes
+ */
+
+
+
+export const ListInvoiceSharesParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const ListInvoiceSharesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "createdAt": zod.coerce.date().nullable().describe('Unknown for legacy links'),
+  "expiresAt": zod.coerce.date()
+})
+export const ListInvoiceSharesResponse = zod.array(ListInvoiceSharesResponseItem)
+
+
+/**
+ * @summary Revoke only this link, preserving the invoice and share history
+ */
+
+
+
+
+export const RevokeInvoiceShareParams = zod.object({
+  "id": zod.coerce.number().int().min(1),
+  "shareId": zod.coerce.number().int().min(1)
+})
+
+export const RevokeInvoiceShareResponse = zod.void()
 
 
 /**

@@ -10,6 +10,10 @@ export const invoiceSharesTable = pgTable("invoice_shares", {
     .references(() => invoicesTable.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  // Legacy creation times are unknown, not the time this column was introduced.
+  createdAt: timestamp("created_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: text("revoked_by"),
 });
 
 export const insertInvoiceShareSchema = createInsertSchema(invoiceSharesTable).omit({

@@ -28,6 +28,7 @@ export * from './invoiceSeries';
 export * from './invoiceSeriesInput';
 export * from './invoiceSeriesUpdate';
 export * from './invoiceShare';
+export * from './invoiceShareInfo';
 export * from './invoiceStatus';
 export * from './invoiceStatusInput';
 export * from './invoiceStatusInputStatus';

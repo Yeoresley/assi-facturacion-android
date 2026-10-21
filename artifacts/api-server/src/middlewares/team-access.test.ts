@@ -115,6 +115,7 @@ test("owner-only suspension blocks private routes, survives login/invites and re
     ["/customers", "GET"], ["/customers", "POST"], ["/invoices", "GET"], ["/invoices", "POST"],
     [`/customers/${customerId}`, "PATCH"], [`/customers/${customerId}`, "DELETE"],
     [`/invoices/${invoiceId}`, "GET"], [`/invoices/${invoiceId}/share`, "POST"],
+    [`/invoices/${invoiceId}/shares`, "GET"], [`/invoices/${invoiceId}/shares/1`, "DELETE"],
     [`/invoices/${invoiceId}`, "PATCH"], [`/invoices/${invoiceId}/status`, "PATCH"],
     [`/invoices/${invoiceId}/legal-document`, "PUT"], [`/invoices/${invoiceId}/images/stamp`, "GET"],
     ["/billing/overview", "GET"], ["/versat/catalogs", "GET"], ["/issuer", "GET"],

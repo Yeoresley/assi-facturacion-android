@@ -36,6 +36,7 @@ import type {
   InvoiceSeriesInput,
   InvoiceSeriesUpdate,
   InvoiceShare,
+  InvoiceShareInfo,
   InvoiceStatusInput,
   IssuerProfile,
   IssuerSettings,
@@ -1778,6 +1779,159 @@ export const useCreateInvoiceShare = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateInvoiceShareMutationOptions(options));
+    }
+
+export const getListInvoiceSharesUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/shares`
+}
+
+/**
+ * @summary List active links without exposing tokens or hashes
+ */
+export const listInvoiceShares = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceShareInfo[]> => {
+
+  return customFetch<InvoiceShareInfo[]>(getListInvoiceSharesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInvoiceSharesQueryKey = (id: number,) => {
+    return [
+    `/api/invoices/${id}/shares`
+    ] as const;
+    }
+
+
+export const getListInvoiceSharesQueryOptions = <TData = Awaited<ReturnType<typeof listInvoiceShares>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceShares>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInvoiceSharesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoiceShares>>> = ({ signal }) => listInvoiceShares(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoiceShares>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInvoiceSharesQueryResult = NonNullable<Awaited<ReturnType<typeof listInvoiceShares>>>
+export type ListInvoiceSharesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List active links without exposing tokens or hashes
+ */
+
+export function useListInvoiceShares<TData = Awaited<ReturnType<typeof listInvoiceShares>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceShares>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInvoiceSharesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRevokeInvoiceShareUrl = (id: number,
+    shareId: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/shares/${shareId}`
+}
+
+/**
+ * @summary Revoke only this link, preserving the invoice and share history
+ */
+export const revokeInvoiceShare = async (id: number,
+    shareId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRevokeInvoiceShareUrl(id,shareId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeInvoiceShareMutationKey = () => ['revokeInvoiceShare'] as const;
+
+export const getRevokeInvoiceShareMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInvoiceShare>>, TError,RevokeInvoiceShareMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeInvoiceShare>>, TError,RevokeInvoiceShareMutationVariables, TContext> => {
+
+const mutationKey = getRevokeInvoiceShareMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeInvoiceShare>>, RevokeInvoiceShareMutationVariables> = (props) => {
+          const {id,shareId} = props ?? {};
+
+          return  revokeInvoiceShare(id,shareId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeInvoiceShareMutationResult = NonNullable<Awaited<ReturnType<typeof revokeInvoiceShare>>>
+
+    export type RevokeInvoiceShareMutationError = ErrorType<void>
+    export type RevokeInvoiceShareMutationVariables = {id: number;shareId: number}
+
+    /**
+ * @summary Revoke only this link, preserving the invoice and share history
+ */
+export const useRevokeInvoiceShare = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInvoiceShare>>, TError,RevokeInvoiceShareMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeInvoiceShare>>,
+        TError,
+        RevokeInvoiceShareMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeInvoiceShareMutationOptions(options));
     }
 
 export const getGetSharedInvoiceUrl = (token: string,) => {

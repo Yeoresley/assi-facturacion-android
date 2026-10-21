@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gte, ilike, inArray, lte, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lte, or, type SQL } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateCustomerBody,
@@ -8,6 +8,9 @@ import {
   CreateInvoiceResponse,
   CreateInvoiceShareParams,
   CreateInvoiceShareResponse,
+  ListInvoiceSharesParams,
+  ListInvoiceSharesResponse,
+  RevokeInvoiceShareParams,
   DeleteCustomerParams,
   GetInvoiceParams,
   GetInvoiceResponse,
@@ -48,7 +51,7 @@ import {
 import { resolveTeamMember, requireOwner, setTeamMemberSuspension, TeamAccessError } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
 import { prepareInvoice } from "../services/prepare-invoice";
-import { canAccessInvoice, invoiceScope } from "../services/invoice-access";
+import { activeInvoiceShare, canAccessInvoice, getActiveInvoiceShare, invoiceScope } from "../services/invoice-access";
 import { versatCatalogTable } from "@workspace/db";
 import seriesRouter from "./invoice-series";
 import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
@@ -467,6 +470,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
 });
 
 router.post("/invoices/:id/share", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
   const member = await resolveTeamMember(req, res);
   if (!member) return;
   const params = CreateInvoiceShareParams.safeParse(req.params);
@@ -485,34 +489,65 @@ router.post("/invoices/:id/share", async (req, res): Promise<void> => {
   }
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + shareTtlMs);
-  await db.insert(invoiceSharesTable).values({
+  const [share] = await db.insert(invoiceSharesTable).values({
     invoiceId: invoice.id,
     tokenHash: createHash("sha256").update(token).digest("hex"),
     expiresAt,
-  });
+    createdAt: new Date(),
+  }).returning({ id: invoiceSharesTable.id });
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() ?? req.get("host");
   const protocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? req.protocol;
   const publicUrl = `${protocol}://${host}/share/${token}`;
-  res.json(CreateInvoiceShareResponse.parse({ url: publicUrl, expiresAt: expiresAt.toISOString() }));
+  res.json(CreateInvoiceShareResponse.parse({ id: share.id, url: publicUrl, expiresAt: expiresAt.toISOString() }));
+});
+
+router.get("/invoices/:id/shares", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  const params = ListInvoiceSharesParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Identificador no válido." }); return; }
+  if (!await getInvoiceRow(params.data.id, invoiceScope(member))) {
+    res.status(404).json({ error: "Factura no disponible." }); return;
+  }
+  const shares = await db.select({
+    id: invoiceSharesTable.id, createdAt: invoiceSharesTable.createdAt, expiresAt: invoiceSharesTable.expiresAt,
+  }).from(invoiceSharesTable).innerJoin(invoicesTable, eq(invoicesTable.id, invoiceSharesTable.invoiceId))
+    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member), activeInvoiceShare()))
+    .orderBy(desc(invoiceSharesTable.id));
+  res.json(ListInvoiceSharesResponse.parse(shares.map(share => ({
+    ...share, createdAt: share.createdAt?.toISOString() ?? null, expiresAt: share.expiresAt.toISOString(),
+  }))));
+});
+
+router.delete("/invoices/:id/shares/:shareId", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  const params = RevokeInvoiceShareParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Identificador no válido." }); return; }
+  // Keep invoice scope and the targeted link in the write itself, not only a preflight check.
+  const scopedInvoices = db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(and(eq(invoicesTable.id, params.data.id), invoiceScope(member)));
+  const filter = and(eq(invoiceSharesTable.id, params.data.shareId),
+    inArray(invoiceSharesTable.invoiceId, scopedInvoices));
+  const [updated] = await db.update(invoiceSharesTable).set({ revokedAt: new Date(), revokedBy: member.userId })
+    .where(and(filter, isNull(invoiceSharesTable.revokedAt))).returning({ id: invoiceSharesTable.id });
+  if (!updated) {
+    const [existing] = await db.select({ id: invoiceSharesTable.id }).from(invoiceSharesTable).where(filter).limit(1);
+    if (!existing) { res.status(404).json({ error: "Enlace no disponible." }); return; }
+  }
+  res.sendStatus(204);
 });
 
 router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
   const params = GetSharedInvoiceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const tokenHash = createHash("sha256").update(params.data.token).digest("hex");
-  const [share] = await db
-    .select({ invoiceId: invoiceSharesTable.invoiceId })
-    .from(invoiceSharesTable)
-    .where(
-      and(
-        eq(invoiceSharesTable.tokenHash, tokenHash),
-        gte(invoiceSharesTable.expiresAt, new Date()),
-      ),
-    )
-    .limit(1);
+  const share = await getActiveInvoiceShare(params.data.token);
   if (!share) {
     res.status(404).json({ error: "This invoice link is expired or unavailable" });
     return;

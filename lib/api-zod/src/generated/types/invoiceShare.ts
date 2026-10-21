@@ -7,6 +7,7 @@
  */
 
 export interface InvoiceShare {
+  id: number;
   url: string;
   expiresAt: Date;
 }

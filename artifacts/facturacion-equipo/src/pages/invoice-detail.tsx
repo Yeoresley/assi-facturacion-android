@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetInvoiceVersatFileQueryKey,
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getGetVersatExportFileQueryKey, getListInvoiceSeriesQueryKey, useCreateInvoiceShare, useGetCurrentTeamMember, useGetInvoice, useGetInvoiceVersatFile, useUpdateInvoiceStatus,
+  getListInvoiceSharesQueryKey, useListInvoiceShares,
 } from '@workspace/api-client-react';
 import type { InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import { ArrowDownToLine, ArrowLeft, ArrowUpRight, Clipboard, Mail, Pencil, Printer } from 'lucide-react';
@@ -12,6 +13,7 @@ import { InvoiceDocument } from '@/components/invoice-document';
 import { DocumentAuthorizationForm } from '@/components/document-authorization';
 import { printInvoice } from '@/lib/invoice-print';
 import { InvoicePaymentHistory, MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
+import { InvoiceShareList } from '@/components/invoice-share-list';
 
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -22,8 +24,9 @@ export default function InvoiceDetailPage() {
   const file = useGetInvoiceVersatFile(id, { query: { queryKey: getGetInvoiceVersatFileQueryKey(id), enabled: false, retry: false } });
   const updateStatus = useUpdateInvoiceStatus();
   const createShare = useCreateInvoiceShare();
+  const shares = useListInvoiceShares(id, { query: { queryKey: getListInvoiceSharesQueryKey(id), enabled: valid, staleTime: 0, refetchInterval: 15000, retry: false } });
   const client = useQueryClient();
-  const [share, setShare] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [share, setShare] = useState<{ id: number; url: string; expiresAt: string } | null>(null);
   const [notice, setNotice] = useState('');
   const [pending, setPending] = useState<null | { status: InvoiceStatusInputStatus; title: string; body: string; danger?: boolean }>(null);
   const [fileError, setFileError] = useState('');
@@ -47,7 +50,7 @@ export default function InvoiceDetailPage() {
     });
   }
   function makeShare() {
-    createShare.mutate({ id }, { onSuccess: (value) => { setShare(value); setNotice('Enlace listo para compartir.'); }, onError: () => setNotice('No se pudo crear el enlace público.') });
+    createShare.mutate({ id }, { onSuccess: (value) => { setShare(value); client.invalidateQueries({ queryKey: getListInvoiceSharesQueryKey(id) }); setNotice(`Enlace #${value.id} listo para compartir.`); }, onError: () => setNotice('No se pudo crear el enlace público.') });
   }
   async function downloadFac() {
     setFileError('');
@@ -86,7 +89,7 @@ export default function InvoiceDetailPage() {
   }
   const terminal = ['confirmed', 'voided', 'cancelled'].includes(st);
   const canFinishHint = st === 'draft' && !hasLegal;
-  const shareUrl = share?.url ? new URL(share.url, window.location.origin).toString() : '';
+  const shareUrl = share?.url && !shares.isError && shares.data?.some(link => link.id === share.id && Date.parse(link.expiresAt) > Date.now()) ? new URL(share.url, window.location.origin).toString() : '';
 
   return <div className="fade-in mx-auto max-w-[980px]">
     <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3"><Link href="/invoices" className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />Todas las facturas</Link><div className="flex flex-wrap gap-2">
@@ -94,6 +97,7 @@ export default function InvoiceDetailPage() {
       <button className="button button-plain" onClick={() => printInvoice().catch(err => setNotice(err.message))} data-testid="button-print-invoice"><Printer size={15} />Imprimir / Guardar PDF</button>
       <button className="button button-primary" onClick={makeShare} disabled={createShare.isPending} data-testid="button-create-share"><ArrowUpRight size={15} />{createShare.isPending ? 'Creando enlace…' : 'Compartir'}</button></div></div>
     {shareUrl && <div className="no-print panel mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="text-[12px] font-bold text-[#315b52]">Enlace público creado</div><input className="field mt-2 !h-9 font-mono text-[11px]" readOnly value={shareUrl} onClick={(e) => e.currentTarget.select()} data-testid="input-share-url" /><div className="mt-1 text-[10px] text-[#818c85]">Caduca: {date(share?.expiresAt)}</div></div><div className="flex gap-2"><button className="button button-soft !min-h-9" onClick={() => { navigator.clipboard?.writeText(shareUrl); setNotice('Enlace copiado.'); }}><Clipboard size={14} />Copiar</button><a className="button button-plain !min-h-9" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Factura ${inv.number}: ${shareUrl}`)}`}><ArrowUpRight size={14} />WhatsApp</a><a className="button button-plain !min-h-9" href={`mailto:?subject=${encodeURIComponent(`Factura ${inv.number}`)}&body=${encodeURIComponent(`Hola, aquí tienes tu factura: ${shareUrl}`)}`}><Mail size={14} />Email</a></div></div>}
+    <InvoiceShareList key={id} invoiceId={id} />
     {notice && <div className="no-print mb-4 text-[12px] font-semibold text-[#377668]" role="status">{notice}</div>}
     <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3"><span className="text-xs font-semibold">Pago</span><PaymentBadge invoice={inv} />{inv.paidAt && <span className="text-xs text-[#738079]">Registrado: {new Date(inv.paidAt).toLocaleString('es-ES')}</span>}</div>
