@@ -605,30 +605,32 @@ paths:
         "404": { description: Catalog entry not found }
         "409": { description: A catalog entry with this code already exists }
   /invoices/{id}/versat-file:
-    get:
-      operationId: getInvoiceVersatFile
+    post:
+      operationId: downloadInvoiceVersatFile
       tags: [Billing]
+      summary: Download a valid Versat invoice file and record acceptance
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
         "200":
-          description: Candidate Fac file, not yet certified by a real Versat import
+          description: Candidate Fac file; successful generation marks the invoice accepted in this app
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VersatDownload" }
         "422":
           description: Missing or unsupported Versat fields
   /versat/export-file:
-    get:
-      operationId: getVersatExportFile
+    post:
+      operationId: downloadVersatExportFile
       tags: [Billing]
+      summary: Download a Versat batch and record acceptance
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
         - { name: encoding, in: query, schema: { type: string, enum: [windows-1252, utf-8], default: windows-1252 } }
       responses:
         "200":
-          description: ZIP with one candidate Fac per issued invoice and instructions
+          description: ZIP with one candidate Fac per invoice; successful generation marks included invoices accepted in this app
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VersatDownload" }

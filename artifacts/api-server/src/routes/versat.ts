@@ -3,9 +3,10 @@ import { Router, type IRouter } from "express";
 import { strToU8, zipSync } from "fflate";
 import {
   CreateVersatCatalogEntryBody, CreateVersatCatalogEntryResponse,
+  DownloadInvoiceVersatFileParams, DownloadInvoiceVersatFileResponse,
+  DownloadVersatExportFileQueryParams, DownloadVersatExportFileResponse,
   ExportVersatInvoicesQueryParams, ExportVersatInvoicesResponse,
-  GetInvoiceVersatFileParams, GetInvoiceVersatFileResponse,
-  GetVersatCatalogsResponse, GetVersatExportFileQueryParams, GetVersatExportFileResponse,
+  GetVersatCatalogsResponse,
   UpdateVersatCatalogEntryBody, UpdateVersatCatalogEntryParams, UpdateVersatCatalogEntryResponse,
 } from "@workspace/api-zod";
 import { customersTable, db, invoicesTable, versatCatalogTable, type CatalogKind } from "@workspace/db";
@@ -14,6 +15,7 @@ import { dateQuery, getInvoiceRows, toDateOnly } from "../services/invoice-recor
 import { buildFac, encodeFac, facWarnings, getVersatIssues } from "../services/versat-file";
 import type { BillingTransaction } from "../services/invoice-numbering";
 import { facFilename, facNumber } from "../services/versat-identity";
+import { acceptanceFromWorkflowEvent } from "../services/invoice-status";
 
 const router: IRouter = Router();
 
@@ -159,9 +161,9 @@ async function periodInvoices(from: Date, to: Date, tx?: BillingTransaction) {
   const reader = tx ?? db;
   const selection = reader.select({ id: invoicesTable.id }).from(invoicesTable).where(and(
     gte(invoicesTable.issueDate, toDateOnly(from)), lte(invoicesTable.issueDate, toDateOnly(to)),
-    inArray(invoicesTable.status, ["accepted"]),
+    inArray(invoicesTable.status, ["finished", "accepted"]),
   )).orderBy(invoicesTable.id).limit(501);
-  // Keep acceptance stable while bytes are generated; confirmation/annulment waits.
+  // Keep state stable while bytes are generated; payment/confirmation/annulment waits.
   const ids = tx ? await selection.for("share") : await selection;
   if (ids.length > 500) throw new Error("El período supera 500 facturas. Selecciona un rango más corto.");
   return (await getInvoiceRows(ids.map(({ id }) => id), undefined, reader)).sort((a, b) =>
@@ -192,9 +194,10 @@ router.get("/versat/export", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/invoices/:id/versat-file", async (req, res): Promise<void> => {
-  if (!await requireOwner(req, res)) return;
-  const params = GetInvoiceVersatFileParams.safeParse(req.params);
+router.post("/invoices/:id/versat-file", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = DownloadInvoiceVersatFileParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Identificador inválido." }); return; }
   try {
     const result = await db.transaction(async (tx) => {
@@ -205,22 +208,28 @@ router.get("/invoices/:id/versat-file", async (req, res): Promise<void> => {
       const issues = getVersatIssues(invoice);
       if (issues.length) throw new Error(issues.join(" "));
       const bytes = encodeFac(buildFac(invoice), "windows-1252");
-      return {
+      const response = DownloadInvoiceVersatFileResponse.parse({
         filename: facFilename(invoice.versat!.number!), base64: bytes.toString("base64"),
         contentType: "text/plain;charset=windows-1252", invoiceCount: 1, warnings: facWarnings,
-      };
+      });
+      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId);
+      if (Object.keys(acceptance).length) {
+        await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
+      }
+      return response;
     });
     if (!result) { res.status(404).json({ error: "Factura no encontrada." }); return; }
     res.setHeader("Cache-Control", "private, no-store");
-    res.json(GetInvoiceVersatFileResponse.parse(result));
+    res.json(result);
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "No se pudo generar el archivo." });
   }
 });
 
-router.get("/versat/export-file", async (req, res): Promise<void> => {
-  if (!await requireOwner(req, res)) return;
-  const parsed = GetVersatExportFileQueryParams.safeParse(dateQuery(req.query));
+router.post("/versat/export-file", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const parsed = DownloadVersatExportFileQueryParams.safeParse(dateQuery(req.query));
   if (!parsed.success || parsed.data.from > parsed.data.to) {
     res.status(400).json({ error: "Selecciona un intervalo y una codificación válidos." });
     return;
@@ -229,7 +238,7 @@ router.get("/versat/export-file", async (req, res): Promise<void> => {
     const result = await db.transaction(async (tx) => {
     const invoices = await periodInvoices(parsed.data.from, parsed.data.to, tx);
     if (!invoices.length) {
-      throw new Error("No hay facturas Aceptadas pendientes de importar en el período.");
+      throw new Error("No hay facturas Terminadas o Aceptadas pendientes de importar en el período.");
     }
     const invalid = invoices.flatMap((invoice) =>
       getVersatIssues(invoice).map((issue) => `${invoice.number}: ${issue}`));
@@ -246,19 +255,28 @@ router.get("/versat/export-file", async (req, res): Promise<void> => {
       "ARCHIVOS DE PRUEBA PARA VERSAT SARASOLA", ...facWarnings,
       `Codificación: ${parsed.data.encoding}. Separador de líneas: CRLF.`,
       "Descomprime el ZIP. Prueba primero un único .Fac en una copia de tu base de Versat.",
+      "La descarga registra las facturas como Aceptadas en esta aplicación; tras importarlas, márcalas Confirmadas.",
       "No importes este ZIP directamente ni repitas una factura ya importada.",
       "La fecha serial, los campos fijos y el agrupador se basan en un solo ejemplo.",
       "No se han generado firmas ni cuños digitales.",
     ].join("\r\n"));
     const bytes = zipSync(files, { level: 6 });
-    return {
+    const response = DownloadVersatExportFileResponse.parse({
       filename: `versat-prueba-${toDateOnly(parsed.data.from)}-${toDateOnly(parsed.data.to)}.zip`,
       base64: Buffer.from(bytes).toString("base64"), contentType: "application/zip",
       invoiceCount: invoices.length, warnings: facWarnings,
-    };
+    });
+    const acceptedAt = new Date();
+    for (const invoice of invoices) {
+      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId, acceptedAt);
+      if (Object.keys(acceptance).length) {
+        await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
+      }
+    }
+    return response;
     });
     res.setHeader("Cache-Control", "private, no-store");
-    res.json(GetVersatExportFileResponse.parse(result));
+    res.json(result);
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "No se pudo generar el lote." });
   }

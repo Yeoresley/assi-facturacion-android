@@ -24,9 +24,9 @@ import type {
   Customer,
   CustomerInput,
   DocumentAuthorization,
+  DownloadVersatExportFileParams,
   ExportVersatInvoicesParams,
   GetMonthlySettlementParams,
-  GetVersatExportFileParams,
   HealthStatus,
   Invoice,
   InvoiceExportRow,
@@ -2924,7 +2924,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getUpdateVersatCatalogEntryMutationOptions(options));
     }
 
-export const getGetInvoiceVersatFileUrl = (id: number,) => {
+export const getDownloadInvoiceVersatFileUrl = (id: number,) => {
 
 
 
@@ -2932,12 +2932,15 @@ export const getGetInvoiceVersatFileUrl = (id: number,) => {
   return `/api/invoices/${id}/versat-file`
 }
 
-export const getInvoiceVersatFile = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
+/**
+ * @summary Download a valid Versat invoice file and record acceptance
+ */
+export const downloadInvoiceVersatFile = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
 
-  return customFetch<VersatDownload>(getGetInvoiceVersatFileUrl(id),
+  return customFetch<VersatDownload>(getDownloadInvoiceVersatFileUrl(id),
   {
     ...options,
-    method: 'GET'
+    method: 'POST'
 
 
   }
@@ -2947,55 +2950,55 @@ export const getInvoiceVersatFile = async (id: number, options?: Parameters<type
 
 
 
-export const getGetInvoiceVersatFileQueryKey = (id: number,) => {
-    return [
-    `/api/invoices/${id}/versat-file`
-    ] as const;
+export const getDownloadInvoiceVersatFileMutationKey = () => ['downloadInvoiceVersatFile'] as const;
+
+export const getDownloadInvoiceVersatFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, TError,DownloadInvoiceVersatFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, TError,DownloadInvoiceVersatFileMutationVariables, TContext> => {
+
+const mutationKey = getDownloadInvoiceVersatFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, DownloadInvoiceVersatFileMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  downloadInvoiceVersatFile(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DownloadInvoiceVersatFileMutationResult = NonNullable<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>>
+
+    export type DownloadInvoiceVersatFileMutationError = ErrorType<void>
+    export type DownloadInvoiceVersatFileMutationVariables = {id: number}
+
+    /**
+ * @summary Download a valid Versat invoice file and record acceptance
+ */
+export const useDownloadInvoiceVersatFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadInvoiceVersatFile>>, TError,DownloadInvoiceVersatFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof downloadInvoiceVersatFile>>,
+        TError,
+        DownloadInvoiceVersatFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDownloadInvoiceVersatFileMutationOptions(options));
     }
 
-
-export const getGetInvoiceVersatFileQueryOptions = <TData = Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetInvoiceVersatFileQueryKey(id);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoiceVersatFile>>> = ({ signal }) => getInvoiceVersatFile(id, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetInvoiceVersatFileQueryResult = NonNullable<Awaited<ReturnType<typeof getInvoiceVersatFile>>>
-export type GetInvoiceVersatFileQueryError = ErrorType<void>
-
-
-
-export function useGetInvoiceVersatFile<TData = Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError = ErrorType<void>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceVersatFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetInvoiceVersatFileQueryOptions(id,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getGetVersatExportFileUrl = (params: GetVersatExportFileParams,) => {
+export const getDownloadVersatExportFileUrl = (params: DownloadVersatExportFileParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -3010,12 +3013,15 @@ export const getGetVersatExportFileUrl = (params: GetVersatExportFileParams,) =>
   return stringifiedParams.length > 0 ? `/api/versat/export-file?${stringifiedParams}` : `/api/versat/export-file`
 }
 
-export const getVersatExportFile = async (params: GetVersatExportFileParams, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
+/**
+ * @summary Download a Versat batch and record acceptance
+ */
+export const downloadVersatExportFile = async (params: DownloadVersatExportFileParams, options?: Parameters<typeof customFetch>[1]): Promise<VersatDownload> => {
 
-  return customFetch<VersatDownload>(getGetVersatExportFileUrl(params),
+  return customFetch<VersatDownload>(getDownloadVersatExportFileUrl(params),
   {
     ...options,
-    method: 'GET'
+    method: 'POST'
 
 
   }
@@ -3025,53 +3031,53 @@ export const getVersatExportFile = async (params: GetVersatExportFileParams, opt
 
 
 
-export const getGetVersatExportFileQueryKey = (params?: GetVersatExportFileParams,) => {
-    return [
-    `/api/versat/export-file`, ...(params ? [params] : [])
-    ] as const;
+export const getDownloadVersatExportFileMutationKey = () => ['downloadVersatExportFile'] as const;
+
+export const getDownloadVersatExportFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadVersatExportFile>>, TError,DownloadVersatExportFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof downloadVersatExportFile>>, TError,DownloadVersatExportFileMutationVariables, TContext> => {
+
+const mutationKey = getDownloadVersatExportFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof downloadVersatExportFile>>, DownloadVersatExportFileMutationVariables> = (props) => {
+          const {params} = props ?? {};
+
+          return  downloadVersatExportFile(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DownloadVersatExportFileMutationResult = NonNullable<Awaited<ReturnType<typeof downloadVersatExportFile>>>
+
+    export type DownloadVersatExportFileMutationError = ErrorType<void>
+    export type DownloadVersatExportFileMutationVariables = {params: DownloadVersatExportFileParams}
+
+    /**
+ * @summary Download a Versat batch and record acceptance
+ */
+export const useDownloadVersatExportFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof downloadVersatExportFile>>, TError,DownloadVersatExportFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof downloadVersatExportFile>>,
+        TError,
+        DownloadVersatExportFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDownloadVersatExportFileMutationOptions(options));
     }
-
-
-export const getGetVersatExportFileQueryOptions = <TData = Awaited<ReturnType<typeof getVersatExportFile>>, TError = ErrorType<void>>(params: GetVersatExportFileParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatExportFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetVersatExportFileQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersatExportFile>>> = ({ signal }) => getVersatExportFile(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersatExportFile>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetVersatExportFileQueryResult = NonNullable<Awaited<ReturnType<typeof getVersatExportFile>>>
-export type GetVersatExportFileQueryError = ErrorType<void>
-
-
-
-export function useGetVersatExportFile<TData = Awaited<ReturnType<typeof getVersatExportFile>>, TError = ErrorType<void>>(
- params: GetVersatExportFileParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatExportFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetVersatExportFileQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getExportVersatInvoicesUrl = (params: ExportVersatInvoicesParams,) => {
   const normalizedParams = new URLSearchParams();

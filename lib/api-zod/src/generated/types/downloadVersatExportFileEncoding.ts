@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetVersatExportFileEncoding = typeof GetVersatExportFileEncoding[keyof typeof GetVersatExportFileEncoding];
+export type DownloadVersatExportFileEncoding = typeof DownloadVersatExportFileEncoding[keyof typeof DownloadVersatExportFileEncoding];
 
 
-export const GetVersatExportFileEncoding = {
+export const DownloadVersatExportFileEncoding = {
   'windows-1252': 'windows-1252',
   'utf-8': 'utf-8',
 } as const;

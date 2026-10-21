@@ -3,6 +3,7 @@ import {
   db, invoicePaymentCorrectionsTable, invoicePaymentsTable, invoicesTable, type Invoice,
 } from "@workspace/db";
 import type { CurrentTeamMember } from "../middlewares/team-access";
+import { acceptanceFromWorkflowEvent } from "./invoice-status";
 
 export const collectibleStatuses = ["finished", "accepted", "confirmed", "sent", "paid"] as const;
 
@@ -156,13 +157,21 @@ export async function recordInvoicePayment(
       amount: amountCents / 100, currency: invoice.currency, paidOn: input.paidOn, paidBy: actor.userId,
     }).returning();
     const nextPayments = [...entries, payment];
-    if (nextPaidCents === totalCents) {
-      await tx.update(invoicesTable).set({
-        paymentStatus: "paid", paidAt: new Date(), paidBy: actor.userId,
-      }).where(eq(invoicesTable.id, id));
+    const acceptance = acceptanceFromWorkflowEvent(invoice, actor.userId);
+    const invoiceUpdate = {
+      ...acceptance,
+      ...(nextPaidCents === totalCents ? {
+        paymentStatus: "paid" as const, paidAt: new Date(), paidBy: actor.userId,
+      } : {}),
+    };
+    if (Object.keys(invoiceUpdate).length) {
+      await tx.update(invoicesTable).set(invoiceUpdate).where(eq(invoicesTable.id, id));
     }
     return { ...summarizePayments(
-      { ...invoice, paymentStatus: nextPaidCents === totalCents ? "paid" : invoice.paymentStatus },
+      {
+        ...invoice, ...acceptance,
+        paymentStatus: nextPaidCents === totalCents ? "paid" : invoice.paymentStatus,
+      },
       nextPayments,
       corrections,
     ), created: true };

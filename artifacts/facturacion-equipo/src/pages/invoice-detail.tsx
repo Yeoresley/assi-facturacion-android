@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetInvoiceVersatFileQueryKey,
-  getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getGetVersatExportFileQueryKey, getListInvoiceSeriesQueryKey, useCreateInvoiceShare, useGetCurrentTeamMember, useGetInvoice, useGetInvoiceVersatFile, useUpdateInvoiceStatus,
+  getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey,
+  getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListInvoiceSeriesQueryKey,
+  useCreateInvoiceShare, useDownloadInvoiceVersatFile, useGetCurrentTeamMember, useGetInvoice, useUpdateInvoiceStatus,
   getListInvoiceSharesQueryKey, useListInvoiceShares,
 } from '@workspace/api-client-react';
 import type { InvoiceStatusInputStatus } from '@workspace/api-client-react';
@@ -23,7 +24,7 @@ export default function InvoiceDetailPage() {
   const valid = Number.isFinite(id) && id > 0;
   const invoice = useGetInvoice(id, { query: { queryKey: getGetInvoiceQueryKey(id), enabled: valid, refetchInterval: 15000 } });
   const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false, refetchInterval: 30000 } });
-  const file = useGetInvoiceVersatFile(id, { query: { queryKey: getGetInvoiceVersatFileQueryKey(id), enabled: false, retry: false } });
+  const file = useDownloadInvoiceVersatFile();
   const updateStatus = useUpdateInvoiceStatus();
   const createShare = useCreateInvoiceShare();
   const shares = useListInvoiceShares(id, { query: { queryKey: getListInvoiceSharesQueryKey(id), enabled: valid, staleTime: 0, refetchInterval: 15000, retry: false } });
@@ -48,8 +49,6 @@ export default function InvoiceDetailPage() {
         client.invalidateQueries({ queryKey: getGetBillingOverviewQueryKey() });
         client.invalidateQueries({ queryKey: getListInvoiceSeriesQueryKey() });
         client.invalidateQueries({ queryKey: getExportVersatInvoicesQueryKey() });
-        client.invalidateQueries({ queryKey: getGetVersatExportFileQueryKey() });
-        client.invalidateQueries({ queryKey: getGetInvoiceVersatFileQueryKey(id) });
         setNotice(updated.versat?.number ? `Estado actualizado. Número de Versat: ${updated.versat.number} · Talón: ${updated.versat.talon}.` : 'Estado actualizado.');
       },
       onError: (err) => setActionError(`No se pudo completar la acción. ${errorDetail(err, 'Revisa los datos requeridos y vuelve a intentarlo.')}`),
@@ -70,14 +69,20 @@ export default function InvoiceDetailPage() {
   async function downloadFac() {
     setFileError('');
     setFileInfo([]);
-    const result = await file.refetch();
-    if (result.error || !result.data) {
-      setFileError(errorDetail(result.error, 'No se pudo generar el archivo.'));
-      return;
+    try {
+      const result = await file.mutateAsync({ id });
+      downloadBase64File(result.base64, result.filename, result.contentType);
+      setFileInfo(result.warnings || []);
+      setNotice(`Archivo ${result.filename} descargado; la factura quedó Aceptada.`);
+      await Promise.all([
+        client.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) }),
+        client.invalidateQueries({ queryKey: getListInvoicesQueryKey() }),
+        client.invalidateQueries({ queryKey: getExportVersatInvoicesQueryKey() }),
+        client.invalidateQueries({ queryKey: getGetBillingOverviewQueryKey() }),
+      ]);
+    } catch (error) {
+      setFileError(errorDetail(error, 'No se pudo generar el archivo.'));
     }
-    downloadBase64File(result.data.base64, result.data.filename, result.data.contentType);
-    setFileInfo(result.data.warnings || []);
-    setNotice(`Archivo ${result.data.filename} descargado como prueba.`);
   }
 
   if (invoice.isLoading) return <div className="mx-auto max-w-[800px] space-y-4"><div className="skeleton h-6 w-32" /><div className="panel space-y-5 p-8"><div className="skeleton h-8 w-56" /><div className="skeleton h-24" /><div className="skeleton h-40" /></div></div>;
@@ -98,7 +103,7 @@ export default function InvoiceDetailPage() {
     if (st === 'error') actions.push({ status: 'draft', label: 'Volver a edición', title: 'Volver a edición', body: 'La factura vuelve a Edición. Solo es posible porque aún no tiene número de Versat.' });
   }
   if ((st === 'draft' && (isOwner || isMyCommercial)) || (st === 'error' && !!v?.number && (isOwner || isMyCommercial))) actions.push({ status: 'finished', label: 'Terminar factura', title: 'Terminar factura', body: 'Se asignará el número definitivo y la factura dejará de poder editarse. Confirmas el modelo legal imprimible (emisor y responsables).' });
-  if ((st === 'finished' || st === 'sent' || st === 'paid') && isMyCommercial) actions.push({ status: 'accepted', label: 'Marcar aceptada por el cliente', title: 'Cliente aceptó la factura', body: 'El cliente aceptó y va a pagar. Esto no significa que la factura esté pagada. Pasará a la cola de importación del propietario.' });
+  if ((st === 'finished' || st === 'sent' || st === 'paid') && isMyCommercial) actions.push({ status: 'accepted', label: 'Marcar aceptada por el cliente', title: 'Cliente aceptó la factura', body: 'El cliente aceptó y va a pagar. Esto no significa que la factura esté pagada. Un abono o la exportación a Versat también la marcarán como Aceptada.' });
   if (st === 'accepted' && isOwner) actions.push({ status: 'confirmed', label: 'Confirmar importada en Versat', title: 'Confirmar importación real', body: 'Confirma solo si ya verificaste e importaste esta factura manualmente en Versat de escritorio. Confirmada es un estado final: no admite más cambios.' });
   if (['draft', 'finished', 'accepted', 'sent', 'paid', 'error'].includes(st) && (isOwner || isMyCommercial || member.data?.role === 'specialist')) {
     if (st !== 'draft') actions.push({ status: 'voided', label: 'Anular', title: 'Anular factura', body: 'Anulada es un estado final: no admite más transiciones y su número no se reutilizará.', danger: true });
@@ -142,8 +147,8 @@ export default function InvoiceDetailPage() {
     </div>}
     {pending && <div className="no-print fixed inset-0 z-50 grid place-items-center bg-[#1b2f2c]/50 px-4" role="alertdialog" aria-modal="true" aria-labelledby="status-dialog-title" aria-describedby="status-dialog-description"><div className="panel max-w-[440px] p-6"><h3 id="status-dialog-title" className="font-display text-lg font-bold">{pending.title}</h3><p id="status-dialog-description" className="mt-3 text-[13px] leading-6 text-[#5f736c]">{pending.body}</p><div className="mt-5 flex justify-end gap-2"><button autoFocus className="button button-plain" onClick={() => setPending(null)}>Volver</button><button className={`button ${pending.danger ? 'button-danger' : 'button-primary'}`} disabled={updateStatus.isPending} onClick={() => { const s2 = pending.status; setPending(null); changeStatus(s2); }} data-testid="button-confirm-status">Confirmar</button></div></div></div>}
 
-    {issued && isOwner && st !== 'error' && <section className="no-print panel mb-5 p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="eyebrow">Versat · propietario</div><h2 className="font-display mt-1 text-base font-bold">Archivo .Fac de prueba</h2></div><button className="button button-soft" onClick={downloadFac} disabled={file.isFetching || st !== 'accepted'} title={st === 'accepted' ? undefined : 'Solo disponible para facturas Aceptadas'} data-testid="button-download-fac"><ArrowDownToLine size={15} />{file.isFetching ? 'Generando…' : st === 'confirmed' ? 'Ya importada' : 'Descargar .Fac (prueba)'}</button></div>
-      {st === 'confirmed' && <p className="mt-3 text-[12px] text-[#5f736c]">Esta factura ya fue importada y no se puede descargar de nuevo.</p>}{st !== 'accepted' && st !== 'confirmed' && <p className="mt-3 text-[12px] text-[#5f736c]">El .Fac solo se descarga con la factura Aceptada. Descargar no confirma la importación.</p>}
+    {issued && isOwner && st !== 'error' && <section className="no-print panel mb-5 p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="eyebrow">Versat · propietario</div><h2 className="font-display mt-1 text-base font-bold">Archivo .Fac de prueba</h2></div><button className="button button-soft" onClick={downloadFac} disabled={file.isPending || !['finished', 'accepted'].includes(st)} title={['finished', 'accepted'].includes(st) ? undefined : 'Disponible para facturas Terminadas o Aceptadas'} data-testid="button-download-fac"><ArrowDownToLine size={15} />{file.isPending ? 'Generando…' : st === 'confirmed' ? 'Ya importada' : 'Descargar .Fac (prueba)'}</button></div>
+      {st === 'confirmed' && <p className="mt-3 text-[12px] text-[#5f736c]">Esta factura ya fue importada y no se puede descargar de nuevo.</p>}{st === 'finished' && <p className="mt-3 text-[12px] text-[#5f736c]">Al generar el .Fac, la factura quedará marcada como Aceptada. Después de importarla, confírmala aquí.</p>}{st === 'accepted' && <p className="mt-3 text-[12px] text-[#5f736c]">La factura está Aceptada. Descargarla no confirma su importación en Versat.</p>}
       <div className="mt-3"><TestFileNotice>Codificación Windows-1252. No es un archivo certificado ni final.</TestFileNotice></div>
       {fileError && <div className="mt-3 rounded-lg bg-[#fbefeb] px-4 py-3 text-[12px] leading-5 text-[#a04539]" role="alert"><div className="font-bold">No se pudo generar el archivo</div>{fileError}</div>}
       {fileInfo.length > 0 && <ul className="mt-3 list-disc pl-5 text-[11px] leading-5 text-[#8a6a25]">{fileInfo.map((w, i) => <li key={i}>{w}</li>)}</ul>}

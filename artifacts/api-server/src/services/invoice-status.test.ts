@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { statusCodes, transitionIssue } from "./invoice-status";
+import { acceptanceFromWorkflowEvent, statusCodes, transitionIssue } from "./invoice-status";
 
 test("conserva los siete códigos del catálogo de Versat", () => {
   assert.deepEqual(statusCodes, {
     draft: 1, finished: 2, confirmed: 3, voided: 4, cancelled: 5, error: 6, accepted: 7,
   });
+});
+
+test("un pago o una exportación aceptan una factura terminada sin reemplazar una aceptación previa", () => {
+  const acceptedAt = new Date("2026-10-21T12:00:00Z");
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "finished", acceptedBy: null, acceptedAt: null,
+  }, "owner-1", acceptedAt), {
+    status: "accepted", acceptedBy: "owner-1", acceptedAt,
+  });
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "accepted", acceptedBy: "specialist-1", acceptedAt,
+  }, "owner-2", new Date()), {});
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "confirmed", acceptedBy: "owner-1", acceptedAt,
+  }, "owner-2", new Date()), {});
 });
 
 test("el flujo exige terminar, aceptar como especialista y confirmar como administrador", () => {

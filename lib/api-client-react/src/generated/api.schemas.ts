@@ -1008,16 +1008,16 @@ export const ListInvoicesPaymentStatus = {
   paid: 'paid',
 } as const;
 
-export type GetVersatExportFileParams = {
+export type DownloadVersatExportFileParams = {
 from: string;
 to: string;
-encoding?: GetVersatExportFileEncoding;
+encoding?: DownloadVersatExportFileEncoding;
 };
 
-export type GetVersatExportFileEncoding = typeof GetVersatExportFileEncoding[keyof typeof GetVersatExportFileEncoding];
+export type DownloadVersatExportFileEncoding = typeof DownloadVersatExportFileEncoding[keyof typeof DownloadVersatExportFileEncoding];
 
 
-export const GetVersatExportFileEncoding = {
+export const DownloadVersatExportFileEncoding = {
   'windows-1252': 'windows-1252',
   'utf-8': 'utf-8',
 } as const;

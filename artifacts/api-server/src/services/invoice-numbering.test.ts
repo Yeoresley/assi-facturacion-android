@@ -221,7 +221,7 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   await assert.rejects(transitionInvoice(d.id, "accepted"), /no permitido/);
   await transitionInvoice(d.id, "finished");
   await assert.rejects(scopedTransitionInvoice(d.id, "accepted", sql`true`, owner), /especialista/);
-  assert.throws(() => buildFac({ ...d, status: "finished", lines: [] }), /Aceptada/);
+  assert.throws(() => buildFac({ ...d, status: "finished", lines: [] }), /Falta el número de factura/);
   await Promise.all(Array.from({ length: 4 }, () => transitionInvoice(d.id, "accepted")));
   const accepted = await stored(d.id);
   assert.equal(accepted.acceptedBy, specialist.userId);
@@ -276,7 +276,7 @@ test("formatted and compact numbers cannot reserve the same desktop invoice iden
   }), /otra factura/);
 });
 
-test("only the administrator records payment; the final abono sets payment status without changing lifecycle", async () => {
+test("only the administrator records payment; a full payment marks the invoice accepted", async () => {
   const s = await series();
   const d = await draft(s.id);
   const owner = { userId: "payment-test-owner", role: "owner" as const };
@@ -294,13 +294,14 @@ test("only the administrator records payment; the final abono sets payment statu
   assert.equal(paid.paymentStatus, "paid");
   assert.equal(paid.paidBy, owner.userId);
   assert.ok(paid.paidAt instanceof Date);
-  assert.equal(paid.status, "finished");
-  assert.equal(paid.acceptedAt, null);
+  assert.equal(paid.status, "accepted");
+  assert.equal(paid.acceptedBy, owner.userId);
+  assert.ok(paid.acceptedAt instanceof Date);
   assert.equal(paid.confirmedAt, null);
   assert.deepEqual(paid.legalDocument, before.legalDocument);
   assert.equal(paid.versatNumber, before.versatNumber);
   assert.equal(await counter(s.id), 2);
-  assert.throws(() => buildFac({ ...paid, lines: [] }), /Aceptada/);
+  assert.throws(() => buildFac({ ...paid, lines: [] }), /líneas/);
   const duplicate = await recordPayment(d.id, { userId: "other-owner", role: "owner" }, 1, "2026-10-19", retryKey);
   assert.equal(duplicate.created, false);
   assert.equal((await stored(d.id)).paidBy, owner.userId);
@@ -310,7 +311,7 @@ test("only the administrator records payment; the final abono sets payment statu
   assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 1);
 });
 
-test("partial abonos preserve exact cents, date and balance; exact final balance completes payment", async () => {
+test("partial abonos mark the invoice accepted and preserve exact cents, date and balance", async () => {
   const d = await draft(await series().then((row) => row.id));
   await transitionInvoice(d.id, "finished");
   const owner = { userId: "partial-owner", role: "owner" as const };
@@ -321,7 +322,10 @@ test("partial abonos preserve exact cents, date and balance; exact final balance
   assert.equal(first.totalPaid, 0.4);
   assert.equal(first.balanceDue, 0.6);
   assert.equal(first.payments[0].paidOn, "2026-10-10");
-  assert.equal((await stored(d.id)).status, "finished");
+  const firstSaved = await stored(d.id);
+  assert.equal(firstSaved.status, "accepted");
+  assert.equal(firstSaved.acceptedBy, owner.userId);
+  assert.ok(firstSaved.acceptedAt instanceof Date);
   assert.equal((await stored(d.id)).paidAt, null);
   assert.equal((await stored(d.id)).paidBy, null);
   assert.equal((await stored(d.id)).paymentStatus, "pending");
@@ -339,8 +343,10 @@ test("partial abonos preserve exact cents, date and balance; exact final balance
   assert.equal(final.balanceDue, 0);
   assert.equal(final.payments.length, 2);
   const saved = await stored(d.id);
-  assert.equal(saved.status, "finished");
+  assert.equal(saved.status, "accepted");
   assert.equal(saved.paymentStatus, "paid");
+  assert.equal(saved.acceptedBy, owner.userId);
+  assert.deepEqual(saved.acceptedAt, firstSaved.acceptedAt);
   assert.equal(saved.paidBy, owner.userId);
   assert.ok(saved.paidAt instanceof Date);
   assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 2);

@@ -53,8 +53,11 @@ test("preserva las 14 posiciones, la precisión, los CRLF y la nota en una sola 
   assert.ok(value.endsWith("[PieFirma]\r\n"));
 });
 
-test("no exporta borradores, anuladas, mercancías ni líneas sin correspondencia", () => {
-  for (const status of ["draft", "finished", "confirmed", "voided", "cancelled", "error", "sent", "paid"]) {
+test("permite exportar una factura terminada y bloquea otros estados o datos incompatibles", () => {
+  const finished = fixture();
+  finished.status = "finished";
+  assert.doesNotThrow(() => buildFac(finished));
+  for (const status of ["draft", "confirmed", "voided", "cancelled", "error", "sent", "paid"]) {
     const invoice = fixture(); invoice.status = status;
     assert.throws(() => buildFac(invoice));
   }

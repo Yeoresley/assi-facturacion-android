@@ -102,7 +102,7 @@ router.get("/billing/overview", async (req, res): Promise<void> => {
     invoiceCount: invoices.length,
     draftCount: invoices.filter((invoice) => invoice.status === "draft").length,
     sentCount: invoices.filter((invoice) => invoice.status === "sent").length,
-    paidCount: invoices.filter((invoice) => invoice.status === "paid").length,
+    paidCount: invoices.filter((invoice) => invoice.paymentStatus === "paid").length,
     finishedCount: invoices.filter((invoice) => invoice.status === "finished").length,
     acceptedCount: invoices.filter((invoice) => invoice.status === "accepted").length,
     confirmedCount: invoices.filter((invoice) => invoice.status === "confirmed").length,

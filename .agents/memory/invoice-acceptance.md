@@ -3,23 +3,35 @@ name: Aceptación del cliente y exportación
 description: Regla del usuario que separa la emisión, aceptación y pago de una factura.
 ---
 
-Solo se puede exportar a Versat una factura cuando el especialista la haya marcado como Aceptada: esto confirma que el cliente la aceptó y va a pagarla, no que ya la pagó.
+Una factura Terminada o Aceptada puede exportarse a Versat. Al generar correctamente un .Fac individual o el ZIP del período, el sistema la marca como Aceptada y registra quién realizó la exportación.
 
-**Why:** El usuario necesita impedir la importación contable de facturas que el cliente todavía no ha aceptado.
+**Why:** El propietario indicó que exportar a Versat es suficiente para marcar la aceptación del cliente; no quiere un paso obligatorio separado antes de exportar.
 
-**How to apply:** Aplicar la restricción tanto a exportación individual como por lote. No convertir automáticamente facturas históricas emitidas o pagadas en aceptadas. El catálogo proporcionado por el usuario es: 1 Edición, 2 Terminada, 3 Confirmada, 4 Anulada, 5 Cancelada, 6 Con Error, 7 Aceptada. No inferir una diferencia contable entre Anulada y Cancelada sin aclaración.
+**How to apply:** Aplicar la aceptación al completar la generación del archivo, no al consultar la vista previa. No reexportar facturas ya confirmadas. Una acción manual del especialista para registrar una aceptación explícita puede seguir disponible.
 
-Confirmada significa «Confirmación de que ya se importó en Versat», según la respuesta expresa del usuario. No significa revisión interna anterior a la aceptación.
+Registrar cualquier abono parcial o total también marca como Aceptada una factura Terminada. El saldo y el estado de pago siguen siendo independientes: un abono parcial no equivale a Pagada.
+
+**Why:** El propietario indicó que tanto un pago parcial como uno total representan aceptación del cliente.
+
+**How to apply:** Al guardar un abono, conservar la aceptación aunque el saldo permanezca pendiente. No borrar ni reescribir una aceptación existente al corregir posteriormente un pago.
+
+Confirmada significa «Confirmación de que ya se importó en Versat», según la respuesta expresa del usuario, y permanece como factura aceptada.
 
 **Why:** La importación se realiza por separado en Versat de escritorio; descargar un fichero no demuestra que se haya importado.
 
-**How to apply:** Mantener la confirmación de importación como una acción posterior y explícita, separada de generar o descargar el fichero.
+**How to apply:** Permitir Confirmada solo tras registrar Aceptada y mantener ambos datos de fecha y responsable. La confirmación es una acción posterior a la importación manual.
+
+No cambiar automáticamente facturas históricas con estado Enviada o Pagada: conservar sus datos hasta que el propietario solicite una regularización, porque no se debe inventar cuándo ni quién registró la aceptación.
+
+**Why:** El historial anterior al flujo nuevo no necesariamente conserva una fecha o responsable de aceptación.
+
+**How to apply:** La aceptación automática se aplica a pagos registrados ahora y a exportaciones válidas generadas desde la aplicación; no hacer una actualización masiva retroactiva.
 
 Solo el Administrador debe tener la opción «Marcar Pagada» en el listado de facturas; los especialistas o comerciales deben poder ver sus facturas pendientes de pago.
 
 **Why:** El usuario quiere centralizar en el administrador el registro de los pagos y que cada comercial conozca qué facturas todavía debe cobrar.
 
-**How to apply:** Mantener el permiso de registrar pagos exclusivo del administrador y respetar el comercial asignado al consultar pendientes. El cobro no debe confundirse con aceptación del cliente ni con importación en Versat.
+**How to apply:** Mantener el permiso de registrar pagos exclusivo del administrador y respetar el comercial asignado al consultar pendientes. Un abono marca Aceptada, pero el pago parcial sigue pendiente y no confirma la importación en Versat.
 
 El usuario aprobó añadir pagos parciales: registrar cada abono, mostrar saldo y mantener la factura pendiente hasta completar el total.
 

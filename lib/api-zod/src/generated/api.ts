@@ -2573,11 +2573,14 @@ export const UpdateVersatCatalogEntryResponse = zod.object({
 })
 
 
-export const GetInvoiceVersatFileParams = zod.object({
+/**
+ * @summary Download a valid Versat invoice file and record acceptance
+ */
+export const DownloadInvoiceVersatFileParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
-export const GetInvoiceVersatFileResponse = zod.object({
+export const DownloadInvoiceVersatFileResponse = zod.object({
   "filename": zod.string(),
   "base64": zod.string(),
   "contentType": zod.string(),
@@ -2586,15 +2589,18 @@ export const GetInvoiceVersatFileResponse = zod.object({
 })
 
 
-export const getVersatExportFileQueryEncodingDefault = `windows-1252`;
+/**
+ * @summary Download a Versat batch and record acceptance
+ */
+export const downloadVersatExportFileQueryEncodingDefault = `windows-1252`;
 
-export const GetVersatExportFileQueryParams = zod.object({
+export const DownloadVersatExportFileQueryParams = zod.object({
   "from": zod.date(),
   "to": zod.date(),
-  "encoding": zod.enum(['windows-1252', 'utf-8']).default(getVersatExportFileQueryEncodingDefault)
+  "encoding": zod.enum(['windows-1252', 'utf-8']).default(downloadVersatExportFileQueryEncodingDefault)
 })
 
-export const GetVersatExportFileResponse = zod.object({
+export const DownloadVersatExportFileResponse = zod.object({
   "filename": zod.string(),
   "base64": zod.string(),
   "contentType": zod.string(),

@@ -22,10 +22,10 @@ export const facWarnings = [
 
 export function getVersatIssues(invoice: FacInvoice): string[] {
   const issues = getVersatDataIssues(invoice);
-  if (invoice.status !== "accepted") {
+  if (invoice.status !== "accepted" && invoice.status !== "finished") {
     issues.unshift(invoice.status === "confirmed"
       ? "La factura ya está confirmada como importada en Versat; no se puede volver a exportar."
-      : "El especialista debe marcar la factura como Aceptada antes de exportarla a Versat.");
+      : "Solo las facturas Terminadas o Aceptadas se pueden exportar a Versat.");
   }
   return issues;
 }
