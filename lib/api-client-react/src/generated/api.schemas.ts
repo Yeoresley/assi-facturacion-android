@@ -284,6 +284,41 @@ export interface InvoicePayment {
   recordedAt: string;
 }
 
+export type InvoicePaymentCorrectionBeforePaymentStatus = typeof InvoicePaymentCorrectionBeforePaymentStatus[keyof typeof InvoicePaymentCorrectionBeforePaymentStatus];
+
+
+export const InvoicePaymentCorrectionBeforePaymentStatus = {
+  pending: 'pending',
+  paid: 'paid',
+} as const;
+
+export type InvoicePaymentCorrectionAfterPaymentStatus = typeof InvoicePaymentCorrectionAfterPaymentStatus[keyof typeof InvoicePaymentCorrectionAfterPaymentStatus];
+
+
+export const InvoicePaymentCorrectionAfterPaymentStatus = {
+  pending: 'pending',
+  paid: 'paid',
+} as const;
+
+export interface InvoicePaymentCorrection {
+  id: number;
+  reason: string;
+  correctedBy: string;
+  createdAt: string;
+  /** @nullable */
+  reversedPaymentId: number | null;
+  beforeInvoiceStatus: string;
+  afterInvoiceStatus: string;
+  beforePaymentStatus: InvoicePaymentCorrectionBeforePaymentStatus;
+  afterPaymentStatus: InvoicePaymentCorrectionAfterPaymentStatus;
+  beforeTotalPaid: number;
+  afterTotalPaid: number;
+  /** @nullable */
+  originalPaidBy: string | null;
+  /** @nullable */
+  originalPaidAt: string | null;
+}
+
 export interface VersatInvoiceInput {
   conceptId: number;
   operationId: number;
@@ -360,6 +395,7 @@ export interface Invoice {
   /** @minimum 0 */
   balanceDue: number;
   payments: InvoicePayment[];
+  paymentCorrections?: InvoicePaymentCorrection[];
   /** @nullable */
   paidAt: string | null;
   /** @nullable */
@@ -405,6 +441,16 @@ export interface InvoicePaymentInput {
   idempotencyKey: string;
 }
 
+export interface InvoicePaymentCorrectionInput {
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+  idempotencyKey: string;
+  confirmed: true;
+}
+
 export type InvoicePaymentResponsePaymentStatus = typeof InvoicePaymentResponsePaymentStatus[keyof typeof InvoicePaymentResponsePaymentStatus];
 
 
@@ -419,6 +465,23 @@ export interface InvoicePaymentResponse {
   totalPaid: number;
   balanceDue: number;
   payments: InvoicePayment[];
+}
+
+export type InvoicePaymentCorrectionResponsePaymentStatus = typeof InvoicePaymentCorrectionResponsePaymentStatus[keyof typeof InvoicePaymentCorrectionResponsePaymentStatus];
+
+
+export const InvoicePaymentCorrectionResponsePaymentStatus = {
+  pending: 'pending',
+  paid: 'paid',
+} as const;
+
+export interface InvoicePaymentCorrectionResponse {
+  invoiceId: number;
+  paymentStatus: InvoicePaymentCorrectionResponsePaymentStatus;
+  totalPaid: number;
+  balanceDue: number;
+  payments: InvoicePayment[];
+  paymentCorrections: InvoicePaymentCorrection[];
 }
 
 export type InvoiceStatusInputStatus = typeof InvoiceStatusInputStatus[keyof typeof InvoiceStatusInputStatus];

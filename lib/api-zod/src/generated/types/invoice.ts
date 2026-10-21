@@ -7,6 +7,7 @@
  */
 import type { InvoiceLine } from './invoiceLine';
 import type { InvoicePayment } from './invoicePayment';
+import type { InvoicePaymentCorrection } from './invoicePaymentCorrection';
 import type { InvoicePaymentStatus } from './invoicePaymentStatus';
 import type { InvoiceStatus } from './invoiceStatus';
 import type { LegalDocument } from './legalDocument';
@@ -38,6 +39,7 @@ export interface Invoice {
   /** @minimum 0 */
   balanceDue: number;
   payments: InvoicePayment[];
+  paymentCorrections?: InvoicePaymentCorrection[];
   /** @nullable */
   paidAt: Date | null;
   /** @nullable */

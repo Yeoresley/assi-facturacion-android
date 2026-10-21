@@ -1,5 +1,7 @@
 import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
-import { customersTable, db, invoiceLinesTable, invoicePaymentsTable, invoicesTable } from "@workspace/db";
+import {
+  customersTable, db, invoiceLinesTable, invoicePaymentCorrectionsTable, invoicePaymentsTable, invoicesTable,
+} from "@workspace/db";
 import { statusCodes, type WorkflowStatus } from "./invoice-status";
 import { paymentStatus, summarizePayments } from "./invoice-payment";
 
@@ -15,6 +17,7 @@ export type InvoiceRecord = typeof invoicesTable.$inferSelect & {
     paidOn: string;
     recordedAt: string;
   }>;
+  paymentCorrections: ReturnType<typeof summarizePayments>["paymentCorrections"];
 };
 
 export async function getInvoiceRows(ids?: number[], scope?: SQL, reader: Pick<typeof db, "select"> = db): Promise<InvoiceRecord[]> {
@@ -30,8 +33,15 @@ export async function getInvoiceRows(ids?: number[], scope?: SQL, reader: Pick<t
   const paymentRows = await reader.select().from(invoicePaymentsTable)
     .where(inArray(invoicePaymentsTable.invoiceId, rows.map(({ invoice }) => invoice.id)))
     .orderBy(invoicePaymentsTable.paidOn, invoicePaymentsTable.id);
+  const paymentCorrections = await reader.select().from(invoicePaymentCorrectionsTable)
+    .where(inArray(invoicePaymentCorrectionsTable.invoiceId, rows.map(({ invoice }) => invoice.id)))
+    .orderBy(invoicePaymentCorrectionsTable.createdAt, invoicePaymentCorrectionsTable.id);
   return rows.map(({ invoice, customerName }) => {
-    const totals = summarizePayments(invoice, paymentRows.filter((payment) => payment.invoiceId === invoice.id));
+    const totals = summarizePayments(
+      invoice,
+      paymentRows.filter((payment) => payment.invoiceId === invoice.id),
+      paymentCorrections.filter((correction) => correction.invoiceId === invoice.id),
+    );
     return {
       ...invoice,
       customerName: invoice.versat?.customerName ?? customerName,

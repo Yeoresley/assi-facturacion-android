@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   customersTable, db, pool, invoiceLinesTable, invoiceNumberReservationsTable, invoicePaymentsTable, invoicesTable,
-  invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
+  invoicePaymentCorrectionsTable, invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
 } from "@workspace/db";
 import { allocateNumber, formatSeries, lockNumbering, reserveNumber, validateSeriesSelection } from "./invoice-numbering";
 import { transitionInvoice as scopedTransitionInvoice } from "./issue-invoice";
 import { invoiceScope } from "./invoice-access";
 import { buildFac } from "./versat-file";
 import type { WorkflowStatus } from "./invoice-status";
-import { recordInvoicePayment, paymentFilter, paymentStatus } from "./invoice-payment";
+import {
+  correctInvoicePayment, recordInvoicePayment, paymentFilter, paymentStatus,
+} from "./invoice-payment";
 
 // Integration tests use only explicitly created synthetic fixtures, never business invoices.
 const tag = `TEST_${randomUUID().replaceAll("-", "").slice(0, 12)}_`;
@@ -352,6 +354,78 @@ test("concurrent different abonos lock the invoice and cannot overpay its remain
   assert.match(String(failures[0].reason), /supera el saldo/);
   assert.equal((await stored(d.id)).paymentStatus, "pending");
   assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 1);
+});
+
+test("administrator correction is append-only, idempotent under concurrency, and reverses only the final payment", async () => {
+  const d = await draft(await series().then((row) => row.id));
+  await transitionInvoice(d.id, "finished");
+  const owner = { userId: "payment-correction-owner", role: "owner" as const };
+  await recordPayment(d.id, owner, 0.4, "2026-10-10");
+  await recordPayment(d.id, owner, 0.6, "2026-10-11");
+  await transitionInvoice(d.id, "accepted");
+  const before = await stored(d.id);
+  const key = randomUUID();
+  const corrections = await Promise.all(Array.from({ length: 4 }, () => correctInvoicePayment(d.id, {
+    reason: "Pago duplicado por error", confirmed: true, idempotencyKey: key,
+  }, owner)));
+  const saved = await stored(d.id);
+  const receipts = await db.select().from(invoicePaymentsTable)
+    .where(eq(invoicePaymentsTable.invoiceId, d.id)).orderBy(asc(invoicePaymentsTable.id));
+  const audit = await db.select().from(invoicePaymentCorrectionsTable)
+    .where(eq(invoicePaymentCorrectionsTable.invoiceId, d.id));
+  assert.equal(corrections.filter((result) => result.created).length, 1);
+  assert.equal(corrections[0].paymentStatus, "pending");
+  assert.equal(corrections[0].totalPaid, 0.4);
+  assert.equal(corrections[0].balanceDue, 0.6);
+  assert.equal(corrections[0].payments.length, 2);
+  assert.equal(saved.paymentStatus, "pending");
+  assert.equal(saved.status, "accepted");
+  assert.equal(saved.acceptedBy, before.acceptedBy);
+  assert.deepEqual(saved.acceptedAt, before.acceptedAt);
+  assert.equal(saved.versatNumber, before.versatNumber);
+  assert.equal(saved.paidBy, null);
+  assert.equal(saved.paidAt, null);
+  assert.equal(receipts.length, 2);
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].reason, "Pago duplicado por error");
+  assert.equal(audit[0].correctedBy, owner.userId);
+  assert.equal(audit[0].reversedPaymentId, receipts[1].id);
+  assert.equal(audit[0].beforeTotalPaid, 1);
+  assert.equal(audit[0].afterTotalPaid, 0.4);
+  assert.equal(audit[0].beforeInvoiceStatus, "accepted");
+  assert.equal(audit[0].afterPaymentStatus, "pending");
+  await assert.rejects(correctInvoicePayment(d.id, {
+    reason: "Motivo distinto para la misma clave", confirmed: true, idempotencyKey: key,
+  }, owner), /solicitud ya se usó/);
+  await assert.rejects(correctInvoicePayment(d.id, {
+    reason: "Sin permiso", confirmed: true, idempotencyKey: randomUUID(),
+  }, specialist), /administrador/);
+  await assert.rejects(correctInvoicePayment(d.id, {
+    reason: "No confirmado", confirmed: false, idempotencyKey: randomUUID(),
+  }, owner), /Confirma explícitamente/);
+});
+
+test("correcting a historical paid status reopens it without inventing a receipt or acceptance", async () => {
+  const d = await draft(null, {
+    status: "paid", paidBy: "legacy-accounting", paidAt: new Date("2025-01-01T12:00:00Z"),
+  });
+  const owner = { userId: "legacy-correction-owner", role: "owner" as const };
+  const result = await correctInvoicePayment(d.id, {
+    reason: "Registro heredado incorrecto", confirmed: true, idempotencyKey: randomUUID(),
+  }, owner);
+  const saved = await stored(d.id);
+  const receipts = await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id));
+  assert.equal(result.created, true);
+  assert.equal(result.paymentStatus, "pending");
+  assert.equal(result.totalPaid, 0);
+  assert.equal(result.balanceDue, 1);
+  assert.equal(result.payments.length, 0);
+  assert.equal(result.paymentCorrections[0].originalPaidBy, "legacy-accounting");
+  assert.equal(result.paymentCorrections[0].originalPaidAt, "2025-01-01T12:00:00.000Z");
+  assert.equal(saved.status, "sent");
+  assert.equal(saved.acceptedAt, null);
+  assert.equal(saved.confirmedAt, null);
+  assert.equal(receipts.length, 0);
 });
 
 test("pending-payment filter respects commercial scope and excludes unissued, voided, error and historical paid", async () => {

@@ -359,6 +359,40 @@ paths:
           description: Payment cannot be recorded in this lifecycle state
         "422":
           description: Invalid payment amount or payment date, or amount exceeds the outstanding balance
+  /invoices/{id}/payment-corrections:
+    post:
+      operationId: correctInvoicePayment
+      tags: [invoices]
+      summary: Administrator reverses an erroneous full-payment mark without deleting its evidence
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoicePaymentCorrectionInput" }
+      responses:
+        "200":
+          description: Idempotent retry of a prior correction
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePaymentCorrectionResponse" }
+        "201":
+          description: Payment state corrected and audit event recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePaymentCorrectionResponse" }
+        "400":
+          description: Invalid correction request
+        "403":
+          description: Only the administrator may correct a payment
+        "404":
+          description: Invoice not found
+        "409":
+          description: Invoice is not currently fully paid or the correction conflicts with current state
   /invoices/{id}/share:
     post:
       operationId: createInvoiceShare
@@ -724,6 +758,9 @@ components:
         payments:
           type: array
           items: { $ref: "#/components/schemas/InvoicePayment" }
+        paymentCorrections:
+          type: array
+          items: { $ref: "#/components/schemas/InvoicePaymentCorrection" }
         paidAt: { type: ["string", "null"], format: date-time }
         acceptedAt: { type: ["string", "null"], format: date-time }
         confirmedAt: { type: ["string", "null"], format: date-time }
@@ -764,6 +801,13 @@ components:
         amount: { type: number, exclusiveMinimum: 0, maximum: 999999999999.99, multipleOf: 0.01 }
         paidOn: { type: string, format: date }
         idempotencyKey: { type: string, format: uuid }
+    InvoicePaymentCorrectionInput:
+      type: object
+      required: [reason, idempotencyKey, confirmed]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+        idempotencyKey: { type: string, format: uuid }
+        confirmed: { type: boolean, enum: [true] }
     InvoicePayment:
       type: object
       required: [id, amount, currency, paidOn, recordedAt]
@@ -773,6 +817,23 @@ components:
         currency: { type: string }
         paidOn: { type: string, format: date }
         recordedAt: { type: string, format: date-time }
+    InvoicePaymentCorrection:
+      type: object
+      required: [id, reason, correctedBy, createdAt, reversedPaymentId, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]
+      properties:
+        id: { type: integer }
+        reason: { type: string }
+        correctedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        reversedPaymentId: { type: ["integer", "null"] }
+        beforeInvoiceStatus: { type: string }
+        afterInvoiceStatus: { type: string }
+        beforePaymentStatus: { type: string, enum: [pending, paid] }
+        afterPaymentStatus: { type: string, enum: [pending, paid] }
+        beforeTotalPaid: { type: number }
+        afterTotalPaid: { type: number }
+        originalPaidBy: { type: ["string", "null"] }
+        originalPaidAt: { type: ["string", "null"], format: date-time }
     InvoicePaymentResponse:
       type: object
       required: [invoiceId, paymentStatus, totalPaid, balanceDue, payments]
@@ -784,6 +845,20 @@ components:
         payments:
           type: array
           items: { $ref: "#/components/schemas/InvoicePayment" }
+    InvoicePaymentCorrectionResponse:
+      type: object
+      required: [invoiceId, paymentStatus, totalPaid, balanceDue, payments, paymentCorrections]
+      properties:
+        invoiceId: { type: integer }
+        paymentStatus: { type: string, enum: [pending, paid] }
+        totalPaid: { type: number }
+        balanceDue: { type: number }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/InvoicePayment" }
+        paymentCorrections:
+          type: array
+          items: { $ref: "#/components/schemas/InvoicePaymentCorrection" }
     InvoiceStatusInput:
       type: object
       required: [status]

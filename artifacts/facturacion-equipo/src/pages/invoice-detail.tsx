@@ -12,7 +12,7 @@ import { QueryError, Status, TestFileNotice, date, downloadBase64File, errorDeta
 import { InvoiceDocument } from '@/components/invoice-document';
 import { DocumentAuthorizationForm } from '@/components/document-authorization';
 import { printInvoice } from '@/lib/invoice-print';
-import { InvoicePaymentHistory, MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
+import { CorrectPaidButton, InvoicePaymentHistory, MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
 import { InvoiceShareList } from '@/components/invoice-share-list';
 
 export default function InvoiceDetailPage() {
@@ -102,6 +102,7 @@ export default function InvoiceDetailPage() {
     <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3"><span className="text-xs font-semibold">Pago</span><PaymentBadge invoice={inv} />{inv.paidAt && <span className="text-xs text-[#738079]">Registrado: {new Date(inv.paidAt).toLocaleString('es-ES')}</span>}</div>
       <MarkPaidButton invoice={inv} />
+      <CorrectPaidButton invoice={inv} />
     </div>
     <InvoicePaymentHistory invoice={inv} />
     <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] px-4 py-3"><div className="flex flex-wrap items-center gap-3"><Status status={inv.status} /><span className="text-[11px] text-[#738079]">{terminal ? 'Estado final: sin más transiciones.' : canFinishHint ? 'Confirma primero el modelo legal para poder terminar.' : st === 'accepted' && !isOwner ? 'Aceptada: el propietario confirma tras importar en Versat.' : 'Acciones permitidas para tu rol'}</span>{inv.acceptedAt && <span className="text-[10px] text-[#85918a]">Aceptada {date(inv.acceptedAt)}</span>}{inv.confirmedAt && <span className="text-[10px] text-[#85918a]">Confirmada {date(inv.confirmedAt)}</span>}</div><div className="flex flex-wrap gap-2">{!terminal && actions.map((a) => <button key={a.status} className={`button ${a.danger ? 'button-danger' : 'button-soft'} !min-h-8 !px-3 text-[11px]`} disabled={updateStatus.isPending || (a.status === 'finished' && !hasLegal)} onClick={() => setPending(a)} data-testid={`button-status-${a.status}`}>{a.label}</button>)}</div></div>

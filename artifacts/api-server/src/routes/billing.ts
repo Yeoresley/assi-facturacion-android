@@ -36,6 +36,9 @@ import {
   CreateInvoicePaymentParams,
   CreateInvoicePaymentBody,
   CreateInvoicePaymentResponse,
+  CorrectInvoicePaymentParams,
+  CorrectInvoicePaymentBody,
+  CorrectInvoicePaymentResponse,
   UpdateTeamMemberAccessBody,
   UpdateTeamMemberAccessParams,
 } from "@workspace/api-zod";
@@ -56,7 +59,9 @@ import { versatCatalogTable } from "@workspace/db";
 import seriesRouter from "./invoice-series";
 import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
 import { transitionInvoice } from "../services/issue-invoice";
-import { recordInvoicePayment, InvoicePaymentError, paymentFilter } from "../services/invoice-payment";
+import {
+  correctInvoicePayment, recordInvoicePayment, InvoicePaymentError, paymentFilter,
+} from "../services/invoice-payment";
 
 const router: IRouter = Router();
 router.use(seriesRouter);
@@ -448,6 +453,34 @@ router.post("/invoices/:id/payments", async (req, res): Promise<void> => {
   }
 });
 
+router.post("/invoices/:id/payment-corrections", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = CorrectInvoicePaymentParams.safeParse(req.params);
+  const body = CorrectInvoicePaymentBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.error?.message ?? body.error?.message });
+    return;
+  }
+  try {
+    const result = await correctInvoicePayment(params.data.id, body.data, owner);
+    res.status(result.created ? 201 : 200).json(CorrectInvoicePaymentResponse.parse({
+      invoiceId: params.data.id,
+      paymentStatus: result.paymentStatus,
+      totalPaid: result.totalPaid,
+      balanceDue: result.balanceDue,
+      payments: result.payments,
+      paymentCorrections: result.paymentCorrections,
+    }));
+  } catch (error) {
+    if (error instanceof InvoicePaymentError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+
 router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   const member = await resolveTeamMember(req, res);
   if (!member) return;
@@ -557,7 +590,8 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
-  res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(serializeInvoice(invoice)));
+  const { paymentCorrections: _internalPaymentCorrections, ...sharedInvoice } = serializeInvoice(invoice);
+  res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(sharedInvoice));
 });
 
 router.get("/team/me", async (req, res): Promise<void> => {
