@@ -5,15 +5,23 @@ import { customersTable, db, versatCatalogTable, type CatalogKind, type VersatIn
 export async function prepareInvoice(
   input: Pick<InvoiceInput, "lines" | "currency" | "versat">,
   customer: typeof customersTable.$inferSelect,
+  options: { allowInactiveCatalogIds?: Iterable<number>; currentCurrency?: string } = {},
 ) {
   const catalog = await db.select().from(versatCatalogTable);
+  const allowedInactiveIds = new Set(options.allowInactiveCatalogIds ?? []);
   const entry = (id: number, kind: CatalogKind) => {
     const value = catalog.find((item) => item.id === id && item.kind === kind);
     if (!value) throw new Error(`El código seleccionado no existe en el catálogo de ${kind}.`);
+    if (!value.active && !allowedInactiveIds.has(value.id)) {
+      throw new Error(`El código seleccionado del catálogo de ${kind} está desactivado. Elige uno activo.`);
+    }
     return value;
   };
   const currency = catalog.find((item) => item.kind === "currency" && item.code === input.currency);
   if (!currency) throw new Error("Selecciona una moneda del catálogo de Versat.");
+  if (!currency.active && options.currentCurrency !== input.currency) {
+    throw new Error("La moneda seleccionada está desactivada. Elige una moneda activa.");
+  }
   const lines = input.lines.map((line, index) => {
     const quantity = new Decimal(line.quantity);
     const price = new Decimal(line.unitPrice);

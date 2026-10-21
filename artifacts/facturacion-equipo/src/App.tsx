@@ -223,11 +223,13 @@ function Shell({ children }: { children: ReactNode }) {
   const me = member.data;
   if (me.suspended) return <AccessMessage title="Tu acceso está suspendido" body="El propietario ha suspendido tu acceso al equipo. Tus facturas e historial se conservan. Pídele que reactive tu acceso y comprueba de nuevo." retry={() => member.refetch()} />;
   if (me.role === 'pending') return <AccessMessage title="Tu acceso está pendiente" body="La cuenta está creada. El propietario del espacio debe habilitar tu acceso antes de entrar al escritorio." retry={() => member.refetch()} />;
+  const visibleNavItems = navItems.filter(({ href }) => me.role === 'owner' || !['/export', '/settings', '/catalogs'].includes(href));
+  const sidebarItems = [...visibleNavItems, ...(me.role === 'owner' ? [{ href: '/team/members', label: 'Equipo', icon: Users }] : [])];
   return <div className="app-shell flex bg-[#f6f4eb]">
     <aside className="sidebar fixed inset-y-0 left-0 z-20 flex w-[238px] flex-col px-4 py-5">
       <Link href="/dashboard" className="mb-9 px-2"><BrandMark /></Link>
       <div className="mb-3 px-3 eyebrow !text-[#98aaa2]">Espacio de trabajo</div>
-      <nav className="space-y-1">{[...navItems, ...(me.role === 'owner' ? [{ href: '/team/members', label: 'Equipo', icon: Users }] : [])].map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={`side-link ${location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}`}><Icon size={17} />{label}{href === '/export' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#eab45c]" />}</Link>)}</nav>
+      <nav className="space-y-1">{sidebarItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={`side-link ${location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}`}><Icon size={17} />{label}{href === '/export' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#eab45c]" />}</Link>)}</nav>
       <div className="mt-auto">
         <div className="mb-4 rounded-xl border border-white/10 bg-white/[.04] p-3.5"><div className="flex items-center gap-2 text-[11px] font-semibold text-[#e7c17c]"><span className="h-1.5 w-1.5 rounded-full bg-[#e7c17c]" />Todo en orden</div><p className="mt-2 text-[11px] leading-[1.6] text-[#b6c3bc]">Tu equipo factura desde un único sitio. El cierre puede esperar a cuando tú quieras.</p></div>
         <button className="side-link w-full" data-testid="button-sign-out" onClick={() => signOut({ redirectUrl: basePath || '/' })}><LogOut size={16} />Cerrar sesión</button>
@@ -240,7 +242,7 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
     </div>
-    <nav className="mobile-nav">{navItems.slice(0, 6).map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
+    <nav className="mobile-nav">{visibleNavItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
   </div>;
 }
 
@@ -260,6 +262,8 @@ function InvoiceTable({ invoices, emptyPayment }: { invoices: Invoice[]; emptyPa
 
 function Dashboard() {
   const overview = useGetBillingOverview({ query: { queryKey: getGetBillingOverviewQueryKey(), retry: false, refetchInterval: 20000 } });
+  const currentMember = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
+  const owner = currentMember.data?.role === 'owner';
   const [month] = useState(() => new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()));
   return <div className="fade-in">
     <PageHeading eyebrow="Tu escritorio" title="Buenos días. Aquí está el mes." description={`Resumen compartido · ${month}`} action={<Link href="/invoices/new" className="button button-primary"><FilePlus2 size={16} />Nueva factura</Link>} />
@@ -288,7 +292,7 @@ function Dashboard() {
         {overview.isLoading ? <div className="space-y-4 p-5">{[0,1,2].map((x) => <div className="skeleton h-9" key={x} />)}</div> : (overview.isError || !overview.data) ? <div className="p-5"><QueryError retry={() => overview.refetch()} /></div> : <InvoiceTable invoices={overview.data.recentInvoices || []} />}
       </section>
       <aside className="flex flex-col gap-4">
-        <div className="rounded-[14px] bg-[#244a44] p-5 text-[#f4f2e8]"><div className="eyebrow !text-[#c7b078]">Siguiente paso</div><h3 className="font-display mt-3 text-xl font-bold tracking-[-.04em]">Cierra el mes con calma.</h3><p className="mt-2 text-[12px] leading-5 text-[#c5d1c8]">Prepara un período para revisar sus facturas antes de exportarlo a Versat Sarasola.</p><Link href="/export" className="button mt-5 !min-h-9 !border-white/20 !bg-white/10 !text-white">Preparar exportación <ArrowRight size={14} /></Link></div>
+        {owner && <div className="rounded-[14px] bg-[#244a44] p-5 text-[#f4f2e8]"><div className="eyebrow !text-[#c7b078]">Siguiente paso</div><h3 className="font-display mt-3 text-xl font-bold tracking-[-.04em]">Cierra el mes con calma.</h3><p className="mt-2 text-[12px] leading-5 text-[#c5d1c8]">Prepara un período para revisar sus facturas antes de exportarlo a Versat Sarasola.</p><Link href="/export" className="button mt-5 !min-h-9 !border-white/20 !bg-white/10 !text-white">Preparar exportación <ArrowRight size={14} /></Link></div>}
         <div className="panel p-5"><div className="eyebrow">Del equipo</div><div className="mt-4 flex items-start gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f7ecd6] text-[#a37b37]"><Users size={17} /></div><div><h3 className="text-[13px] font-bold">Un espacio compartido</h3><p className="mt-1 text-[11px] leading-5 text-[#79857e]">Especialistas y propietario trabajan con el mismo estado actualizado.</p></div></div></div>
       </aside>
     </div>
@@ -331,6 +335,14 @@ function Settings() {
 }
 
 function AuthenticatedRoute({ children }: { children: ReactNode }) { return <Protected>{children}</Protected>; }
+function OwnerOnly({ children }: { children: ReactNode }) {
+  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
+  if (member.isLoading) return <div className="grid min-h-[50vh] place-items-center"><div className="skeleton h-6 w-40" aria-label="Verificando permisos" /></div>;
+  if (member.isError || !member.data) return <AccessMessage title="No pudimos comprobar tu permiso" body="No se pudo verificar que tu cuenta sea propietaria. Vuelve al escritorio e inténtalo de nuevo." retry={() => member.refetch()} />;
+  if (member.data.role !== 'owner') return <Redirect to="/dashboard" />;
+  return <>{children}</>;
+}
+function OwnerRoute({ children }: { children: ReactNode }) { return <AuthenticatedRoute><OwnerOnly>{children}</OwnerOnly></AuthenticatedRoute>; }
 function HomeRedirect() { return <><Show when="signed-in"><Redirect to="/dashboard" /></Show><Show when="signed-out"><Home /></Show></>; }
 
 function AppRoutes() {
@@ -349,13 +361,13 @@ function AppRoutes() {
         <Route path="/invoices/new"><AuthenticatedRoute><InvoiceFormPage /></AuthenticatedRoute></Route>
         <Route path="/invoices/:id/edit"><AuthenticatedRoute><InvoiceFormPage /></AuthenticatedRoute></Route>
         <Route path="/invoices/:id"><AuthenticatedRoute><InvoiceDetailPage /></AuthenticatedRoute></Route>
-        <Route path="/catalogs"><AuthenticatedRoute><CatalogsPage /></AuthenticatedRoute></Route>
+        <Route path="/catalogs"><OwnerRoute><CatalogsPage /></OwnerRoute></Route>
         <Route path="/customers"><AuthenticatedRoute><CustomersPage /></AuthenticatedRoute></Route>
         <Route path="/customers/:id"><AuthenticatedRoute><Customer360Page /></AuthenticatedRoute></Route>
-        <Route path="/export"><AuthenticatedRoute><ExportPage /></AuthenticatedRoute></Route>
+        <Route path="/export"><OwnerRoute><ExportPage /></OwnerRoute></Route>
         <Route path="/settlements"><AuthenticatedRoute><SettlementsPage /></AuthenticatedRoute></Route>
-        <Route path="/settings"><AuthenticatedRoute><Settings /></AuthenticatedRoute></Route>
-        <Route path="/team/members"><AuthenticatedRoute><TeamMembers /></AuthenticatedRoute></Route>
+        <Route path="/settings"><OwnerRoute><Settings /></OwnerRoute></Route>
+        <Route path="/team/members"><OwnerRoute><TeamMembers /></OwnerRoute></Route>
         <Route><NotFound /></Route>
       </Switch></RoutedBoundary><Toaster /></TooltipProvider>
     </QueryClientProvider>

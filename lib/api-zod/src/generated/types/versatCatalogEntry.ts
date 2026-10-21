@@ -13,6 +13,7 @@ export interface VersatCatalogEntry {
   sourceId: number;
   code: string;
   name: string;
+  exportValue: string;
   /** @nullable */
   unitCode: string | null;
   /** @nullable */
@@ -21,4 +22,5 @@ export interface VersatCatalogEntry {
   groupCode: string | null;
   /** @nullable */
   position: string | null;
+  active: boolean;
 }

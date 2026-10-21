@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getListCustomersQueryKey, useCreateCustomer, useDeleteCustomer, useListCustomers, useUpdateCustomer } from '@workspace/api-client-react';
+import { getGetCurrentTeamMemberQueryKey, getListCustomersQueryKey, useCreateCustomer, useDeleteCustomer, useGetCurrentTeamMember, useListCustomers, useUpdateCustomer } from '@workspace/api-client-react';
 import type { Customer, CustomerInput } from '@workspace/api-client-react';
 import { BookOpen, Lock, Search, Users, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { EmptyState, PageHeading, QueryError, errorDetail } from '@/lib/shared';
 
 export default function CustomersPage() {
+  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -44,7 +45,7 @@ export default function CustomersPage() {
   const records = (query.data || []).filter((c) => showInactive || c.active);
 
   return <div className="fade-in">
-    <PageHeading eyebrow="Agenda compartida" title="Clientes" description="Los códigos y NIT se conservan tal como existen en Versat." action={<div className="flex flex-wrap gap-2"><Link href="/catalogs" className="button button-plain"><BookOpen size={15} />Ver catálogos</Link><button className="button button-primary" onClick={() => open()} data-testid="button-new-customer"><Users size={15} />Añadir cliente</button></div>} />
+    <PageHeading eyebrow="Agenda compartida" title="Clientes" description="Los códigos y NIT se conservan tal como existen en Versat." action={<div className="flex flex-wrap gap-2">{member.data?.role === 'owner' && <Link href="/catalogs" className="button button-plain"><BookOpen size={15} />Ver catálogos</Link>}<button className="button button-primary" onClick={() => open()} data-testid="button-new-customer"><Users size={15} />Añadir cliente</button></div>} />
     {success && <div className="mb-4 flex items-center justify-between rounded-lg bg-[#e6f2e9] px-4 py-2.5 text-[12px] font-semibold text-[#317060]" role="status">{success}<button onClick={() => setSuccess('')} aria-label="Cerrar aviso"><X size={14} /></button></div>}
     {error && !dialog && <div className="mb-4 rounded-lg bg-[#fbefeb] px-4 py-2.5 text-[12px] text-[#a04539]" role="alert">{error}</div>}
     <section className="panel overflow-hidden"><div className="flex flex-wrap items-center gap-3 border-b border-[#eeece4] p-4 md:px-5"><label className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={16} /><input className="field !h-10 !pl-9" placeholder="Buscar por nombre, código, email o NIT" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-customer-search" /></label><label className="flex items-center gap-2 text-[11px] font-semibold text-[#71817b]"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />Mostrar archivados</label></div>

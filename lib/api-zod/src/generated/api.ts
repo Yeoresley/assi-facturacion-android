@@ -2472,12 +2472,104 @@ export const GetVersatCatalogsResponse = zod.object({
   "sourceId": zod.number().int(),
   "code": zod.string(),
   "name": zod.string(),
+  "exportValue": zod.string(),
   "unitCode": zod.string().nullable(),
   "unitName": zod.string().nullable(),
   "groupCode": zod.string().nullable(),
-  "position": zod.string().nullable()
+  "position": zod.string().nullable(),
+  "active": zod.boolean()
 })),
   "customerCount": zod.number().int()
+})
+
+
+
+export const createVersatCatalogEntryBodyCodeMax = 100;
+
+export const createVersatCatalogEntryBodyNameMax = 200;
+
+export const createVersatCatalogEntryBodyExportValueMax = 200;
+
+export const createVersatCatalogEntryBodyUnitCodeMax = 60;
+
+export const createVersatCatalogEntryBodyUnitNameMax = 100;
+
+export const createVersatCatalogEntryBodyGroupCodeMax = 60;
+
+export const createVersatCatalogEntryBodyPositionMax = 120;
+
+
+
+export const CreateVersatCatalogEntryBody = zod.object({
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int().min(1),
+  "code": zod.string().min(1).max(createVersatCatalogEntryBodyCodeMax),
+  "name": zod.string().min(1).max(createVersatCatalogEntryBodyNameMax),
+  "exportValue": zod.string().min(1).max(createVersatCatalogEntryBodyExportValueMax),
+  "unitCode": zod.string().max(createVersatCatalogEntryBodyUnitCodeMax).optional(),
+  "unitName": zod.string().max(createVersatCatalogEntryBodyUnitNameMax).optional(),
+  "groupCode": zod.string().max(createVersatCatalogEntryBodyGroupCodeMax).optional(),
+  "position": zod.string().max(createVersatCatalogEntryBodyPositionMax).optional()
+})
+
+export const CreateVersatCatalogEntryResponse = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "exportValue": zod.string(),
+  "unitCode": zod.string().nullable(),
+  "unitName": zod.string().nullable(),
+  "groupCode": zod.string().nullable(),
+  "position": zod.string().nullable(),
+  "active": zod.boolean()
+})
+
+
+export const UpdateVersatCatalogEntryParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateVersatCatalogEntryBodyCodeMax = 100;
+
+export const updateVersatCatalogEntryBodyNameMax = 200;
+
+export const updateVersatCatalogEntryBodyExportValueMax = 200;
+
+export const updateVersatCatalogEntryBodyUnitCodeMax = 60;
+
+export const updateVersatCatalogEntryBodyUnitNameMax = 100;
+
+export const updateVersatCatalogEntryBodyGroupCodeMax = 60;
+
+export const updateVersatCatalogEntryBodyPositionMax = 120;
+
+
+
+export const UpdateVersatCatalogEntryBody = zod.object({
+  "code": zod.string().min(1).max(updateVersatCatalogEntryBodyCodeMax).optional(),
+  "name": zod.string().min(1).max(updateVersatCatalogEntryBodyNameMax).optional(),
+  "exportValue": zod.string().min(1).max(updateVersatCatalogEntryBodyExportValueMax).optional(),
+  "unitCode": zod.string().max(updateVersatCatalogEntryBodyUnitCodeMax).optional(),
+  "unitName": zod.string().max(updateVersatCatalogEntryBodyUnitNameMax).optional(),
+  "groupCode": zod.string().max(updateVersatCatalogEntryBodyGroupCodeMax).optional(),
+  "position": zod.string().max(updateVersatCatalogEntryBodyPositionMax).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateVersatCatalogEntryResponse = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['service', 'unit', 'currency', 'concept', 'operation', 'commercial', 'payment']),
+  "sourceId": zod.number().int(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "exportValue": zod.string(),
+  "unitCode": zod.string().nullable(),
+  "unitName": zod.string().nullable(),
+  "groupCode": zod.string().nullable(),
+  "position": zod.string().nullable(),
+  "active": zod.boolean()
 })
 
 

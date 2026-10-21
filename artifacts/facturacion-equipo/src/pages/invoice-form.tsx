@@ -51,6 +51,17 @@ export default function InvoiceFormPage() {
   const [error, setError] = useState('');
 
   const entries = useMemo(() => catalogs.data?.entries ?? [], [catalogs.data]);
+  const invoiceHasInactiveCatalogRefs = useMemo(() => {
+    const saved = invoice.data;
+    if (!isEdit || !saved || !catalogs.data) return false;
+    const availableIds = new Set(entries.map((entry) => entry.id));
+    const versatIds = saved.versat
+      ? [saved.versat.conceptId, saved.versat.operationId, saved.versat.commercialId, saved.versat.paymentId]
+      : [];
+    return versatIds.some((id) => !availableIds.has(id))
+      || saved.lines.some((line) => line.serviceId != null && !availableIds.has(line.serviceId))
+      || !entries.some((entry) => entry.kind === 'currency' && entry.code === saved.currency);
+  }, [catalogs.data, entries, invoice.data, isEdit]);
   const byKind = useMemo(() => {
     const groups: Record<string, VersatCatalogEntry[]> = { service: [], currency: [], concept: [], operation: [], commercial: [], payment: [], unit: [] };
     for (const entry of entries) (groups[entry.kind] ||= []).push(entry);
@@ -65,7 +76,8 @@ export default function InvoiceFormPage() {
 
   // Default the currency to the first imported currency once catalogs arrive (new invoices only).
   useEffect(() => {
-    if (!isEdit && !currency && byKind.currency.length) setCurrency(byKind.currency[0].code);
+    const firstActiveCurrency = byKind.currency.find((entry) => entry.active);
+    if (!isEdit && !currency && firstActiveCurrency) setCurrency(firstActiveCurrency.code);
   }, [isEdit, currency, byKind.currency]);
 
   // Initialise form from the stored draft exactly once per invoice id.
@@ -103,7 +115,9 @@ export default function InvoiceFormPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice.data, isEdit]);
 
-  const currencyOptions = byKind.currency;
+  const currencyOptions = byKind.currency.filter((entry) => entry.active);
+  const selectableServices = services.filter((service) =>
+    service.active || lines.some((line) => line.serviceId === String(service.id)));
   const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0), 0);
   const saving = create.isPending || update.isPending;
 
@@ -112,7 +126,8 @@ export default function InvoiceFormPage() {
   }
 
   function pickService(index: number, text: string) {
-    const match = services.find((service) => label(service) === text);
+    const match = services.find((service) =>
+      label(service) === text && (service.active || lines[index]?.serviceId === String(service.id)));
     if (!match) {
       patchLine(index, { serviceId: '' });
       return;
@@ -194,13 +209,15 @@ export default function InvoiceFormPage() {
   const select = (value: string, onChange: (value: string) => void, kind: string, testId: string, placeholder: string) => (
     <select className="field" value={value} onChange={(e) => onChange(e.target.value)} data-testid={testId}>
       <option value="">{placeholder}</option>
-      {(byKind[kind] || []).map((entry) => <option key={entry.id} value={entry.id}>{label(entry)}</option>)}
+      {(byKind[kind] || []).filter((entry) => entry.active || String(entry.id) === value)
+        .map((entry) => <option key={entry.id} value={entry.id}>{label(entry)}{entry.active ? '' : ' (desactivado)'}</option>)}
     </select>
   );
 
   return <div className="fade-in mx-auto max-w-[980px]">
     <Link href={backHref} className="mb-6 inline-flex items-center gap-2 text-[12px] font-semibold text-[#71817b]"><ArrowLeft size={14} />{isEdit ? 'Volver a la factura' : 'Volver a facturas'}</Link>
     <PageHeading eyebrow={isEdit ? 'Editar borrador' : 'Nuevo documento'} title={isEdit ? 'Editar factura' : 'Preparar factura'} description="Puedes guardar un borrador incompleto. Elige numeración manual o una serie declarada por el propietario; la serie asigna número y talón al emitir." />
+    {invoiceHasInactiveCatalogRefs && <div className="mb-5 rounded-xl border border-[#ead9b6] bg-[#fcf5e6] px-4 py-3 text-[12px] leading-5 text-[#775d2d]" role="status">Este borrador conserva uno o más códigos que el administrador desactivó. Puedes mantenerlos en este borrador; para volver a elegirlos o usarlos en facturas nuevas, el administrador debe reactivarlos.</div>}
     {catalogs.isError && <div className="mb-5"><QueryError retry={() => catalogs.refetch()} message="No pudimos cargar los catálogos de Versat." detail={errorDetail(catalogs.error, '')} /></div>}
     <form onSubmit={submit} className="space-y-5">
       <section className="panel p-5 md:p-7"><div className="mb-5 flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e6f0e9] text-[#38776b]"><Users size={16} /></span><h2 className="font-display text-base font-bold">Cliente y fechas</h2></div>
@@ -214,7 +231,7 @@ export default function InvoiceFormPage() {
 
       <section className="panel p-5 md:p-7"><div className="mb-5"><div className="eyebrow">Versat de escritorio</div><h2 className="font-display mt-1 text-base font-bold">Datos de la factura en Versat</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Todos los valores salen de los catálogos importados. Puedes guardar el borrador sin ellos, pero no se podrá exportar hasta completarlos.</p></div>
         <div className="grid gap-4 md:grid-cols-2">
-          <label><span className="field-label">Moneda *</span><select className="field" value={currency} onChange={(e) => setCurrency(e.target.value)} data-testid="select-currency">{!currencyOptions.length && currency && <option value={currency}>{currency}</option>}{!currencyOptions.length && !currency && <option value="">Sin monedas importadas</option>}{currencyOptions.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.name}</option>)}{currencyOptions.length > 0 && currency && !currencyOptions.some((entry) => entry.code === currency) && <option value={currency}>{currency}</option>}</select></label>
+          <label><span className="field-label">Moneda *</span><select className="field" value={currency} onChange={(e) => setCurrency(e.target.value)} data-testid="select-currency">{!currencyOptions.length && currency && <option value={currency}>{currency}{byKind.currency.find((entry) => entry.code === currency)?.active === false ? ' (desactivada)' : ''}</option>}{!currencyOptions.length && !currency && <option value="">Sin monedas activas</option>}{currencyOptions.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.name}</option>)}{currencyOptions.length > 0 && currency && !currencyOptions.some((entry) => entry.code === currency) && <option value={currency}>{currency}{byKind.currency.find((entry) => entry.code === currency)?.active === false ? ' (desactivada)' : ''}</option>}</select></label>
           <label><span className="field-label">Concepto</span>{select(conceptId, setConceptId, 'concept', 'select-concept', 'Selecciona concepto')}</label>
           <label><span className="field-label">Operación</span>{select(operationId, setOperationId, 'operation', 'select-operation', 'Selecciona operación')}</label>
           <label><span className="field-label">Comercial{locked ? ' (asignado)' : ''}</span>{locked ? <div className="field flex items-center bg-[#f1f0e8] text-[#5d716b]" data-testid="select-commercial">{(() => { const c = byKind.commercial.find((e) => e.id === assignedId); return c ? label(c) : catalogs.isLoading ? 'Cargando…' : `Comercial ${assignedId}`; })()}</div> : select(commercialId, setCommercialId, 'commercial', 'select-commercial', 'Selecciona comercial')}</label>
@@ -229,12 +246,12 @@ export default function InvoiceFormPage() {
       </section>
 
       <section className="panel overflow-hidden"><div className="px-5 py-5 md:px-7"><div className="eyebrow">Detalle</div><h2 className="font-display mt-1 text-base font-bold">Servicios y honorarios</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Cantidad con hasta 4 decimales y precio con hasta 5, escritos a mano: los catálogos no traen precios. El grupo solo se rellena si el catálogo lo conoce; si no, confírmalo tú.</p></div>
-        <datalist id="service-options">{services.map((service) => <option key={service.id} value={label(service)} />)}</datalist>
+        <datalist id="service-options">{selectableServices.map((service) => <option key={service.id} value={label(service)} />)}</datalist>
         <div className="space-y-3 border-t border-[#eeece4] px-5 py-4 md:px-7">{lines.map((line, i) => {
           const service = serviceById.get(line.serviceId);
           return <div key={i} className="rounded-xl border border-[#eeece4] p-4" data-testid={`line-${i}`}>
             <div className="grid gap-3 md:grid-cols-[1.3fr_1fr]">
-              <label><span className="field-label">Servicio del catálogo</span><input className="field" list="service-options" defaultValue={service ? label(service) : ''} key={`svc-${i}-${line.serviceId}`} onChange={(e) => pickService(i, e.target.value)} onBlur={(e) => { if (!serviceById.has(line.serviceId)) e.currentTarget.value = ''; }} placeholder={services.length ? 'Busca por código o nombre' : 'Sin servicios importados'} data-testid={`input-line-service-${i}`} /></label>
+              <label><span className="field-label">Servicio del catálogo</span><input className="field" list="service-options" defaultValue={service ? label(service) : ''} key={`svc-${i}-${line.serviceId}`} onChange={(e) => pickService(i, e.target.value)} onBlur={(e) => { if (!serviceById.has(line.serviceId)) e.currentTarget.value = ''; }} placeholder={selectableServices.length ? 'Busca por código o nombre' : 'Sin servicios activos'} data-testid={`input-line-service-${i}`} />{service && !service.active && <span className="mt-1 block text-[10px] text-[#9a6960]">Servicio desactivado: el borrador existente se conserva, pero no se puede usar en facturas nuevas.</span>}</label>
               <label><span className="field-label">Descripción *</span><input className={`field ${service ? 'bg-[#f1f0e8] text-[#5d716b]' : ''}`} value={line.description} readOnly={!!service} onChange={(e) => patchLine(i, { description: e.target.value })} data-testid={`input-line-description-${i}`} />{service && <span className="mt-1 block text-[10px] text-[#85918a]">El nombre viene del catálogo. Para texto personalizado usa la nota de la factura.</span>}</label>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-[90px_110px_150px_1fr_auto] md:items-end">

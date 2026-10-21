@@ -627,6 +627,7 @@ export interface VersatCatalogEntry {
   sourceId: number;
   code: string;
   name: string;
+  exportValue: string;
   /** @nullable */
   unitCode: string | null;
   /** @nullable */
@@ -635,6 +636,76 @@ export interface VersatCatalogEntry {
   groupCode: string | null;
   /** @nullable */
   position: string | null;
+  active: boolean;
+}
+
+export type VersatCatalogInputKind = typeof VersatCatalogInputKind[keyof typeof VersatCatalogInputKind];
+
+
+export const VersatCatalogInputKind = {
+  service: 'service',
+  unit: 'unit',
+  currency: 'currency',
+  concept: 'concept',
+  operation: 'operation',
+  commercial: 'commercial',
+  payment: 'payment',
+} as const;
+
+export interface VersatCatalogInput {
+  kind: VersatCatalogInputKind;
+  /** @minimum 1 */
+  sourceId: number;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  exportValue: string;
+  /** @maxLength 60 */
+  unitCode?: string;
+  /** @maxLength 100 */
+  unitName?: string;
+  /** @maxLength 60 */
+  groupCode?: string;
+  /** @maxLength 120 */
+  position?: string;
+}
+
+export interface VersatCatalogUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  code?: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  exportValue?: string;
+  /** @maxLength 60 */
+  unitCode?: string;
+  /** @maxLength 100 */
+  unitName?: string;
+  /** @maxLength 60 */
+  groupCode?: string;
+  /** @maxLength 120 */
+  position?: string;
+  active?: boolean;
 }
 
 export interface VersatCatalogs {

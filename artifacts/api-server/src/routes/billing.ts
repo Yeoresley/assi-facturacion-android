@@ -375,9 +375,19 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Choose an active customer" });
     return;
   }
+  const existingLines = await db.select({ serviceId: invoiceLinesTable.serviceId })
+    .from(invoiceLinesTable).where(eq(invoiceLinesTable.invoiceId, current.id));
+  const allowedInactiveCatalogIds = [
+    ...(current.versat ? [current.versat.conceptId, current.versat.operationId, current.versat.commercialId, current.versat.paymentId] : []),
+    ...existingLines.flatMap((line) => line.serviceId == null ? [] : [line.serviceId]),
+  ];
   let prepared: Awaited<ReturnType<typeof prepareInvoice>>;
   try {
-    prepared = await prepareInvoice({ ...body.data, versat: effectiveVersat }, customer);
+    prepared = await prepareInvoice(
+      { ...body.data, versat: effectiveVersat },
+      customer,
+      { allowInactiveCatalogIds: allowedInactiveCatalogIds, currentCurrency: current.currency },
+    );
   } catch (error) {
     res.status(422).json({ error: error instanceof Error ? error.message : "Datos de Versat no válidos." });
     return;

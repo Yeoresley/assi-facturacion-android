@@ -30,7 +30,7 @@ function OwnerTeam() {
   const [commercial, setCommercial] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const commercials = (catalogs.data?.entries ?? []).filter((e) => e.kind === 'commercial');
+  const commercials = (catalogs.data?.entries ?? []).filter((e) => e.kind === 'commercial' && (e.active || String(e.id) === commercial));
   const byId = new Map(commercials.map((c) => [c.id, c]));
   const selected = commercial ? byId.get(Number(commercial)) : undefined;
   const [confirmation, setConfirmation] = useState<TeamMember | null>(null);

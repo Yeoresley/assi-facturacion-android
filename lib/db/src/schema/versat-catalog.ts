@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, serial, text, unique } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, unique } from "drizzle-orm/pg-core";
 
 export type CatalogKind = "service" | "unit" | "currency" | "concept" | "operation" | "commercial" | "payment";
 export type CatalogMetadata = {
@@ -16,6 +16,7 @@ export const versatCatalogTable = pgTable("versat_catalog", {
   name: text("name").notNull(),
   exportValue: text("export_value").notNull(),
   metadata: jsonb("metadata").$type<CatalogMetadata>().notNull().default({}),
+  active: boolean("active").notNull().default(true),
 }, (table) => [unique("versat_catalog_source_unique").on(table.kind, table.sourceId)]);
 
 export type VersatInvoiceSnapshot = {

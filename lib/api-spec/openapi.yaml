@@ -570,6 +570,40 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VersatCatalogs" }
+    post:
+      operationId: createVersatCatalogEntry
+      tags: [Billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersatCatalogInput" }
+      responses:
+        "201":
+          description: Catalog entry created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatCatalogEntry" }
+        "409": { description: A catalog entry with this source ID or code already exists }
+  /versat/catalogs/{id}:
+    patch:
+      operationId: updateVersatCatalogEntry
+      tags: [Billing]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersatCatalogUpdate" }
+      responses:
+        "200":
+          description: Catalog entry updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersatCatalogEntry" }
+        "404": { description: Catalog entry not found }
+        "409": { description: A catalog entry with this code already exists }
   /invoices/{id}/versat-file:
     get:
       operationId: getInvoiceVersatFile
@@ -1049,17 +1083,43 @@ components:
         createdAt: { type: string, format: date-time }
     VersatCatalogEntry:
       type: object
-      required: [id, kind, sourceId, code, name, unitCode, unitName, groupCode, position]
+      required: [id, kind, sourceId, code, name, exportValue, unitCode, unitName, groupCode, position, active]
       properties:
         id: { type: integer }
         kind: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
         sourceId: { type: integer }
         code: { type: string }
         name: { type: string }
+        exportValue: { type: string }
         unitCode: { type: ["string", "null"] }
         unitName: { type: ["string", "null"] }
         groupCode: { type: ["string", "null"] }
         position: { type: ["string", "null"] }
+        active: { type: boolean }
+    VersatCatalogInput:
+      type: object
+      required: [kind, sourceId, code, name, exportValue]
+      properties:
+        kind: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
+        sourceId: { type: integer, minimum: 1 }
+        code: { type: string, minLength: 1, maxLength: 100 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        exportValue: { type: string, minLength: 1, maxLength: 200 }
+        unitCode: { type: string, maxLength: 60 }
+        unitName: { type: string, maxLength: 100 }
+        groupCode: { type: string, maxLength: 60 }
+        position: { type: string, maxLength: 120 }
+    VersatCatalogUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 100 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        exportValue: { type: string, minLength: 1, maxLength: 200 }
+        unitCode: { type: string, maxLength: 60 }
+        unitName: { type: string, maxLength: 100 }
+        groupCode: { type: string, maxLength: 60 }
+        position: { type: string, maxLength: 120 }
+        active: { type: boolean }
     VersatCatalogs:
       type: object
       required: [entries, customerCount]

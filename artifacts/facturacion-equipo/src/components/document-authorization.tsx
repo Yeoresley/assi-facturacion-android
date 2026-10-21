@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  useAuthorizeInvoiceDocument, useGetIssuer, getGetIssuerQueryKey, getGetInvoiceQueryKey, getListInvoicesQueryKey,
+  useAuthorizeInvoiceDocument, useGetCurrentTeamMember, useGetIssuer, getGetCurrentTeamMemberQueryKey,
+  getGetIssuerQueryKey, getGetInvoiceQueryKey, getListInvoicesQueryKey,
   type DocumentAuthorization, type Invoice,
 } from '@workspace/api-client-react';
 import { errorDetail } from '@/lib/shared';
@@ -16,6 +17,7 @@ const fields = {
 };
 
 export function DocumentAuthorizationForm({ invoice }: { invoice: Invoice }) {
+  const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
   const settings = useGetIssuer({ query: { queryKey: getGetIssuerQueryKey(), retry: false, staleTime: 0 } });
   const mutation = useAuthorizeInvoiceDocument();
   const client = useQueryClient();
@@ -39,7 +41,7 @@ export function DocumentAuthorizationForm({ invoice }: { invoice: Invoice }) {
   return <section className="no-print panel mb-5 p-5">
     <h2 className="font-display font-bold">Modelo imprimible · confirmación del documento</h2>
     <p className="my-3 text-xs leading-5">No se asignan responsables a partir del PDF de ejemplo. Completa los nombres reales; el cuño y las firmas se dejan en blanco para completar después de imprimir. No se reutilizan las imágenes escaneadas del ejemplo.</p>
-    <Link href="/settings" className="text-xs underline">Ver emisor y datos de pago</Link>
+    {member.data?.role === 'owner' && <Link href="/settings" className="text-xs underline">Ver emisor y datos de pago</Link>}
     {settings.isError ? <p className="mt-3 text-xs" role="alert">No se pudo cargar el emisor. <button onClick={() => settings.refetch()}>Reintentar</button></p> : settings.isPending ? <p>Cargando emisor…</p> : !settings.data.profile ? <p className="mt-3 text-xs">El propietario aún no ha configurado el emisor. Pídele que lo complete en Ajustes.</p> : <form onSubmit={save} className="mt-4 space-y-4">
       <p className="text-xs">Emisor: <strong>{settings.data.profile.name}</strong> · NIT {settings.data.profile.nit}</p>
       <div className="grid gap-3 sm:grid-cols-2">{Object.entries(fields).map(([key, label]) => <label className="text-xs font-semibold" key={key}>{label}{['preparedBy', 'preparedPosition'].includes(key) ? ' *' : ''}
