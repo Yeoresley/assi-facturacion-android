@@ -4,6 +4,7 @@ import billingRouter from "./billing";
 import versatRouter from "./versat";
 import legalDocumentsRouter from "./legal-documents";
 import settlementsRouter from "./settlements";
+import productionTestCleanupRouter from "./production-test-cleanup";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(billingRouter);
 router.use(versatRouter);
 router.use(legalDocumentsRouter);
 router.use(settlementsRouter);
+router.use(productionTestCleanupRouter);
 
 export default router;

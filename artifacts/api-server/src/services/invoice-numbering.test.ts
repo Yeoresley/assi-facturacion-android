@@ -73,6 +73,23 @@ test("created invoice series response matches the saved series contract", () => 
   };
   assert.deepEqual(CreateInvoiceSeriesResponse.parse(saved), saved);
 });
+
+test("orphaned number reservations still block reuse, including compact spellings", async () => {
+  const d = await draft(null);
+  const reservedNumber = `${tag}ORPHAN-91`;
+  await db.insert(invoiceNumberReservationsTable).values({
+    number: reservedNumber, invoiceId: null, talon: "5",
+  });
+  try {
+    await assert.rejects(db.transaction(async (tx) => {
+      await lockNumbering(tx);
+      await reserveNumber(tx, d.id, reservedNumber.replaceAll("-", ""), "5");
+    }), /reservado/);
+  } finally {
+    await db.delete(invoiceNumberReservationsTable).where(eq(invoiceNumberReservationsTable.number, reservedNumber));
+  }
+});
+
 async function draft(seriesId: number | null, extra: Partial<typeof invoicesTable.$inferInsert> = {}) {
   const [row] = await db.insert(invoicesTable).values({
     number: tag + randomUUID(), customerId, specialistId: randomUUID(), specialistName: "Test specialist",

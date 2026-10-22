@@ -18,7 +18,9 @@ export const invoiceSeriesTable = pgTable("invoice_series", {
 // Append-only: even abandoned draft numbers remain unavailable to other invoices.
 export const invoiceNumberReservationsTable = pgTable("invoice_number_reservations", {
   number: text("number").primaryKey(),
-  invoiceId: integer("invoice_id").notNull().references(() => invoicesTable.id),
+  // The reservation survives test-data cleanup or invoice removal so issued numbers
+  // are never available for reuse.
+  invoiceId: integer("invoice_id").references(() => invoicesTable.id, { onDelete: "set null" }),
   talon: text("talon"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

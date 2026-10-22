@@ -1,4 +1,4 @@
-import { eq, ne, and, sql } from "drizzle-orm";
+import { eq, ne, and, isNull, or, sql } from "drizzle-orm";
 import { db, invoicesTable, invoiceSeriesTable, invoiceNumberReservationsTable } from "@workspace/db";
 import { facNumber } from "./versat-identity";
 
@@ -28,7 +28,7 @@ export async function reserveNumber(tx: BillingTransaction, invoiceId: number, n
   const [compactReservation] = await tx.select({ invoiceId: invoiceNumberReservationsTable.invoiceId })
     .from(invoiceNumberReservationsTable).where(and(
       sql`replace(${invoiceNumberReservationsTable.number}, '-', '') = ${facNumber(number)}`,
-      ne(invoiceNumberReservationsTable.invoiceId, invoiceId),
+      or(isNull(invoiceNumberReservationsTable.invoiceId), ne(invoiceNumberReservationsTable.invoiceId, invoiceId)),
     ));
   if (compactReservation) throw new NumberingError("Ese número de Versat ya está reservado, también al quitar los guiones.");
   await tx.insert(invoiceNumberReservationsTable).values({ number, invoiceId, talon }).onConflictDoNothing();

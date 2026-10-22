@@ -63,5 +63,9 @@ packages = ["freetype", "gumbo", "harfbuzz", "jbig2dec", "libjpeg_turbo", "mupdf
 [userenv.shared]
 OWNER_EMAIL = "kcodguez@gmail.com"
 
+[userenv.production]
+ASSI_PRODUCTION_TEST_CLEANUP = "true"
+ASSI_PRODUCTION_TEST_CLEANUP_TARGETS = "{\"invoices\":[{\"id\":2,\"number\":\"FAC-2026-000002\",\"versatNumber\":\"HAB-26-091\",\"talon\":\"5\"},{\"id\":305,\"number\":\"FAC-2026-000305\",\"versatNumber\":\"HAB-26-092\",\"talon\":\"5\"}],\"expenses\":[{\"id\":1,\"period\":\"2026-10\"}]}"
+
 [objectStorage]
 defaultBucketID = "replit-objstore-a6d0d251-3729-4537-8506-bfd9f9a1ecbb"
