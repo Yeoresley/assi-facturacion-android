@@ -1302,6 +1302,19 @@ export interface SettlementUnpaidCandidate {
   balanceDue: number;
 }
 
+export interface SettlementPaidAwaitingConfirmation {
+  invoiceId: number;
+  invoiceNumber: string;
+  customerName: string;
+  specialistId: string;
+  specialistName: string;
+  issueDate: string;
+  currency: string;
+  total: number;
+  totalPaid: number;
+  paidOn: string;
+}
+
 export interface SettlementUnclassifiedLine {
   invoiceId: number;
   invoiceNumber: string;
@@ -1322,6 +1335,7 @@ export interface MonthlySettlement {
   results: SettlementSpecialistResult[];
   serviceCatalog: SettlementServiceCatalogEntry[];
   unpaidCandidates: SettlementUnpaidCandidate[];
+  paidAwaitingConfirmation: SettlementPaidAwaitingConfirmation[];
   exchangeRates: SettlementExchangeRate[];
   unclassifiedLines: SettlementUnclassifiedLine[];
 }

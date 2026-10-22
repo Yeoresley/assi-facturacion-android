@@ -73,6 +73,7 @@ export * from './settlementInvoiceInclusion';
 export * from './settlementInvoiceInclusionInput';
 export * from './settlementInvoiceInclusionType';
 export * from './settlementLine';
+export * from './settlementPaidAwaitingConfirmation';
 export * from './settlementPayment';
 export * from './settlementPaymentInput';
 export * from './settlementPaymentStatus';

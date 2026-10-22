@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SettlementExchangeRate } from './settlementExchangeRate';
+import type { SettlementPaidAwaitingConfirmation } from './settlementPaidAwaitingConfirmation';
 import type { SettlementServiceCatalogEntry } from './settlementServiceCatalogEntry';
 import type { SettlementSpecialistResult } from './settlementSpecialistResult';
 import type { SettlementUnclassifiedLine } from './settlementUnclassifiedLine';
@@ -17,6 +18,7 @@ export interface MonthlySettlement {
   results: SettlementSpecialistResult[];
   serviceCatalog: SettlementServiceCatalogEntry[];
   unpaidCandidates: SettlementUnpaidCandidate[];
+  paidAwaitingConfirmation: SettlementPaidAwaitingConfirmation[];
   exchangeRates: SettlementExchangeRate[];
   unclassifiedLines: SettlementUnclassifiedLine[];
 }

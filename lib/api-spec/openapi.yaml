@@ -1687,6 +1687,20 @@ components:
         total: { type: number }
         totalPaid: { type: number }
         balanceDue: { type: number }
+    SettlementPaidAwaitingConfirmation:
+      type: object
+      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, issueDate, currency, total, totalPaid, paidOn]
+      properties:
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        customerName: { type: string }
+        specialistId: { type: string }
+        specialistName: { type: string }
+        issueDate: { type: string, format: date }
+        currency: { type: string }
+        total: { type: number }
+        totalPaid: { type: number }
+        paidOn: { type: string, format: date }
     SettlementUnclassifiedLine:
       type: object
       required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, invoiceLineId, serviceCode, description, amount, currency]
@@ -1703,13 +1717,14 @@ components:
         currency: { type: string }
     MonthlySettlement:
       type: object
-      required: [period, baseCurrency, results, serviceCatalog, unpaidCandidates, exchangeRates, unclassifiedLines]
+      required: [period, baseCurrency, results, serviceCatalog, unpaidCandidates, paidAwaitingConfirmation, exchangeRates, unclassifiedLines]
       properties:
         period: { type: string }
         baseCurrency: { type: string }
         results: { type: array, items: { $ref: "#/components/schemas/SettlementSpecialistResult" } }
         serviceCatalog: { type: array, items: { $ref: "#/components/schemas/SettlementServiceCatalogEntry" } }
         unpaidCandidates: { type: array, items: { $ref: "#/components/schemas/SettlementUnpaidCandidate" } }
+        paidAwaitingConfirmation: { type: array, items: { $ref: "#/components/schemas/SettlementPaidAwaitingConfirmation" } }
         exchangeRates: { type: array, items: { $ref: "#/components/schemas/SettlementExchangeRate" } }
         unclassifiedLines: { type: array, items: { $ref: "#/components/schemas/SettlementUnclassifiedLine" } }
     VersatInvoiceInput:

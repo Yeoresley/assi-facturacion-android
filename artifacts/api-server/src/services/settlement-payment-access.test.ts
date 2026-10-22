@@ -36,6 +36,7 @@ let server: Server;
 let base: string;
 let customerId: number;
 let invoiceId: number;
+let awaitingConfirmationInvoiceId: number;
 let invoiceLineId: number;
 
 before(async () => {
@@ -90,6 +91,27 @@ before(async () => {
     paidOn,
     paidBy: ownerId,
   });
+  const [awaitingConfirmationInvoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-awaiting-confirmation`,
+    customerId,
+    specialistId: specialistOneId,
+    specialistName: specialistOneId,
+    issueDate: paidOn,
+    currency: "CUP",
+    status: "accepted",
+    paymentStatus: "paid",
+    subtotal: 3_000,
+    total: 3_000,
+  }).returning();
+  awaitingConfirmationInvoiceId = awaitingConfirmationInvoice.id;
+  await db.insert(invoicePaymentsTable).values({
+    invoiceId: awaitingConfirmationInvoiceId,
+    idempotencyKey: randomUUID(),
+    amount: 3_000,
+    currency: "CUP",
+    paidOn,
+    paidBy: ownerId,
+  });
   await db.insert(settlementClassificationsTable).values({
     invoiceLineId: line.id,
     salesType: "service",
@@ -128,7 +150,9 @@ after(async () => {
   ));
   await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
-  if (invoiceId) await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId]));
+  if (invoiceId || awaitingConfirmationInvoiceId) {
+    await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, awaitingConfirmationInvoiceId].filter((id): id is number => Boolean(id))));
+  }
   if (customerId) await db.delete(customersTable).where(inArray(customersTable.id, [customerId]));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
   await pool.end();
@@ -162,6 +186,35 @@ test("specialists see only their settlement transfer history, while the owner ca
   assert.ok(ownerResult.results.some((result) => result.payments.some(({ reference }) => reference === `${tag}-one`)));
   assert.ok(ownerResult.results.some((result) => result.payments.some(({ reference }) => reference === `${tag}-two`)));
   assert.ok(ownerResult.results.find((result) => result.specialistId === specialistOneId)!.pendingAmount > 125);
+});
+
+test("paid invoices awaiting Versat confirmation are visible only in their specialist scope and stay outside the calculation", async () => {
+  const specialistResponse = await request(specialistOneId);
+  assert.equal(specialistResponse.status, 200);
+  const specialistResult = GetMonthlySettlementResponse.parse(await specialistResponse.json());
+  assert.deepEqual(specialistResult.paidAwaitingConfirmation.map(({ invoiceId: id, paidOn: date }) => ({
+    invoiceId: id,
+    paidOn: date.toISOString().slice(0, 10),
+  })), [{ invoiceId: awaitingConfirmationInvoiceId, paidOn }]);
+  assert.equal(
+    specialistResult.results[0].invoices.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId),
+    false,
+  );
+
+  const otherSpecialistResponse = await request(specialistTwoId);
+  assert.equal(otherSpecialistResponse.status, 200);
+  const otherSpecialistResult = GetMonthlySettlementResponse.parse(await otherSpecialistResponse.json());
+  assert.deepEqual(otherSpecialistResult.paidAwaitingConfirmation, []);
+  assert.equal(JSON.stringify(otherSpecialistResult).includes(`${tag}-awaiting-confirmation`), false);
+
+  const ownerResponse = await request(ownerId);
+  assert.equal(ownerResponse.status, 200);
+  const ownerResult = GetMonthlySettlementResponse.parse(await ownerResponse.json());
+  assert.ok(ownerResult.paidAwaitingConfirmation.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId));
+  assert.equal(
+    ownerResult.results.some((result) => result.invoices.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId)),
+    false,
+  );
 });
 
 test("owner can record a reviewed partial transfer with its date and reference", async () => {

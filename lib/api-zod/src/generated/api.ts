@@ -368,6 +368,18 @@ export const GetMonthlySettlementResponse = zod.object({
   "totalPaid": zod.number(),
   "balanceDue": zod.number()
 })),
+  "paidAwaitingConfirmation": zod.array(zod.object({
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "customerName": zod.string(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currency": zod.string(),
+  "total": zod.number(),
+  "totalPaid": zod.number(),
+  "paidOn": zod.coerce.date()
+})),
   "exchangeRates": zod.array(zod.object({
   "id": zod.number().int(),
   "period": zod.string(),

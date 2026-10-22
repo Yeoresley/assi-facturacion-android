@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateSettlementClassificationBody,
@@ -191,9 +191,14 @@ router.get("/settlements", async (req, res): Promise<void> => {
     eq(invoicesTable.status, "confirmed"),
     owner ? undefined : eq(invoicesTable.specialistId, member.userId),
   );
-  const [invoices, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments, closures] =
+  const paidAwaitingConfirmationScope = and(
+    inArray(invoicesTable.status, ["finished", "accepted", "sent", "paid"]),
+    owner ? undefined : eq(invoicesTable.specialistId, member.userId),
+  );
+  const [invoices, paidAwaitingConfirmationRows, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments, closures] =
     await Promise.all([
       getInvoiceRows(undefined, invoiceScope),
+      getInvoiceRows(undefined, paidAwaitingConfirmationScope),
       db.select().from(settlementClassificationsTable),
       db.select().from(settlementExpensesTable).where(and(
         eq(settlementExpensesTable.period, period),
@@ -242,6 +247,24 @@ router.get("/settlements", async (req, res): Promise<void> => {
   for (const rate of rates) rateByCurrency.set(rate.currency.toUpperCase(), rate.rateToCup);
 
   const confirmedInvoices = invoices.filter((invoice) => invoice.status === "confirmed");
+  const paidAwaitingConfirmation = paidAwaitingConfirmationRows.flatMap((invoice) => {
+    if (invoice.paymentStatus !== "paid") return [];
+    // Legacy invoices may have been marked paid before payment receipts were recorded.
+    const paidOn = settlementPaidOn(invoice) ?? invoice.paidAt?.toISOString().slice(0, 10) ?? null;
+    if (!paidOn?.startsWith(period)) return [];
+    return [{
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.versatNumber ?? invoice.number,
+      customerName: invoice.customerName,
+      specialistId: invoice.specialistId,
+      specialistName: invoice.specialistName,
+      issueDate: invoice.issueDate,
+      currency: invoice.currency,
+      total: invoice.total,
+      totalPaid: invoice.totalPaid,
+      paidOn,
+    }];
+  }).sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.invoiceId - a.invoiceId);
   const automaticInvoices = confirmedInvoices.flatMap((invoice) => {
     if (invoice.paymentStatus !== "paid" || activeInclusionByInvoice.has(invoice.id)) return [];
     const paidOn = settlementPaidOn(invoice);
@@ -441,6 +464,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     results,
     serviceCatalog,
     unpaidCandidates,
+    paidAwaitingConfirmation,
     exchangeRates: rates.map(serializedRate),
     unclassifiedLines,
   }));
