@@ -187,6 +187,8 @@ router.get("/settlements", async (req, res): Promise<void> => {
 
   const period = parsed.data.period;
   const owner = member.role === "owner";
+  // Settlement ownership comes only from the saved specialist assignment. Versat's
+  // commercialId is an export field and must never move salary credit implicitly.
   const invoiceScope = and(
     eq(invoicesTable.status, "confirmed"),
     owner ? undefined : eq(invoicesTable.specialistId, member.userId),

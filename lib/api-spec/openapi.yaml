@@ -1098,6 +1098,9 @@ components:
       required: [customerId, issueDate, currency, lines]
       properties:
         seriesId: { type: ["integer", "null"], minimum: 1 }
+        specialistId:
+          type: ["string", "null"]
+          description: Especialista responsable de la liquidación. Null atribuye la factura al propietario. Si se omite al editar, se conserva la asignación actual.
         customerId: { type: integer }
         issueDate: { type: string, format: date }
         dueDate: { type: ["string", "null"], format: date }

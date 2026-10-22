@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey, getGetVersatCatalogsQueryKey, useGetCurrentTeamMember, getListCustomersQueryKey,
-  getListInvoicesQueryKey, useCreateInvoice, useGetInvoice, useGetVersatCatalogs, useListCustomers, useUpdateInvoice, useListInvoiceSeries, getListInvoiceSeriesQueryKey,
+  getListInvoicesQueryKey, getListTeamMembersQueryKey, useCreateInvoice, useGetInvoice, useGetVersatCatalogs, useListCustomers, useListTeamMembers, useUpdateInvoice, useListInvoiceSeries, getListInvoiceSeriesQueryKey,
 } from '@workspace/api-client-react';
 import type { InvoiceInput, VersatCatalogEntry } from '@workspace/api-client-react';
 import { ArrowLeft, ArrowRight, FilePlus2, Users, X } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function InvoiceFormPage() {
   const isOwner = member.data?.role === 'owner';
   const assignedId = member.data?.commercialId ?? null;
   const locked = !!member.data && !isOwner;
+  const team = useListTeamMembers({ query: { queryKey: getListTeamMembersQueryKey(), enabled: isOwner === true, retry: false } });
   const customers = useListCustomers();
   const series = useListInvoiceSeries({ query: { queryKey: getListInvoiceSeriesQueryKey(), refetchInterval: 15000 } });
   const catalogs = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
@@ -47,6 +48,7 @@ export default function InvoiceFormPage() {
   const [bankMC, setBankMC] = useState('');
   const [bankOM, setBankOM] = useState('');
   const [contract, setContract] = useState('');
+  const [responsibleId, setResponsibleId] = useState('');
   const [lines, setLines] = useState<LineState[]>([emptyLine()]);
   const [error, setError] = useState('');
 
@@ -84,8 +86,9 @@ export default function InvoiceFormPage() {
   const initializedFor = useRef<number | null>(null);
   useEffect(() => {
     const inv = invoice.data;
-    if (!isEdit || !inv || initializedFor.current === inv.id) return;
+    if (!isEdit || !inv || !member.data || initializedFor.current === inv.id) return;
     initializedFor.current = inv.id;
+    setResponsibleId(inv.specialistId === member.data.userId ? '' : inv.specialistId);
     setCustomerId(String(inv.customerId));
     setIssueDate(inv.issueDate.slice(0, 10));
     setDueDate(inv.dueDate ? inv.dueDate.slice(0, 10) : '');
@@ -113,12 +116,15 @@ export default function InvoiceFormPage() {
       groupCode: line.groupCode || '',
     })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoice.data, isEdit]);
+  }, [invoice.data, isEdit, member.data?.userId]);
 
   const currencyOptions = byKind.currency.filter((entry) => entry.active);
   const selectableServices = services.filter((service) =>
     service.active || lines.some((line) => line.serviceId === String(service.id)));
   const selectedPayment = byKind.payment.find((entry) => String(entry.id) === paymentId);
+  const teamSpecialists = (team.data ?? []).filter((entry) => entry.role === 'specialist');
+  const ownerKeepsAssignment = isOwner && !responsibleId;
+  const showOwnerAssignmentWarning = ownerKeepsAssignment && Boolean(commercialId);
   const transferMissingBank = /transfer/i.test(`${selectedPayment?.name ?? ''} ${selectedPayment?.exportValue ?? ''}`)
     && !bankMC.trim() && !bankOM.trim();
   const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0), 0);
@@ -171,6 +177,7 @@ export default function InvoiceFormPage() {
       dueDate: dueDate || null,
       currency,
       notes: optional(notes),
+      ...(isOwner ? { specialistId: responsibleId || null } : {}),
       lines: lines.map((line) => ({
         description: line.description.trim(),
         serviceId: line.serviceId ? Number(line.serviceId) : null,
@@ -233,6 +240,16 @@ export default function InvoiceFormPage() {
           </div>}
       </section>
 
+      {isOwner && <section className="panel p-5 md:p-7" data-testid="invoice-assignment-section">
+        <div className="mb-4"><div className="eyebrow">Liquidaciones</div><h2 className="font-display mt-1 text-base font-bold">Responsable de la factura</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Este responsable determina quién recibe el crédito en Liquidaciones. No se deduce del comercial indicado en Versat.</p></div>
+        <label className="block max-w-xl"><span className="field-label">Especialista responsable</span><select className="field" value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)} disabled={team.isLoading} data-testid="select-invoice-specialist">
+          <option value="">Propietario — no se incluye en la liquidación de un especialista</option>
+          {teamSpecialists.map((specialist) => <option key={specialist.userId} value={specialist.userId}>{specialist.name}{specialist.suspended ? ' (suspendido)' : ''}</option>)}
+        </select></label>
+        {team.isError && <div className="mt-3"><QueryError retry={() => team.refetch()} message="No pudimos cargar los especialistas. Puedes guardar la factura a nombre del propietario." /></div>}
+        {showOwnerAssignmentWarning && <p className="mt-3 rounded-lg border border-[#ead9b6] bg-[#fcf5e6] px-3 py-2 text-[11px] leading-5 text-[#775d2d]" role="status" data-testid="warning-owner-invoice-assignment">Esta factura quedará atribuida al propietario y no se incluirá en la liquidación de un especialista, aunque Versat indique un comercial. Selecciona al especialista responsable si debe recibir ese crédito.</p>}
+      </section>}
+
       <section className="panel p-5 md:p-7"><div className="mb-5"><div className="eyebrow">Versat de escritorio</div><h2 className="font-display mt-1 text-base font-bold">Datos de la factura en Versat</h2><p className="mt-1 text-[12px] leading-5 text-[#77847e]">Todos los valores salen de los catálogos importados. Puedes guardar el borrador sin ellos, pero no se podrá exportar hasta completarlos.</p></div>
         <div className="grid gap-4 md:grid-cols-2">
           <label><span className="field-label">Moneda *</span><select className="field" value={currency} onChange={(e) => setCurrency(e.target.value)} data-testid="select-currency">{!currencyOptions.length && currency && <option value={currency}>{currency}{byKind.currency.find((entry) => entry.code === currency)?.active === false ? ' (desactivada)' : ''}</option>}{!currencyOptions.length && !currency && <option value="">Sin monedas activas</option>}{currencyOptions.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.name}</option>)}{currencyOptions.length > 0 && currency && !currencyOptions.some((entry) => entry.code === currency) && <option value={currency}>{currency}{byKind.currency.find((entry) => entry.code === currency)?.active === false ? ' (desactivada)' : ''}</option>}</select></label>
@@ -275,7 +292,7 @@ export default function InvoiceFormPage() {
 
       <section className="panel p-5 md:p-7"><label><span className="field-label">Nota <span className="font-normal text-[#8a948e]">(opcional)</span></span><textarea className="field" value={notes} onChange={(e) => setNotes(e.target.value)} /></label></section>
       {error && <p className="rounded-lg bg-[#fbefeb] px-4 py-3 text-[12px] font-semibold text-[#a04539]" role="alert">{error}</p>}
-      <div className="flex flex-wrap justify-end gap-2"><Link href={backHref} className="button button-plain">Cancelar</Link><button disabled={saving || customers.isLoading || catalogs.isLoading} className="button button-primary" type="submit" data-testid="button-save-invoice">{saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar como borrador'}<ArrowRight size={15} /></button></div>
+      <div className="flex flex-wrap justify-end gap-2"><Link href={backHref} className="button button-plain">Cancelar</Link><button disabled={saving || customers.isLoading || catalogs.isLoading || (isOwner && team.isLoading)} className="button button-primary" type="submit" data-testid="button-save-invoice">{saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar como borrador'}<ArrowRight size={15} /></button></div>
     </form>
   </div>;
 }

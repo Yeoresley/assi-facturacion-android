@@ -36,6 +36,7 @@ let server: Server;
 let base: string;
 let customerId: number;
 let invoiceId: number;
+let ownerCommercialInvoiceId: number;
 let awaitingConfirmationInvoiceId: number;
 let invoiceLineId: number;
 
@@ -74,6 +75,48 @@ before(async () => {
     total: 10_000,
   }).returning();
   invoiceId = invoice.id;
+  const [ownerCommercialInvoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-owner-commercial-invoice`,
+    customerId,
+    specialistId: ownerId,
+    specialistName: "Synthetic owner",
+    issueDate: paidOn,
+    currency: "CUP",
+    status: "confirmed",
+    paymentStatus: "paid",
+    versat: {
+      conceptId: 1,
+      operationId: 1,
+      commercialId: 9876,
+      paymentId: 1,
+      number: null,
+      talon: null,
+      bankAccountMC: null,
+      bankAccountOM: null,
+      contract: null,
+      currencyName: "CUP",
+      conceptCode: "CON",
+      operationName: "Venta",
+      commercialName: "Comercial de Versat",
+      commercialPosition: "",
+      paymentName: "Transferencia",
+      customerCode: null,
+      customerName: `${tag}-customer`,
+      customerAddress: null,
+      customerTaxId: null,
+    },
+    subtotal: 500,
+    total: 500,
+  }).returning();
+  ownerCommercialInvoiceId = ownerCommercialInvoice.id;
+  await db.insert(invoicePaymentsTable).values({
+    invoiceId: ownerCommercialInvoiceId,
+    idempotencyKey: randomUUID(),
+    amount: 500,
+    currency: "CUP",
+    paidOn,
+    paidBy: ownerId,
+  });
   const [line] = await db.insert(invoiceLinesTable).values({
     invoiceId,
     description: `${tag}-service`,
@@ -150,8 +193,8 @@ after(async () => {
   ));
   await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
-  if (invoiceId || awaitingConfirmationInvoiceId) {
-    await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, awaitingConfirmationInvoiceId].filter((id): id is number => Boolean(id))));
+  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId) {
+    await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId].filter((id): id is number => Boolean(id))));
   }
   if (customerId) await db.delete(customersTable).where(inArray(customersTable.id, [customerId]));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
@@ -215,6 +258,22 @@ test("paid invoices awaiting Versat confirmation are visible only in their speci
     ownerResult.results.some((result) => result.invoices.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId)),
     false,
   );
+});
+
+test("settlement follows the saved invoice assignment instead of Versat commercial data", async () => {
+  const specialistResponse = await request(specialistOneId);
+  assert.equal(specialistResponse.status, 200);
+  const specialistResult = GetMonthlySettlementResponse.parse(await specialistResponse.json());
+  assert.equal(
+    specialistResult.results[0].invoices.some(({ invoiceId: id }) => id === ownerCommercialInvoiceId),
+    false,
+  );
+
+  const ownerResponse = await request(ownerId);
+  assert.equal(ownerResponse.status, 200);
+  const ownerResult = GetMonthlySettlementResponse.parse(await ownerResponse.json());
+  const ownerInvoices = ownerResult.results.find((result) => result.specialistId === ownerId)?.invoices ?? [];
+  assert.ok(ownerInvoices.some(({ invoiceId: id }) => id === ownerCommercialInvoiceId));
 });
 
 test("owner can record a reviewed partial transfer with its date and reference", async () => {

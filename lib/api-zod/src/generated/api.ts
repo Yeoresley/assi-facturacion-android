@@ -1737,6 +1737,7 @@ export const createInvoiceBodyLinesItemUnitPriceMax = 999999999999;
 
 export const CreateInvoiceBody = zod.object({
   "seriesId": zod.number().int().min(1).nullish(),
+  "specialistId": zod.string().nullish().describe('Especialista responsable de la liquidación. Null atribuye la factura al propietario. Si se omite al editar, se conserva la asignación actual.'),
   "customerId": zod.number().int(),
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullish(),
@@ -2186,6 +2187,7 @@ export const updateInvoiceBodyLinesItemUnitPriceMax = 999999999999;
 
 export const UpdateInvoiceBody = zod.object({
   "seriesId": zod.number().int().min(1).nullish(),
+  "specialistId": zod.string().nullish().describe('Especialista responsable de la liquidación. Null atribuye la factura al propietario. Si se omite al editar, se conserva la asignación actual.'),
   "customerId": zod.number().int(),
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullish(),

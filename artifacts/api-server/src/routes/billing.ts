@@ -57,7 +57,7 @@ import {
   teamInvitationsTable,
   teamMembersTable,
 } from "@workspace/db";
-import { resolveTeamMember, requireOwner, setTeamMemberSuspension, TeamAccessError } from "../middlewares/team-access";
+import { resolveTeamMember, requireOwner, setTeamMemberSuspension, TeamAccessError, type CurrentTeamMember } from "../middlewares/team-access";
 import { dateQuery, getInvoiceRow, getInvoiceRows, serializeInvoice, toDateOnly } from "../services/invoice-records";
 import { activeInvoicePayments } from "../services/invoice-receipts";
 import { prepareInvoice } from "../services/prepare-invoice";
@@ -88,6 +88,36 @@ function isDuplicate(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const value = error as { code?: string; cause?: unknown };
   return value.code === "23505" || isDuplicate(value.cause);
+}
+
+async function resolveInvoiceAssignment(
+  member: CurrentTeamMember,
+  requestedSpecialistId: string | null | undefined,
+  current?: Pick<typeof invoicesTable.$inferSelect, "specialistId" | "specialistName">,
+) {
+  if (member.role !== "owner") {
+    return {
+      specialistId: current?.specialistId ?? member.userId,
+      specialistName: current?.specialistName ?? member.name,
+    };
+  }
+
+  const specialistId = requestedSpecialistId === undefined
+    ? current?.specialistId ?? member.userId
+    : requestedSpecialistId ?? member.userId;
+  if (specialistId === member.userId) {
+    return { specialistId, specialistName: member.name };
+  }
+  const [specialist] = await db.select({
+    userId: teamMembersTable.userId,
+    name: teamMembersTable.name,
+  }).from(teamMembersTable).where(and(
+    eq(teamMembersTable.userId, specialistId),
+    eq(teamMembersTable.role, "specialist"),
+  )).limit(1);
+  return specialist
+    ? { specialistId: specialist.userId, specialistName: specialist.name }
+    : null;
 }
 
 router.get("/billing/overview", async (req, res): Promise<void> => {
@@ -261,6 +291,11 @@ router.post("/invoices", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const assignment = await resolveInvoiceAssignment(member, parsed.data.specialistId);
+  if (!assignment) {
+    res.status(422).json({ error: "El especialista seleccionado ya no está disponible. Actualiza el equipo y vuelve a elegirlo." });
+    return;
+  }
   if (member.role !== "owner") {
     if (member.commercialId === null) {
       res.status(403).json({ error: "El administrador debe asignarte un comercial antes de facturar." }); return;
@@ -296,8 +331,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
       .values({
         number: `DRAFT-${randomUUID()}`,
         customerId: customer.id,
-        specialistId: member.userId,
-        specialistName: member.name,
+        ...assignment,
         issueDate: toDateOnly(parsed.data.issueDate),
         dueDate: parsed.data.dueDate ? toDateOnly(parsed.data.dueDate) : null,
         currency: parsed.data.currency,
@@ -372,6 +406,11 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Only draft invoices can be edited" });
     return;
   }
+  const assignment = await resolveInvoiceAssignment(member, body.data.specialistId, current);
+  if (!assignment) {
+    res.status(422).json({ error: "El especialista seleccionado ya no está disponible. Actualiza el equipo y vuelve a elegirlo." });
+    return;
+  }
   const effectiveVersat = body.data.versat ?? current.versat ?? undefined;
   if (!canAccessInvoice(member, { versat: effectiveVersat })) {
     res.status(422).json({ error: "No puedes trasladar la factura a otro comercial." }); return;
@@ -420,6 +459,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
         dueDate: body.data.dueDate ? toDateOnly(body.data.dueDate) : null,
         currency: body.data.currency,
         notes: body.data.notes ?? null,
+        ...assignment,
         legalDocument: null,
         versat,
         versatNumber: versat?.number ?? null,

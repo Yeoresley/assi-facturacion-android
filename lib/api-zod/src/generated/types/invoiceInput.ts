@@ -14,6 +14,11 @@ export interface InvoiceInput {
      * @nullable
      */
   seriesId?: number | null;
+  /**
+     * Especialista responsable de la liquidación. Null atribuye la factura al propietario. Si se omite al editar, se conserva la asignación actual.
+     * @nullable
+     */
+  specialistId?: string | null;
   customerId: number;
   issueDate: Date;
   /** @nullable */
