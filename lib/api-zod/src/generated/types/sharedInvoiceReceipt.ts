@@ -24,4 +24,5 @@ export interface SharedInvoiceReceipt {
   paymentMethod: SharedInvoiceReceiptPaymentMethod;
   /** @minimum 0 */
   remainingBalance: number;
+  corrected: boolean;
 }

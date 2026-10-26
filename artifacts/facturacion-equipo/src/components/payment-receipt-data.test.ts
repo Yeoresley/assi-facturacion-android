@@ -12,20 +12,21 @@ const invoice = {
   ],
   paymentCorrections: [
     { reversedPaymentId: 2 },
-    { targetPaymentId: 1, beforePaymentAmount: 40, afterPaymentAmount: 25, beforePaidOn: '2026-10-01', afterPaidOn: '2026-09-30' },
+    { targetPaymentId: 1, beforePaymentAmount: 40, afterPaymentAmount: 25, beforePaidOn: '2026-10-01', afterPaidOn: '2026-09-30', beforePaymentMethod: 'cash', afterPaymentMethod: 'transfer' },
   ],
 } as Invoice;
 
-test('mantiene los datos del recibo original tras una corrección y omite abonos reversados', () => {
+test('el comprobante refleja la corrección vigente y omite abonos reversados', () => {
   const originalReceipt = getPaymentReceiptInfo(invoice, 1);
   const transferReceipt = getPaymentReceiptInfo(invoice, 3);
-  assert.equal(originalReceipt?.remainingBalance, 60);
-  assert.equal(originalReceipt?.amount, 40);
-  assert.equal(originalReceipt?.paidOn, '2026-10-01');
-  assert.equal(transferReceipt?.remainingBalance, 40);
+  assert.equal(originalReceipt?.remainingBalance, 75);
+  assert.equal(originalReceipt?.amount, 25);
+  assert.equal(originalReceipt?.paidOn, '2026-09-30');
+  assert.equal(originalReceipt?.corrected, true);
+  assert.equal(transferReceipt?.remainingBalance, 55);
   assert.equal(transferReceipt?.reference, 'TRANSFER-145');
   assert.equal(transferReceipt?.paymentMethod, 'transfer');
   assert.equal(originalReceipt?.reference, null);
-  assert.equal(originalReceipt?.paymentMethod, null);
+  assert.equal(originalReceipt?.paymentMethod, 'transfer');
   assert.equal(getPaymentReceiptInfo(invoice, 2), null);
 });

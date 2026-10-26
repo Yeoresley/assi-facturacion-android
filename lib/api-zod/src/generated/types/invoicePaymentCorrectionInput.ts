@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoicePaymentCorrectionInputPaymentMethod } from './invoicePaymentCorrectionInputPaymentMethod';
 
 export interface InvoicePaymentCorrectionInput {
   /** @minimum 1 */
@@ -15,6 +16,7 @@ export interface InvoicePaymentCorrectionInput {
      */
   amount?: number;
   paidOn?: Date;
+  paymentMethod?: InvoicePaymentCorrectionInputPaymentMethod;
   /**
      * @minLength 5
      * @maxLength 1000

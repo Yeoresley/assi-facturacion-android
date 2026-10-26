@@ -11,7 +11,7 @@ export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt
           <img src={`${import.meta.env.BASE_URL}brand/assi-mark.png`} alt="" aria-hidden="true" />
           <span><strong>ASSI</strong><small>Tu visión. Nuestro futuro.</small></span>
         </div>
-        <p>Comprobante de cobro</p>
+        <p>{receipt.corrected ? 'Comprobante actualizado' : 'Comprobante de cobro'}</p>
       </div>
       <div className="payment-receipt-title"><p>Factura {receipt.invoiceNumber}</p><h1>COMPROBANTE<br />DE ABONO</h1></div>
     </header>
@@ -33,6 +33,8 @@ export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt
       <span>Saldo restante después de este abono</span>
       <strong>{money(receipt.remainingBalance, receipt.currency)}</strong>
     </section>
-    <p className="payment-receipt-note">Comprobante del abono indicado para la factura {receipt.invoiceNumber}. Este documento no sustituye ni modifica la factura.</p>
+    <p className="payment-receipt-note">{receipt.corrected
+      ? 'Este comprobante refleja el estado vigente tras una corrección registrada. Los datos originales se conservan en el historial de auditoría.'
+      : `Comprobante del abono indicado para la factura ${receipt.invoiceNumber}. Este documento no sustituye ni modifica la factura.`}</p>
   </article>;
 }

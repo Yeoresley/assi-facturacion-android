@@ -36,6 +36,8 @@ export const invoicePaymentCorrectionsTable = pgTable("invoice_payment_correctio
   afterPaymentAmount: numeric("after_payment_amount", { precision: 14, scale: 2, mode: "number" }),
   beforePaidOn: date("before_paid_on", { mode: "string" }),
   afterPaidOn: date("after_paid_on", { mode: "string" }),
+  beforePaymentMethod: text("before_payment_method", { enum: ["transfer", "cash", "other"] }),
+  afterPaymentMethod: text("after_payment_method", { enum: ["transfer", "cash", "other"] }),
   beforeInvoiceStatus: text("before_invoice_status").notNull(),
   afterInvoiceStatus: text("after_invoice_status").notNull(),
   beforePaymentStatus: text("before_payment_status").notNull(),

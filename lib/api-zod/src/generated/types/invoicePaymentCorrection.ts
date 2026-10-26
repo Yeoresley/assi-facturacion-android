@@ -5,7 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoicePaymentCorrectionAfterPaymentMethod } from './invoicePaymentCorrectionAfterPaymentMethod';
 import type { InvoicePaymentCorrectionAfterPaymentStatus } from './invoicePaymentCorrectionAfterPaymentStatus';
+import type { InvoicePaymentCorrectionBeforePaymentMethod } from './invoicePaymentCorrectionBeforePaymentMethod';
 import type { InvoicePaymentCorrectionBeforePaymentStatus } from './invoicePaymentCorrectionBeforePaymentStatus';
 
 export interface InvoicePaymentCorrection {
@@ -25,6 +27,10 @@ export interface InvoicePaymentCorrection {
   beforePaidOn: Date | null;
   /** @nullable */
   afterPaidOn: Date | null;
+  /** @nullable */
+  beforePaymentMethod: InvoicePaymentCorrectionBeforePaymentMethod;
+  /** @nullable */
+  afterPaymentMethod: InvoicePaymentCorrectionAfterPaymentMethod;
   beforeInvoiceStatus: string;
   afterInvoiceStatus: string;
   beforePaymentStatus: InvoicePaymentCorrectionBeforePaymentStatus;

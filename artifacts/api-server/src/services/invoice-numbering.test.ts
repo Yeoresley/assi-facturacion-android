@@ -528,6 +528,30 @@ test("administrator correction edits one selected partial payment without changi
   assert.equal(paidAgain.paymentStatus, "paid");
   assert.equal(paidAgain.totalPaid, 1);
   assert.equal((await stored(d.id)).paidBy, owner.userId);
+  const beforeMethodCorrection = await stored(d.id);
+  const methodCorrected = await correctInvoicePayment(d.id, {
+    paymentId: receipts[0].id,
+    paymentMethod: "transfer",
+    reason: "El medio se registró por error",
+    confirmed: true,
+    idempotencyKey: randomUUID(),
+  }, owner);
+  const afterMethodCorrection = await stored(d.id);
+  const methodAudit = methodCorrected.paymentCorrections.at(-1)!;
+  assert.equal(methodCorrected.paymentStatus, "paid");
+  assert.equal(methodCorrected.totalPaid, 1);
+  const effectiveMethodCorrectedPayment = methodCorrected.payments.find(({ id }) => id === receipts[0].id);
+  assert.equal(effectiveMethodCorrectedPayment?.paymentMethod, "transfer");
+  assert.equal(effectiveMethodCorrectedPayment?.amount, 0.4);
+  assert.equal(effectiveMethodCorrectedPayment?.paidOn, "2026-10-13");
+  assert.equal(receipts[0].paymentMethod, null);
+  assert.equal(methodAudit.beforePaymentMethod, null);
+  assert.equal(methodAudit.afterPaymentMethod, "transfer");
+  assert.equal(methodAudit.correctedBy, owner.userId);
+  assert.equal(methodAudit.reason, "El medio se registró por error");
+  assert.equal(afterMethodCorrection.status, beforeMethodCorrection.status);
+  assert.equal(afterMethodCorrection.paymentStatus, beforeMethodCorrection.paymentStatus);
+  assert.deepEqual(afterMethodCorrection.paidAt, beforeMethodCorrection.paidAt);
   await assert.rejects(correctInvoicePayment(d.id, {
     paymentId: receipts[1].id,
     amount: 0.71,

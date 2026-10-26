@@ -153,6 +153,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
   const [paymentId, setPaymentId] = useState('');
   const [amount, setAmount] = useState('');
   const [paidOn, setPaidOn] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'other' | ''>('');
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -182,7 +183,11 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
   const projectedTotalPaid = Math.max(0, invoice.totalPaid - selectedAmount + (validAmount ? amountCents / 100 : 0));
   const projectedBalanceDue = Math.max(0, invoice.total - projectedTotalPaid);
   const isLegacyCorrection = canCorrectLegacyStatus && activePayments.length === 0;
-  const correctionSignature = `${paymentId}|${amountCents}|${paidOn}|${normalizedReason}|${isLegacyCorrection}`;
+  const amountOrDateChanged = !!selectedPayment &&
+    (amountCents / 100 !== selectedAmount || paidOn !== selectedPaidOn);
+  const methodChanged = !!selectedPayment && paymentMethod !== (selectedPayment.paymentMethod ?? '');
+  const hasCorrectionChanges = isLegacyCorrection || amountOrDateChanged || methodChanged;
+  const correctionSignature = `${paymentId}|${amountCents}|${paidOn}|${paymentMethod}|${normalizedReason}|${isLegacyCorrection}`;
 
   const openDialog = () => {
     const firstPayment = activePayments[0];
@@ -193,6 +198,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
     setPaymentId(firstPayment ? String(firstPayment.id) : '');
     setAmount(firstPayment ? String(firstCorrection?.afterPaymentAmount ?? firstPayment.amount) : '');
     setPaidOn(firstPayment ? firstCorrection?.afterPaidOn ?? firstPayment.paidOn : '');
+    setPaymentMethod(firstPayment?.paymentMethod ?? '');
     setReason('');
     setConfirmed(false);
     setValidationError('');
@@ -221,7 +227,13 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
     correction.mutate({
       id: invoice.id,
       data: {
-        ...(selectedPayment ? { paymentId: selectedPayment.id, amount: amountCents / 100, paidOn } : {}),
+        ...(selectedPayment ? {
+          paymentId: selectedPayment.id,
+          ...(amountCents / 100 !== selectedAmount || paidOn !== selectedPaidOn
+            ? { amount: amountCents / 100, paidOn }
+            : {}),
+        } : {}),
+        ...(selectedPayment && paymentMethod && paymentMethod !== selectedPayment.paymentMethod ? { paymentMethod } : {}),
         reason: normalizedReason,
         confirmed: true,
         idempotencyKey: requestRef.current.key,
@@ -255,7 +267,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
           </div>
         </div>
         <div className="mt-4 rounded-xl border border-[#ead9d1] bg-[#fbf4ef] p-3 text-[12px] leading-5 text-[#795448]">
-          El recibo original no se modifica. Se guardarán el motivo, el autor y los importes y fechas antes y después; los demás abonos se conservan.
+          El recibo original no se modifica. Se guardarán el motivo, el autor y los valores antes y después; los demás abonos se conservan.
         </div>
         <form className="mt-4" onSubmit={submit} noValidate>
           {activePayments.length > 0 ? <>
@@ -270,6 +282,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
               setPaymentId(nextId);
               setAmount(nextPayment ? String(nextCorrection?.afterPaymentAmount ?? nextPayment.amount) : '');
               setPaidOn(nextPayment ? nextCorrection?.afterPaidOn ?? nextPayment.paidOn : '');
+              setPaymentMethod(nextPayment?.paymentMethod ?? '');
               requestRef.current = null;
             }} data-testid={`select-payment-correction-target-${invoice.id}`}>
               {activePayments.map((payment) => {
@@ -288,6 +301,13 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
             <input id={`payment-correction-amount-${invoice.id}`} className="field tabular-nums" type="number" inputMode="decimal" min="0" max={maxCorrectedAmount} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} aria-invalid={!validAmount} data-testid={`input-payment-correction-amount-${invoice.id}`} />
             <label htmlFor={`payment-correction-date-${invoice.id}`} className="field-label mt-4">Fecha corregida</label>
             <input id={`payment-correction-date-${invoice.id}`} className="field" type="date" max={localToday()} value={paidOn} onChange={(event) => setPaidOn(event.target.value)} data-testid={`input-payment-correction-date-${invoice.id}`} />
+            <label htmlFor={`payment-correction-method-${invoice.id}`} className="field-label mt-4">Medio de pago corregido</label>
+            <select id={`payment-correction-method-${invoice.id}`} className="field" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)} data-testid={`select-payment-correction-method-${invoice.id}`}>
+              <option value="" disabled>Sin especificar</option>
+              <option value="transfer">Transferencia</option>
+              <option value="cash">Efectivo</option>
+              <option value="other">Otro medio</option>
+            </select>
             <p className="mt-1.5 text-[11px] text-[#7c8881]">Total abonado después: {money(projectedTotalPaid, invoice.currency)} · Saldo: {money(projectedBalanceDue, invoice.currency)}</p>
           </> : <div className="rounded-xl bg-[#f4f3eb] p-3 text-[12px] leading-5 text-[#71817b]">
             Esta factura tiene una marca histórica de pago, pero no un recibo individual que se pueda editar. Se corregirá solo esa marca.
@@ -301,7 +321,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
           {(validationError || correction.isError) && <div className="mt-3 rounded-lg bg-[#fbefeb] px-3 py-2.5 text-[12px] leading-5 text-[#9a3b2e]" role="alert">{validationError || errorDetail(correction.error, 'No se pudo corregir el pago. El registro no se ha cambiado; puedes volver a intentarlo.')}</div>}
           <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
             <button type="button" className="button button-plain" disabled={correction.isPending} onClick={() => setOpen(false)}>Cancelar</button>
-            <button type="submit" className="button button-danger" disabled={correction.isPending || !validReason || (!isLegacyCorrection && (!selectedPayment || !validAmount || !paidOn)) || !confirmed} data-testid={`button-confirm-payment-correction-${invoice.id}`}>{correction.isPending ? 'Guardando corrección…' : 'Confirmar corrección'}</button>
+            <button type="submit" className="button button-danger" disabled={correction.isPending || !validReason || (!isLegacyCorrection && (!selectedPayment || !validAmount || !paidOn)) || !hasCorrectionChanges || !confirmed} data-testid={`button-confirm-payment-correction-${invoice.id}`}>{correction.isPending ? 'Guardando corrección…' : 'Confirmar corrección'}</button>
           </div>
         </form>
       </section>
@@ -350,14 +370,18 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
         {visiblePayments.map((payment) => {
           const paymentCorrection = [...corrections].filter((entry) => entry.targetPaymentId === payment.id)
             .sort((a, b) => b.id - a.id)[0];
+          const firstPaymentCorrection = [...corrections].filter((entry) => entry.targetPaymentId === payment.id)
+            .sort((a, b) => a.id - b.id)[0];
           const effectiveAmount = paymentCorrection?.afterPaymentAmount ?? payment.amount;
           const effectivePaidOn = paymentCorrection?.afterPaidOn ?? payment.paidOn;
+          const originalAmount = firstPaymentCorrection?.beforePaymentAmount ?? payment.amount;
+          const originalPaidOn = firstPaymentCorrection?.beforePaidOn ?? payment.paidOn;
           const reversed = reversedPaymentIds.has(payment.id);
           return <li key={payment.id} className="flex items-center justify-between gap-3 py-3" data-testid={`row-invoice-payment-${payment.id}`}>
-          <div className="min-w-0"><div className={`text-[12px] font-semibold ${reversed ? 'text-[#9a3b2e] line-through' : ''}`}>{reversed ? 'Abono revertido' : paymentCorrection ? 'Abono corregido' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha efectiva · {date(effectivePaidOn)}{paymentCorrection && ` · Original: ${date(payment.paidOn)}`}</div>{payment.paymentMethod && <div className="mt-1 text-[11px] text-[#75827c]">Medio · {paymentMethodLabel(payment.paymentMethod)}</div>}{payment.reference && <div className="mt-1 break-words [overflow-wrap:anywhere] text-[11px] text-[#75827c]">Referencia · {payment.reference}</div>}</div>
+          <div className="min-w-0"><div className={`text-[12px] font-semibold ${reversed ? 'text-[#9a3b2e] line-through' : ''}`}>{reversed ? 'Abono revertido' : paymentCorrection ? 'Abono corregido' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha efectiva · {date(effectivePaidOn)}{paymentCorrection && ` · Original: ${date(originalPaidOn)}`}</div><div className="mt-1 text-[11px] text-[#75827c]">Medio vigente · {payment.paymentMethod ? paymentMethodLabel(payment.paymentMethod) : 'Sin especificar'}</div>{payment.reference && <div className="mt-1 break-words [overflow-wrap:anywhere] text-[11px] text-[#75827c]">Referencia · {payment.reference}</div>}</div>
           <div className="flex shrink-0 items-center gap-3">
-            <div className="text-right"><div className="font-display text-[13px] font-bold">{money(effectiveAmount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">{paymentCorrection ? `Recibo original · ${money(payment.amount, payment.currency || invoice.currency)}` : `Registrado · ${date(payment.recordedAt)}`}</div></div>
-            {canGenerateReceipts && !reversed && <Link className="button button-soft !min-h-8 !px-2.5 !text-[11px]" href={`/invoices/${invoice.id}?receipt=${payment.id}`} aria-label={`Generar comprobante original del abono del ${date(payment.paidOn)}`} data-testid={`link-payment-receipt-${payment.id}`}><ReceiptText size={13} />{paymentCorrection ? 'Recibo original' : 'Comprobante'}</Link>}
+            <div className="text-right"><div className="font-display text-[13px] font-bold">{money(effectiveAmount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">{paymentCorrection ? `Recibo original · ${money(originalAmount, payment.currency || invoice.currency)}` : `Registrado · ${date(payment.recordedAt)}`}</div></div>
+            {canGenerateReceipts && !reversed && <Link className="button button-soft !min-h-8 !px-2.5 !text-[11px]" href={`/invoices/${invoice.id}?receipt=${payment.id}`} aria-label={`Generar comprobante vigente del abono del ${date(effectivePaidOn)}`} data-testid={`link-payment-receipt-${payment.id}`}><ReceiptText size={13} />{paymentCorrection ? 'Comprobante vigente' : 'Comprobante'}</Link>}
           </div>
         </li>;
         })}
@@ -383,7 +407,7 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
             <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="text-[12px] font-semibold text-[#9a3b2e]">Pago corregido</div><p className="mt-1 text-[11px] leading-5 text-[#64756e]">{entry.reason}</p></div><div className="text-right text-[10px] text-[#87918a]">{new Date(entry.createdAt).toLocaleString('es-ES')}<div className="mt-1">Por {entry.correctedBy}</div></div></div>
             <div className="mt-2 text-[10px] text-[#71817b]">
               {entry.targetPaymentId !== null
-                ? `Abono #${entry.targetPaymentId}: ${money(entry.beforePaymentAmount ?? 0, invoice.currency)} · ${entry.beforePaidOn ? date(entry.beforePaidOn) : 'sin fecha'} → ${money(entry.afterPaymentAmount ?? 0, invoice.currency)} · ${entry.afterPaidOn ? date(entry.afterPaidOn) : 'sin fecha'}`
+                ? `Abono #${entry.targetPaymentId}: ${money(entry.beforePaymentAmount ?? 0, invoice.currency)} · ${entry.beforePaidOn ? date(entry.beforePaidOn) : 'sin fecha'} → ${money(entry.afterPaymentAmount ?? 0, invoice.currency)} · ${entry.afterPaidOn ? date(entry.afterPaidOn) : 'sin fecha'}${entry.beforePaymentMethod !== entry.afterPaymentMethod ? ` · Medio: ${entry.beforePaymentMethod ? paymentMethodLabel(entry.beforePaymentMethod) : 'Sin especificar'} → ${entry.afterPaymentMethod ? paymentMethodLabel(entry.afterPaymentMethod) : 'Sin especificar'}` : ''}`
                 : entry.reversedPaymentId !== null
                   ? `Abono #${entry.reversedPaymentId} conservado y reversado`
                   : 'Marca histórica corregida; sin recibo original'}

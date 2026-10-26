@@ -194,6 +194,7 @@ router.get("/billing/payment-method-summary", async (req, res): Promise<void> =>
         reversedPaymentId: invoicePaymentCorrectionsTable.reversedPaymentId,
         afterPaymentAmount: invoicePaymentCorrectionsTable.afterPaymentAmount,
         afterPaidOn: invoicePaymentCorrectionsTable.afterPaidOn,
+        afterPaymentMethod: invoicePaymentCorrectionsTable.afterPaymentMethod,
       }).from(invoicePaymentCorrectionsTable)
         .where(inArray(invoicePaymentCorrectionsTable.invoiceId, invoiceIds))
     : [];
@@ -719,6 +720,11 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
     if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
     return `"${text.replaceAll('"', '""')}"`;
   };
+  const paymentMethodLabel = (method: string | null) => ({
+    transfer: "Transferencia",
+    cash: "Efectivo",
+    other: "Otro medio",
+  }[method ?? ""] ?? "Sin especificar");
   const rows = [
     [
       "Abono",
@@ -732,6 +738,8 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
       `Importe después (${invoice.currency})`,
       "Fecha antes",
       "Fecha después",
+      "Medio antes",
+      "Medio después",
       `Total abonado antes (${invoice.currency})`,
       `Total abonado después (${invoice.currency})`,
     ],
@@ -747,6 +755,8 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
       correction.afterPaymentAmount?.toFixed(2) ?? null,
       correction.beforePaidOn,
       correction.afterPaidOn,
+      paymentMethodLabel(correction.beforePaymentMethod),
+      paymentMethodLabel(correction.afterPaymentMethod),
       correction.beforeTotalPaid.toFixed(2),
       correction.afterTotalPaid.toFixed(2),
     ]),
@@ -967,6 +977,7 @@ router.get("/shared-invoices/:token/receipts/:paymentId", async (req, res): Prom
     return;
   }
   const activePayments = activeInvoicePayments(invoice.payments, invoice.paymentCorrections);
+  activePayments.sort((a, b) => a.paidOn.localeCompare(b.paidOn) || a.id - b.id);
   const selectedIndex = activePayments.findIndex(({ id }) => id === params.data.paymentId);
   if (selectedIndex < 0) {
     res.status(404).json({ error: "Payment receipt not found" });
@@ -985,6 +996,7 @@ router.get("/shared-invoices/:token/receipts/:paymentId", async (req, res): Prom
     reference: payment.reference,
     paymentMethod: payment.paymentMethod,
     remainingBalance: Math.max(0, Math.round(invoice.total * 100) - paidThroughCents) / 100,
+    corrected: invoice.paymentCorrections.some((correction) => correction.targetPaymentId === payment.id),
   }));
 });
 

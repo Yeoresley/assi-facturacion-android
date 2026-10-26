@@ -329,6 +329,30 @@ export interface InvoicePayment {
   paymentMethod: InvoicePaymentPaymentMethod;
 }
 
+/**
+ * @nullable
+ */
+export type InvoicePaymentCorrectionBeforePaymentMethod = typeof InvoicePaymentCorrectionBeforePaymentMethod[keyof typeof InvoicePaymentCorrectionBeforePaymentMethod] | null;
+
+
+export const InvoicePaymentCorrectionBeforePaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
+/**
+ * @nullable
+ */
+export type InvoicePaymentCorrectionAfterPaymentMethod = typeof InvoicePaymentCorrectionAfterPaymentMethod[keyof typeof InvoicePaymentCorrectionAfterPaymentMethod] | null;
+
+
+export const InvoicePaymentCorrectionAfterPaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
 export type InvoicePaymentCorrectionBeforePaymentStatus = typeof InvoicePaymentCorrectionBeforePaymentStatus[keyof typeof InvoicePaymentCorrectionBeforePaymentStatus];
 
 
@@ -362,6 +386,10 @@ export interface InvoicePaymentCorrection {
   beforePaidOn: string | null;
   /** @nullable */
   afterPaidOn: string | null;
+  /** @nullable */
+  beforePaymentMethod: InvoicePaymentCorrectionBeforePaymentMethod;
+  /** @nullable */
+  afterPaymentMethod: InvoicePaymentCorrectionAfterPaymentMethod;
   beforeInvoiceStatus: string;
   afterInvoiceStatus: string;
   beforePaymentStatus: InvoicePaymentCorrectionBeforePaymentStatus;
@@ -597,6 +625,7 @@ export interface SharedInvoiceReceipt {
   paymentMethod: SharedInvoiceReceiptPaymentMethod;
   /** @minimum 0 */
   remainingBalance: number;
+  corrected: boolean;
 }
 
 export interface InvoiceInput {
@@ -645,6 +674,15 @@ export interface InvoicePaymentInput {
   paymentMethod?: InvoicePaymentInputPaymentMethod;
 }
 
+export type InvoicePaymentCorrectionInputPaymentMethod = typeof InvoicePaymentCorrectionInputPaymentMethod[keyof typeof InvoicePaymentCorrectionInputPaymentMethod];
+
+
+export const InvoicePaymentCorrectionInputPaymentMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+} as const;
+
 export interface InvoicePaymentCorrectionInput {
   /** @minimum 1 */
   paymentId?: number;
@@ -654,6 +692,7 @@ export interface InvoicePaymentCorrectionInput {
      */
   amount?: number;
   paidOn?: string;
+  paymentMethod?: InvoicePaymentCorrectionInputPaymentMethod;
   /**
      * @minLength 5
      * @maxLength 1000

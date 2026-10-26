@@ -672,6 +672,8 @@ paths:
           description: Invoice not found
         "409":
           description: Payment is no longer correctable or the correction conflicts with current state
+        "422":
+          description: Invalid amount, date, method, reason, or unchanged correction
   /invoices/{id}/payment-corrections/export:
     get:
       operationId: downloadInvoicePaymentCorrections
@@ -1322,7 +1324,7 @@ components:
         amount: { type: number }
     SharedInvoiceReceipt:
       type: object
-      required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, paymentMethod, remainingBalance]
+      required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, paymentMethod, remainingBalance, corrected]
       properties:
         invoiceNumber: { type: string }
         customerName: { type: string }
@@ -1333,6 +1335,7 @@ components:
         reference: { type: ["string", "null"], maxLength: 120 }
         paymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
         remainingBalance: { type: number, minimum: 0 }
+        corrected: { type: boolean }
     InvoiceInput:
       type: object
       required: [customerId, issueDate, currency, lines]
@@ -1367,6 +1370,7 @@ components:
         paymentId: { type: integer, minimum: 1 }
         amount: { type: number, minimum: 0, maximum: 999999999999.99, multipleOf: 0.01 }
         paidOn: { type: string, format: date }
+        paymentMethod: { type: string, enum: [transfer, cash, other] }
         reason: { type: string, minLength: 5, maxLength: 1000 }
         idempotencyKey: { type: string, format: uuid }
         confirmed: { type: boolean, enum: [true] }
@@ -1402,7 +1406,7 @@ components:
         deliveredAt: { type: ["string", "null"], format: date-time }
     InvoicePaymentCorrection:
       type: object
-      required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]
+      required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforePaymentMethod, afterPaymentMethod, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]
       properties:
         id: { type: integer }
         reason: { type: string }
@@ -1414,6 +1418,8 @@ components:
         afterPaymentAmount: { type: ["number", "null"] }
         beforePaidOn: { type: ["string", "null"], format: date }
         afterPaidOn: { type: ["string", "null"], format: date }
+        beforePaymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
+        afterPaymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
         beforeInvoiceStatus: { type: string }
         afterInvoiceStatus: { type: string }
         beforePaymentStatus: { type: string, enum: [pending, paid] }
