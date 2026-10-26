@@ -1,6 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { amountInWords, printInvoice } from './invoice-print';
+
+const invoiceStyles = readFileSync(new URL('../components/invoice-document.css', import.meta.url), 'utf8');
+const authenticatedInvoicePage = readFileSync(new URL('../pages/invoice-detail.tsx', import.meta.url), 'utf8');
+const sharedInvoicePage = readFileSync(new URL('../pages/shared-invoice.tsx', import.meta.url), 'utf8');
+
+test('la factura permite que textos excepcionalmente largos se ajusten y paginen', () => {
+  assert.match(invoiceStyles, /\.legal-invoice\s*\{[^}]*box-sizing:\s*border-box[^}]*width:\s*100%/);
+  assert.match(invoiceStyles, /\.legal-company\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(invoiceStyles, /\.legal-lines th,\.legal-lines td\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(invoiceStyles, /\.legal-notes\s*\{[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(invoiceStyles, /\.legal-lines tr\s*\{\s*break-inside:\s*auto;\s*page-break-inside:\s*auto;/);
+  assert.doesNotMatch(invoiceStyles, /\.legal-closing\s*\{[^}]*break-inside:\s*avoid/);
+  assert.match(invoiceStyles, /\.legal-totals\s*\{[^}]*break-inside:\s*avoid/);
+});
+
+test('las vistas autenticada y compartida reutilizan el mismo documento imprimible', () => {
+  assert.match(authenticatedInvoicePage, /<InvoiceDocument invoice=\{inv\} \/>/);
+  assert.match(sharedInvoicePage, /<InvoiceDocument invoice=\{invoice\.data\} shareToken=\{token\} \/>/);
+});
 
 test('total del PDF de referencia y centavos', () => {
   assert.equal(amountInWords(36120), 'TREINTA Y SEIS MIL CIENTO VEINTE CON 00/100');
