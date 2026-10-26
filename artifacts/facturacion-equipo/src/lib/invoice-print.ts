@@ -61,7 +61,7 @@ async function waitForAuthorizedImages() {
   }
 }
 
-export async function printInvoice(options: { documentType?: 'invoice' | 'receipt' } = {}) {
+export async function printInvoice(options: { documentType?: 'invoice' | 'receipt'; onAfterPrint?: () => void } = {}) {
   const documentType = options.documentType ?? 'invoice';
   await document.fonts.ready;
   if (documentType === 'receipt') {
@@ -75,7 +75,10 @@ export async function printInvoice(options: { documentType?: 'invoice' | 'receip
     await waitForAuthorizedImages();
   }
 
-  const cleanup = () => document.body.classList.remove('printing-payment-receipt');
+  const cleanup = () => {
+    document.body.classList.remove('printing-payment-receipt');
+    options.onAfterPrint?.();
+  };
   if (documentType === 'receipt') {
     document.body.classList.add('printing-payment-receipt');
     window.addEventListener('afterprint', cleanup, { once: true });

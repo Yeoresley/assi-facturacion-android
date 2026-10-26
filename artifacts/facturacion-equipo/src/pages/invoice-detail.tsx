@@ -17,7 +17,7 @@ import { printInvoice } from '@/lib/invoice-print';
 import { CorrectPaidButton, InvoicePaymentHistory, MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
 import { InvoiceShareList } from '@/components/invoice-share-list';
 import { PaymentReceiptPaper } from '@/components/payment-receipt';
-import { getPaymentReceiptInfo } from '@/components/payment-receipt-data';
+import { getPaymentReceiptInfo, getPaymentReceiptInfos } from '@/components/payment-receipt-data';
 import { VERSAT_CATALOG_CSV_SESSION_KEY } from '@/lib/versat-catalog';
 
 export default function InvoiceDetailPage() {
@@ -47,6 +47,8 @@ export default function InvoiceDetailPage() {
   const [fileError, setFileError] = useState('');
   const [fileInfo, setFileInfo] = useState<string[]>([]);
   const [receiptShare, setReceiptShare] = useState<{ paymentId: number; url: string; expiresAt: string } | null>(null);
+  const [selectedReceiptPaymentIds, setSelectedReceiptPaymentIds] = useState<number[]>([]);
+  const [printingReceiptBatch, setPrintingReceiptBatch] = useState(false);
 
   function changeStatus(status: InvoiceStatusInputStatus) {
     setActionError('');
@@ -95,6 +97,23 @@ export default function InvoiceDetailPage() {
       setFileError(errorDetail(error, 'No se pudo generar el archivo.'));
     }
   }
+  function printSelectedReceipts(paymentIds: number[]) {
+    setSelectedReceiptPaymentIds(paymentIds);
+    setPrintingReceiptBatch(true);
+    window.requestAnimationFrame(() => {
+      void printInvoice({
+        documentType: 'receipt',
+        onAfterPrint: () => {
+          setPrintingReceiptBatch(false);
+          setSelectedReceiptPaymentIds([]);
+        },
+      }).catch((error) => {
+        setPrintingReceiptBatch(false);
+        setSelectedReceiptPaymentIds([]);
+        setNotice(errorDetail(error, 'No se pudieron imprimir los comprobantes.'));
+      });
+    });
+  }
 
   if (invoice.isLoading) return <div className="mx-auto max-w-[800px] space-y-4"><div className="skeleton h-6 w-32" /><div className="panel space-y-5 p-8"><div className="skeleton h-8 w-56" /><div className="skeleton h-24" /><div className="skeleton h-40" /></div></div>;
   if (invoice.isError || !invoice.data) return <QueryError retry={() => invoice.refetch()} message="No pudimos abrir esta factura." detail={errorDetail(invoice.error, '')} />;
@@ -102,6 +121,7 @@ export default function InvoiceDetailPage() {
   const receiptParam = new URLSearchParams(window.location.search).get('receipt');
   const receiptId = receiptParam && /^\d+$/.test(receiptParam) ? Number(receiptParam) : null;
   const receiptInfo = receiptId ? getPaymentReceiptInfo(inv, receiptId) : null;
+  const selectedReceiptInfos = getPaymentReceiptInfos(inv, selectedReceiptPaymentIds);
   const v = inv.versat;
   const issued = ['finished', 'accepted', 'confirmed', 'sent', 'paid'].includes(inv.status);
   const isOwner = member.data?.role === 'owner';
@@ -125,6 +145,10 @@ export default function InvoiceDetailPage() {
   const canFinishHint = st === 'draft' && !hasLegal;
   const shareUrl = share?.url && !shares.isError && shares.data?.some(link => link.id === share.id && Date.parse(link.expiresAt) > Date.now()) ? new URL(share.url, window.location.origin).toString() : '';
   const versatCatalogCsv = window.sessionStorage.getItem(VERSAT_CATALOG_CSV_SESSION_KEY);
+
+  if (printingReceiptBatch) return <div className="receipt-print-page receipt-batch-print fade-in mx-auto max-w-[980px]" data-testid="payment-receipt-batch">
+    {selectedReceiptInfos.map(({ paymentId, receipt }) => <PaymentReceiptPaper key={paymentId} receipt={receipt} />)}
+  </div>;
 
   if (receiptParam) {
     if (!isOwner || !receiptInfo) return <div className="mx-auto max-w-[620px]"><div className="panel p-7"><Link href={`/invoices/${inv.id}`} className="button button-plain !min-h-9"><ArrowLeft size={14} />Volver a la factura</Link><h1 className="font-display mt-5 text-xl font-bold">{isOwner ? 'Comprobante no disponible' : 'Acceso no permitido'}</h1><p className="mt-2 text-sm leading-6 text-[#71817b]">{isOwner ? 'El abono no existe o fue corregido. Actualiza la factura antes de generar un comprobante.' : 'Solo el administrador puede generar comprobantes de abono.'}</p></div></div>;
@@ -151,7 +175,14 @@ export default function InvoiceDetailPage() {
       <MarkPaidButton invoice={inv} />
       <CorrectPaidButton invoice={inv} />
     </div>
-    <InvoicePaymentHistory invoice={inv} canGenerateReceipts={isOwner} canExportCorrections={isOwner} />
+     <InvoicePaymentHistory
+       invoice={inv}
+       canGenerateReceipts={isOwner}
+       canExportCorrections={isOwner}
+       selectedReceiptPaymentIds={selectedReceiptPaymentIds.filter((paymentId) => getPaymentReceiptInfo(inv, paymentId) !== null)}
+       onSelectedReceiptPaymentIdsChange={setSelectedReceiptPaymentIds}
+       onPrintSelectedReceipts={printSelectedReceipts}
+     />
     {isOwner && (inv.acceptedSource === 'payment' || inv.acceptedSource === 'versat_import') && <section className="no-print mb-4 rounded-xl border border-[#dce8ed] bg-white px-4 py-3" data-testid="acceptance-notice-delivery">
       <div className="text-[11px] font-bold text-[#315b52]">Aviso de aceptación automática</div>
       {acceptanceNotice.isPending ? <p className="mt-1 text-[11px] text-[#738079]">Comprobando la entrega…</p>

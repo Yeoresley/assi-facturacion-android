@@ -129,6 +129,8 @@
   .printing-payment-receipt .receipt-print-page { display:block!important; width:100%!important; max-width:none!important; margin:0!important; padding:0!important; }
   .printing-payment-receipt .legal-invoice { display:none!important; }
   .printing-payment-receipt .payment-receipt-paper { break-inside:avoid; page-break-inside:avoid; }
+  .printing-payment-receipt .receipt-batch-print .payment-receipt-paper { break-after:page; page-break-after:always; }
+  .printing-payment-receipt .receipt-batch-print .payment-receipt-paper:last-child { break-after:auto; page-break-after:auto; }
   .printing-payment-receipt .payment-receipt-customer span,
   .printing-payment-receipt .payment-receipt-amount span,
   .printing-payment-receipt .payment-receipt-balance span { font-size:9pt; }

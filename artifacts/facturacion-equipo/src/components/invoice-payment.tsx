@@ -329,7 +329,21 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
   </>;
 }
 
-export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, canExportCorrections = false }: { invoice: Invoice; canGenerateReceipts?: boolean; canExportCorrections?: boolean }) {
+export function InvoicePaymentHistory({
+  invoice,
+  canGenerateReceipts = false,
+  canExportCorrections = false,
+  selectedReceiptPaymentIds = [],
+  onSelectedReceiptPaymentIdsChange,
+  onPrintSelectedReceipts,
+}: {
+  invoice: Invoice;
+  canGenerateReceipts?: boolean;
+  canExportCorrections?: boolean;
+  selectedReceiptPaymentIds?: number[];
+  onSelectedReceiptPaymentIdsChange?: (paymentIds: number[]) => void;
+  onPrintSelectedReceipts?: (paymentIds: number[]) => void;
+}) {
   const [period, setPeriod] = useState<'all' | '30' | '90'>('all');
   const [referenceSearch, setReferenceSearch] = useState('');
   const [exportError, setExportError] = useState('');
@@ -351,6 +365,15 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 sm:px-5">
       <div><div className="eyebrow">Seguimiento de cobros</div><h2 id="payment-history-title" className="font-display mt-1 text-base font-bold">Abonos y saldo</h2></div>
       <div className="flex flex-wrap items-center gap-2">
+        {canGenerateReceipts && onPrintSelectedReceipts && <button
+          type="button"
+          className="button button-primary !min-h-9 !px-2.5 !text-[11px]"
+          disabled={selectedReceiptPaymentIds.length < 2}
+          onClick={() => onPrintSelectedReceipts(selectedReceiptPaymentIds)}
+          data-testid="button-print-selected-payment-receipts"
+        ><ReceiptText size={13} />{selectedReceiptPaymentIds.length > 1
+          ? `Imprimir ${selectedReceiptPaymentIds.length} comprobantes`
+          : 'Selecciona varios abonos'}</button>}
         <input className="field !h-9 w-full text-[11px] sm:!w-52" type="search" value={referenceSearch} onChange={(event) => setReferenceSearch(event.target.value)} placeholder="Buscar referencia" aria-label="Buscar abonos por referencia" data-testid="input-payment-history-reference" />
         <label className="flex items-center gap-2 text-[11px] font-semibold text-[#71817b]">Ver
           <select className="field !h-9 !w-auto min-w-[130px] text-[11px]" value={period} onChange={(event) => setPeriod(event.target.value as 'all' | '30' | '90')} aria-label="Filtrar historial de abonos" data-testid="select-payment-history-period">
@@ -380,6 +403,18 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
           return <li key={payment.id} className="flex items-center justify-between gap-3 py-3" data-testid={`row-invoice-payment-${payment.id}`}>
           <div className="min-w-0"><div className={`text-[12px] font-semibold ${reversed ? 'text-[#9a3b2e] line-through' : ''}`}>{reversed ? 'Abono revertido' : paymentCorrection ? 'Abono corregido' : 'Pago recibido'}</div><div className="mt-1 text-[11px] text-[#75827c]">Fecha efectiva · {date(effectivePaidOn)}{paymentCorrection && ` · Original: ${date(originalPaidOn)}`}</div><div className="mt-1 text-[11px] text-[#75827c]">Medio vigente · {payment.paymentMethod ? paymentMethodLabel(payment.paymentMethod) : 'Sin especificar'}</div>{payment.reference && <div className="mt-1 break-words [overflow-wrap:anywhere] text-[11px] text-[#75827c]">Referencia · {payment.reference}</div>}</div>
           <div className="flex shrink-0 items-center gap-3">
+            {canGenerateReceipts && !reversed && onSelectedReceiptPaymentIdsChange && <label className="flex items-center gap-1.5 text-[10px] font-semibold text-[#71817b]">
+              <input
+                type="checkbox"
+                checked={selectedReceiptPaymentIds.includes(payment.id)}
+                onChange={(event) => onSelectedReceiptPaymentIdsChange(event.target.checked
+                  ? [...selectedReceiptPaymentIds, payment.id]
+                  : selectedReceiptPaymentIds.filter((id) => id !== payment.id))}
+                aria-label={`Seleccionar comprobante del abono del ${date(effectivePaidOn)}`}
+                data-testid={`checkbox-payment-receipt-${payment.id}`}
+              />
+              <span className="sr-only">Incluir comprobante</span>
+            </label>}
             <div className="text-right"><div className="font-display text-[13px] font-bold">{money(effectiveAmount, payment.currency || invoice.currency)}</div><div className="mt-1 text-[10px] text-[#87918a]">{paymentCorrection ? `Recibo original · ${money(originalAmount, payment.currency || invoice.currency)}` : `Registrado · ${date(payment.recordedAt)}`}</div></div>
             {canGenerateReceipts && !reversed && <Link className="button button-soft !min-h-8 !px-2.5 !text-[11px]" href={`/invoices/${invoice.id}?receipt=${payment.id}`} aria-label={`Generar comprobante vigente del abono del ${date(effectivePaidOn)}`} data-testid={`link-payment-receipt-${payment.id}`}><ReceiptText size={13} />{paymentCorrection ? 'Comprobante vigente' : 'Comprobante'}</Link>}
           </div>

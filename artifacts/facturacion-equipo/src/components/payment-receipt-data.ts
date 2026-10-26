@@ -39,3 +39,10 @@ export function getPaymentReceiptInfo(invoice: ReceiptSource, paymentId: number)
     corrected: corrections.some((entry) => entry.targetPaymentId === payment.id),
   };
 }
+
+export function getPaymentReceiptInfos(invoice: ReceiptSource, paymentIds: number[]) {
+  return paymentIds.flatMap((paymentId) => {
+    const receipt = getPaymentReceiptInfo(invoice, paymentId);
+    return receipt ? [{ paymentId, receipt }] : [];
+  });
+}

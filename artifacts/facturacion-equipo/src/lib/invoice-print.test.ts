@@ -7,6 +7,7 @@ const invoiceStyles = readFileSync(new URL('../components/invoice-document.css',
 const appStyles = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
 const authenticatedInvoicePage = readFileSync(new URL('../pages/invoice-detail.tsx', import.meta.url), 'utf8');
 const sharedInvoicePage = readFileSync(new URL('../pages/shared-invoice.tsx', import.meta.url), 'utf8');
+const invoicePaymentComponent = readFileSync(new URL('../components/invoice-payment.tsx', import.meta.url), 'utf8');
 
 test('la factura permite que textos excepcionalmente largos se ajusten y paginen', () => {
   assert.match(invoiceStyles, /\.legal-invoice\s*\{[^}]*box-sizing:\s*border-box[^}]*width:\s*100%/);
@@ -84,6 +85,7 @@ test('la impresión del comprobante activa y limpia su modo aislado', async () =
   const classes = new Set<string>();
   let afterPrint: (() => void) | undefined;
   let printCalled = false;
+  let afterPrintCallbackCalled = false;
 
   const fakeDocument = {
     fonts: { ready: Promise.resolve() },
@@ -103,17 +105,25 @@ test('la impresión del comprobante activa y limpia su modo aislado', async () =
   Object.defineProperty(globalThis, 'document', { configurable: true, value: fakeDocument as unknown as Document });
   Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow as unknown as Window & typeof globalThis });
   try {
-    await printInvoice({ documentType: 'receipt' });
+    await printInvoice({ documentType: 'receipt', onAfterPrint: () => { afterPrintCallbackCalled = true; } });
     assert.equal(printCalled, true);
     assert.equal(classes.has('printing-payment-receipt'), true);
     afterPrint?.();
     assert.equal(classes.has('printing-payment-receipt'), false);
+    assert.equal(afterPrintCallbackCalled, true);
   } finally {
     if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
     else Reflect.deleteProperty(globalThis, 'document');
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else Reflect.deleteProperty(globalThis, 'window');
   }
+});
+
+test('los comprobantes seleccionados se imprimen en páginas separadas', () => {
+  assert.match(invoiceStyles, /\.receipt-batch-print \.payment-receipt-paper\s*\{\s*break-after:page;\s*page-break-after:always;/);
+  assert.match(invoiceStyles, /\.receipt-batch-print \.payment-receipt-paper:last-child\s*\{\s*break-after:auto;\s*page-break-after:auto;/);
+  assert.match(authenticatedInvoicePage, /data-testid="payment-receipt-batch"/);
+  assert.match(invoicePaymentComponent, /data-testid="button-print-selected-payment-receipts"/);
 });
 
 test('la impresión de la factura espera a que carguen las imágenes autorizadas', async () => {

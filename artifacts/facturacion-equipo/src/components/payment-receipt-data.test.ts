@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Invoice } from '@workspace/api-client-react';
-import { getPaymentReceiptInfo } from './payment-receipt-data';
+import { getPaymentReceiptInfo, getPaymentReceiptInfos } from './payment-receipt-data';
 
 const invoice = {
   total: 100,
@@ -29,4 +29,11 @@ test('el comprobante refleja la corrección vigente y omite abonos reversados', 
   assert.equal(originalReceipt?.reference, null);
   assert.equal(originalReceipt?.paymentMethod, 'transfer');
   assert.equal(getPaymentReceiptInfo(invoice, 2), null);
+});
+
+test('la selección múltiple conserva el orden elegido y omite comprobantes no vigentes', () => {
+  const selectedReceipts = getPaymentReceiptInfos(invoice, [3, 2, 1]);
+  assert.deepEqual(selectedReceipts.map(({ paymentId }) => paymentId), [3, 1]);
+  assert.equal(selectedReceipts[1]?.receipt.amount, 25);
+  assert.equal(selectedReceipts[1]?.receipt.corrected, true);
 });

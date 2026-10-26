@@ -576,7 +576,7 @@ test("administrator correction edits one selected partial payment without changi
     reason: "No confirmó selección",
     confirmed: true,
     idempotencyKey: randomUUID(),
-  }, owner), /ya tiene ese importe/);
+  }, owner), /ya tiene esos datos/);
 });
 
 test("correcting a historical paid status reopens it without inventing a receipt or acceptance", async () => {
