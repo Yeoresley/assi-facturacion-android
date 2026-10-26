@@ -43,8 +43,10 @@ export function applySettlementPaymentCorrections(
   const reversedPaymentIds = corrections.flatMap(({ reversedPaymentId }) =>
     reversedPaymentId === null ? [] : [reversedPaymentId]);
   const correctedPayments = new Map<number, (typeof corrections)[number]>();
-  for (const correction of [...corrections].sort((a, b) => a.id - b.id)) {
-    if (correction.targetPaymentId !== null) {
+  for (const correction of corrections) {
+    if (correction.targetPaymentId === null) continue;
+    const current = correctedPayments.get(correction.targetPaymentId);
+    if (!current || correction.id > current.id) {
       correctedPayments.set(correction.targetPaymentId, correction);
     }
   }

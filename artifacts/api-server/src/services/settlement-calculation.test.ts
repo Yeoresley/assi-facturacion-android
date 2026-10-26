@@ -94,3 +94,42 @@ test("a corrected receipt date moves settlement month without changing original 
     { id: 2, amount: 40, paidOn: "2026-10-01" },
   ]);
 });
+
+test("the latest correction wins for the same receipt even when corrections arrive out of order", () => {
+  const originalPayments = [
+    { id: 1, amount: 60, paidOn: "2026-09-29" },
+    { id: 2, amount: 40, paidOn: "2026-10-01" },
+  ];
+  const corrections = [
+    {
+      id: 12,
+      targetPaymentId: 2,
+      reversedPaymentId: null,
+      afterPaymentAmount: 45,
+      afterPaidOn: "2026-09-30",
+    },
+    {
+      id: 11,
+      targetPaymentId: 2,
+      reversedPaymentId: null,
+      afterPaymentAmount: 35,
+      afterPaidOn: "2026-10-04",
+    },
+  ];
+
+  const { payments: effectivePayments, reversedPaymentIds } =
+    applySettlementPaymentCorrections(originalPayments, corrections);
+
+  assert.deepEqual(effectivePayments, [
+    { id: 1, amount: 60, paidOn: "2026-09-29" },
+    { id: 2, amount: 45, paidOn: "2026-09-30" },
+  ]);
+  assert.equal(
+    settlementPaymentCompletionDate(100, effectivePayments, reversedPaymentIds),
+    "2026-09-30",
+  );
+  assert.deepEqual(originalPayments, [
+    { id: 1, amount: 60, paidOn: "2026-09-29" },
+    { id: 2, amount: 40, paidOn: "2026-10-01" },
+  ]);
+});
