@@ -42,6 +42,7 @@ let invoiceId: number;
 let ownerCommercialInvoiceId: number;
 let awaitingConfirmationInvoiceId: number;
 let correctedPartialInvoiceId: number;
+let inactivePaidInvoiceIds: number[] = [];
 let invoiceLineId: number;
 
 before(async () => {
@@ -198,6 +199,35 @@ before(async () => {
     paidOn,
     paidBy: ownerId,
   });
+  const inactivePaidInvoices = await db.insert(invoicesTable).values([
+    {
+      number: `${tag}-voided-paid`,
+      customerId,
+      specialistId: specialistOneId,
+      specialistName: specialistOneId,
+      issueDate: paidOn,
+      currency: "CUP",
+      status: "voided",
+      paymentStatus: "paid",
+      paidAt: new Date(),
+      subtotal: 700,
+      total: 700,
+    },
+    {
+      number: `${tag}-cancelled-paid`,
+      customerId,
+      specialistId: specialistOneId,
+      specialistName: specialistOneId,
+      issueDate: paidOn,
+      currency: "CUP",
+      status: "cancelled",
+      paymentStatus: "paid",
+      paidAt: new Date(),
+      subtotal: 800,
+      total: 800,
+    },
+  ]).returning({ id: invoicesTable.id });
+  inactivePaidInvoiceIds = inactivePaidInvoices.map(({ id }) => id);
   await db.insert(settlementClassificationsTable).values({
     invoiceLineId: line.id,
     salesType: "service",
@@ -249,9 +279,10 @@ after(async () => {
       .where(eq(invoicePaymentCorrectionsTable.invoiceId, correctedPartialInvoiceId));
     await db.delete(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, correctedPartialInvoiceId));
   }
-  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId) {
+  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId || inactivePaidInvoiceIds.length) {
     await db.delete(invoicesTable).where(inArray(invoicesTable.id, [
       invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId, correctedPartialInvoiceId,
+      ...inactivePaidInvoiceIds,
     ].filter((id): id is number => Boolean(id))));
   }
   if (customerId) await db.delete(customersTable).where(inArray(customersTable.id, [customerId]));
@@ -359,6 +390,31 @@ test("paid invoices awaiting Versat confirmation are visible only in their speci
   assert.ok(ownerResult.paidAwaitingConfirmation.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId));
   assert.equal(
     ownerResult.results.some((result) => result.invoices.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId)),
+    false,
+  );
+});
+
+test("voided and cancelled invoices never appear in the Versat confirmation list, even with a legacy paid marker", async () => {
+  const specialistResponse = await request(specialistOneId);
+  assert.equal(specialistResponse.status, 200);
+  const specialistResult = GetMonthlySettlementResponse.parse(await specialistResponse.json());
+  assert.equal(
+    specialistResult.paidAwaitingConfirmation.some(({ invoiceId: id }) => inactivePaidInvoiceIds.includes(id)),
+    false,
+  );
+
+  const otherSpecialistResponse = await request(specialistTwoId);
+  assert.equal(otherSpecialistResponse.status, 200);
+  const otherSpecialistResult = GetMonthlySettlementResponse.parse(await otherSpecialistResponse.json());
+  assert.deepEqual(otherSpecialistResult.paidAwaitingConfirmation, []);
+  assert.equal(JSON.stringify(otherSpecialistResult).includes(`${tag}-voided-paid`), false);
+  assert.equal(JSON.stringify(otherSpecialistResult).includes(`${tag}-cancelled-paid`), false);
+
+  const ownerResponse = await request(ownerId);
+  assert.equal(ownerResponse.status, 200);
+  const ownerResult = GetMonthlySettlementResponse.parse(await ownerResponse.json());
+  assert.equal(
+    ownerResult.paidAwaitingConfirmation.some(({ invoiceId: id }) => inactivePaidInvoiceIds.includes(id)),
     false,
   );
 });
