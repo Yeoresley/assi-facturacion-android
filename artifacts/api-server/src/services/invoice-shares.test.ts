@@ -213,6 +213,7 @@ test("public shares omit internal correction audit while team detail preserves i
   const sharedBody = await liveData.json() as Record<string, unknown>;
   const parsedShared = GetSharedInvoiceResponse.parse(sharedBody);
   assert.equal(parsedShared.number, tag);
+  assert.equal(parsedShared.confirmedAt, null, "un enlace autorizado antes de confirmar mantiene la fecha de emisión en el pie");
   assert.deepEqual(Object.keys(sharedBody).sort(), [
     "confirmedAt", "currency", "customerName", "dueDate", "issueDate", "legalDocument",
     "lines", "notes", "number", "status", "subtotal", "total", "versat",
@@ -281,6 +282,25 @@ test("public shares omit internal correction audit while team detail preserves i
     assert.equal(await image.text(), "synthetic-image");
     assert.equal((await request(`/shared-invoices/${receiptToken}/images/${kind}`, "")).status, 404);
   }
+
+  const versatConfirmation = new Date("2026-10-25T12:00:00.000Z");
+  await db.update(invoicesTable).set({ status: "confirmed", confirmedAt: versatConfirmation }).where(eq(invoicesTable.id, invoiceId));
+  const confirmedShared = GetSharedInvoiceResponse.parse(await (await request(`/shared-invoices/${token}`, "")).json());
+  assert.equal(confirmedShared.status, "confirmed");
+  assert.equal(confirmedShared.confirmedAt?.toISOString(), versatConfirmation.toISOString());
+  const confirmedTeam = GetInvoiceResponse.parse(await (await request(`/invoices/${invoiceId}`, owner)).json());
+  assert.equal(confirmedTeam.confirmedAt?.toISOString(), versatConfirmation.toISOString());
+  await db.update(invoicesTable).set({ status: "sent", confirmedAt: null }).where(eq(invoicesTable.id, invoiceId));
+
+  for (const status of ["draft", "voided", "cancelled"] as const) {
+    await db.update(invoicesTable).set({ status }).where(eq(invoicesTable.id, invoiceId));
+    for (const kind of ["stamp", "signature"] as const) {
+      assert.equal((await request(`/invoices/${invoiceId}/images/${kind}`, specialist)).status, 404, `${status} team ${kind} must stay hidden`);
+      assert.equal((await request(`/shared-invoices/${token}/images/${kind}`, "")).status, 404, `${status} shared ${kind} must stay hidden`);
+    }
+  }
+  await db.update(invoicesTable).set({ status: "sent" }).where(eq(invoicesTable.id, invoiceId));
+
   const imageAccessUrl = `/invoices/${invoiceId}/image-accesses`;
   for (const [actor, status] of [[owner, 200], [specialist, 403], [other, 403], [unassigned, 403], ["", 401], [pending, 403]] as const) {
     const historyResponse = await request(imageAccessUrl, actor);

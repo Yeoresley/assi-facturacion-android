@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { amountInWords, printInvoice } from './invoice-print';
+import { amountInWords, getInvoicePrintState, printInvoice } from './invoice-print';
 
 const invoiceStyles = readFileSync(new URL('../components/invoice-document.css', import.meta.url), 'utf8');
 const appStyles = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
@@ -30,6 +30,38 @@ test('la impresión móvil aísla la factura, conserva la tabla completa y evita
   assert.match(invoiceStyles, /\.legal-lines\s*\{[^}]*width:100%!important[^}]*table-layout:fixed!important/);
   assert.match(invoiceStyles, /\.legal-responsibilities\s*>\s*div,\.legal-stamp-placeholder,\.legal-signature,\.legal-stamp\s*\{[^}]*break-inside:avoid[^}]*page-break-inside:avoid/);
   assert.match(appStyles, /\.no-print,\s*\.sidebar,\s*\.mobile-nav,\s*\.topbar\s*\{\s*display:none!important;/);
+});
+
+test('el pie imprimible muestra cuño y firma autorizados solo en facturas emitidas y usa la fecha de confirmación', () => {
+  const sent = getInvoicePrintState('sent', true, true, '21 oct 2026');
+  assert.deepEqual(sent, {
+    issued: true,
+    showStamp: true,
+    showSignature: true,
+    accountedDate: '21 oct 2026',
+  });
+
+  const confirmed = getInvoicePrintState('confirmed', true, true, '21 oct 2026', '2026-10-25T12:00:00.000Z');
+  assert.equal(confirmed.issued, true);
+  assert.equal(confirmed.showStamp, true);
+  assert.equal(confirmed.showSignature, true);
+  assert.equal(confirmed.accountedDate, '25 oct 2026');
+
+  for (const status of ['draft', 'cancelled', 'voided', 'error']) {
+    const nonIssued = getInvoicePrintState(status, true, true, '21 oct 2026');
+    assert.equal(nonIssued.issued, false, `${status} is not printable as issued`);
+    assert.equal(nonIssued.showStamp, false, `${status} must not show the stamp`);
+    assert.equal(nonIssued.showSignature, false, `${status} must not show the signature`);
+  }
+});
+
+test('el pie coloca las responsabilidades y el cuño en la cuadrícula imprimible sin partir sus bloques', () => {
+  assert.match(invoiceStyles, /\.legal-responsibilities\s*\{[^}]*display:grid[^}]*grid-template-columns:\s*repeat\(3,minmax\(0,1fr\)/);
+  assert.match(invoiceStyles, /\.legal-responsibilities\s*>\s*div,\.legal-stamp-placeholder,\.legal-signature,\.legal-stamp\s*\{[^}]*break-inside:avoid[^}]*page-break-inside:avoid/);
+  assert.match(invoiceStyles, /\.legal-signature\s*\{[^}]*width:112px[^}]*height:42px/);
+  assert.match(invoiceStyles, /\.legal-stamp\s*\{[^}]*width:160px[^}]*height:64px/);
+  assert.match(invoiceStyles, /-webkit-print-color-adjust:exact;\s*print-color-adjust:exact/);
+  assert.match(readFileSync(new URL('../components/invoice-document.tsx', import.meta.url), 'utf8'), /showSignature \? <AuthorizedImage[\s\S]*?Fecha: \{accountedDate\}[\s\S]*?showStamp \? <AuthorizedImage/);
 });
 
 test('total del PDF de referencia y centavos', () => {

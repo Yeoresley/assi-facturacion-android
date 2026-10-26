@@ -22,6 +22,28 @@ export function amountInWords(value: number): string {
 const AUTHORIZED_IMAGES_TIMEOUT_MS = 20_000;
 const IMAGE_CHECK_INTERVAL_MS = 50;
 
+const issuedInvoiceStatuses = new Set(['finished', 'accepted', 'confirmed', 'sent', 'paid']);
+
+export function getInvoicePrintState(
+  status: string,
+  hasStamp: boolean,
+  hasSignature: boolean,
+  issueDate: string,
+  confirmedAt?: string | null,
+) {
+  const issued = issuedInvoiceStatuses.has(status);
+  return {
+    issued,
+    showStamp: issued && hasStamp,
+    showSignature: issued && hasSignature,
+    accountedDate: confirmedAt
+      ? new Intl.DateTimeFormat('es-ES', {
+        day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Havana',
+      }).format(new Date(confirmedAt))
+      : issueDate,
+  };
+}
+
 async function waitForAuthorizedImages() {
   const deadline = Date.now() + AUTHORIZED_IMAGES_TIMEOUT_MS;
   while (true) {
