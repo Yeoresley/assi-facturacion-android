@@ -4,6 +4,7 @@ import { after, before, mock, test } from "node:test";
 import type { Server } from "node:http";
 import express from "express";
 import { clerkClient } from "@clerk/express";
+import { unzipSync } from "fflate";
 import { eq, inArray } from "drizzle-orm";
 import {
   customersTable,
@@ -29,6 +30,7 @@ const specialistEmail = `${specialistId}@example.invalid`;
 const userIds = [ownerId, specialistId];
 const catalogIds: number[] = [];
 const invoiceIds: number[] = [];
+const originalCatalogExportValues: Array<{ id: number; exportValue: string }> = [];
 let server: Server;
 let base: string;
 let customerId: number;
@@ -106,6 +108,11 @@ before(async () => {
 after(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   mock.restoreAll();
+  for (const entry of originalCatalogExportValues) {
+    await db.update(versatCatalogTable).set({ exportValue: entry.exportValue })
+      .where(eq(versatCatalogTable.id, entry.id));
+  }
+  originalCatalogExportValues.length = 0;
   if (invoiceIds.length) {
     await db.delete(invoiceNumberReservationsTable)
       .where(inArray(invoiceNumberReservationsTable.invoiceId, invoiceIds));
@@ -158,6 +165,45 @@ const invoiceBody = (overrides: Record<string, unknown> = {}) => ({
 async function deactivateCatalogEntry(id: number) {
   await db.update(versatCatalogTable).set({ active: false })
     .where(eq(versatCatalogTable.id, id));
+}
+
+function csvCell(value: string | number): string {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+async function activeCatalogCsv(mismatch = false): Promise<string> {
+  const activeEntries = await db.select({
+    kind: versatCatalogTable.kind,
+    sourceId: versatCatalogTable.sourceId,
+    code: versatCatalogTable.code,
+    exportValue: versatCatalogTable.exportValue,
+  }).from(versatCatalogTable).where(eq(versatCatalogTable.active, true));
+  assert.ok(activeEntries.length > 0, "test needs at least one active catalog entry");
+  activeEntries.sort((a, b) =>
+    a.kind.localeCompare(b.kind) || a.sourceId - b.sourceId || a.code.localeCompare(b.code));
+  return [
+    "kind,sourceId,code,exportValue",
+    ...activeEntries.map((entry, index) => [
+      entry.kind,
+      entry.sourceId,
+      entry.code,
+      mismatch && index === 0 ? `${entry.exportValue}-MISMATCH` : entry.exportValue,
+    ].map(csvCell).join(",")),
+  ].join("\n");
+}
+
+async function normalizePaddedCatalogValuesForTest() {
+  const activeEntries = await db.select({
+    id: versatCatalogTable.id,
+    exportValue: versatCatalogTable.exportValue,
+  }).from(versatCatalogTable).where(eq(versatCatalogTable.active, true));
+  for (const entry of activeEntries) {
+    const exportValue = entry.exportValue.trim();
+    if (exportValue === entry.exportValue) continue;
+    originalCatalogExportValues.push({ id: entry.id, exportValue: entry.exportValue });
+    await db.update(versatCatalogTable).set({ exportValue })
+      .where(eq(versatCatalogTable.id, entry.id));
+  }
 }
 
 test("inactive catalog entries stay out of new invoices, remain on their drafts and export from saved snapshots", async () => {
@@ -282,6 +328,108 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   assert.equal(previewRows.length, 1);
   assert.equal(previewRows[0].taxId, "HISTORICAL TAX ID");
   assert.equal(previewRows[0].currency, entries.CUR.code);
+
+  // The comparator trims imported cells; normalize legacy padded DB values only
+  // for this test's compatible-catalog export and restore them in the teardown.
+  await normalizePaddedCatalogValuesForTest();
+  const compatibleCatalogCsv = await activeCatalogCsv();
+  const incompatibleCatalogCsv = await activeCatalogCsv(true);
+  const catalogCheck = await request(
+    "/versat/catalogs/compare",
+    ownerId,
+    "POST",
+    { catalogCsv: compatibleCatalogCsv },
+  );
+  assert.equal(catalogCheck.status, 200);
+  const catalogComparison = await catalogCheck.json() as { compatible: boolean; differences: Array<{ detail: string }> };
+  assert.equal(catalogComparison.compatible, true, JSON.stringify(catalogComparison.differences));
+  const invoiceBeforeRejectedExports = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, createdInvoice.id));
+  const linesBeforeRejectedExports = await db.select().from(invoiceLinesTable)
+    .where(eq(invoiceLinesTable.invoiceId, createdInvoice.id));
+
+  const blockedIndividual = await request(
+    `/invoices/${createdInvoice.id}/versat-file`,
+    ownerId,
+    "POST",
+    { catalogCsv: incompatibleCatalogCsv },
+  );
+  assert.equal(blockedIndividual.status, 422);
+  const individualError = await blockedIndividual.json() as { error: string; base64?: string };
+  assert.match(individualError.error, /No se generó ningún \.Fac/);
+  assert.match(individualError.error, /valor exportado difiere/);
+  assert.equal(individualError.base64, undefined, "blocked individual export must not return a file");
+
+  const blockedPeriod = await request(
+    "/versat/export-file?from=2098-12-30&to=2098-12-30",
+    ownerId,
+    "POST",
+    { catalogCsv: incompatibleCatalogCsv },
+  );
+  assert.equal(blockedPeriod.status, 422);
+  const periodError = await blockedPeriod.json() as { error: string; base64?: string };
+  assert.match(periodError.error, /No se generó ningún \.Fac/);
+  assert.match(periodError.error, /valor exportado difiere/);
+  assert.equal(periodError.base64, undefined, "blocked period export must not return a file");
+
+  assert.deepEqual(
+    await db.select().from(invoicesTable).where(eq(invoicesTable.id, createdInvoice.id)),
+    invoiceBeforeRejectedExports,
+    "blocked exports must not alter invoice status or any other invoice data",
+  );
+  assert.deepEqual(
+    await db.select().from(invoiceLinesTable).where(eq(invoiceLinesTable.invoiceId, createdInvoice.id)),
+    linesBeforeRejectedExports,
+    "blocked exports must not alter invoice lines",
+  );
+
+  const individualExport = await request(
+    `/invoices/${createdInvoice.id}/versat-file`,
+    ownerId,
+    "POST",
+    { catalogCsv: compatibleCatalogCsv },
+  );
+  const individualExportBody = await individualExport.text();
+  assert.equal(individualExport.status, 200, individualExportBody);
+  const individualFile = JSON.parse(individualExportBody) as {
+    filename: string;
+    base64: string;
+    contentType: string;
+    invoiceCount: number;
+  };
+  assert.match(individualFile.filename, /\.Fac$/);
+  assert.equal(individualFile.contentType, "text/plain;charset=windows-1252");
+  assert.equal(individualFile.invoiceCount, 1);
+  assert.match(Buffer.from(individualFile.base64, "base64").toString("latin1"), /Numero=/);
+  const [acceptedInvoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, createdInvoice.id));
+  assert.equal(acceptedInvoice.status, "accepted");
+
+  const periodExport = await request(
+    "/versat/export-file?from=2098-12-30&to=2098-12-30",
+    ownerId,
+    "POST",
+    { catalogCsv: compatibleCatalogCsv },
+  );
+  const periodExportBody = await periodExport.text();
+  assert.equal(periodExport.status, 200, periodExportBody);
+  const periodFile = JSON.parse(periodExportBody) as {
+    filename: string;
+    base64: string;
+    contentType: string;
+    invoiceCount: number;
+  };
+  assert.match(periodFile.filename, /\.zip$/);
+  assert.equal(periodFile.contentType, "application/zip");
+  assert.equal(periodFile.invoiceCount, 1);
+  const archive = unzipSync(Buffer.from(periodFile.base64, "base64"));
+  assert.ok(Object.keys(archive).some((filename) => filename.endsWith(".Fac")));
+  assert.ok(archive["LEEME.txt"]);
+  for (const entry of originalCatalogExportValues) {
+    await db.update(versatCatalogTable).set({ exportValue: entry.exportValue })
+      .where(eq(versatCatalogTable.id, entry.id));
+  }
+  originalCatalogExportValues.length = 0;
 
   const [savedInvoice] = await getInvoiceRows([createdInvoice.id]);
   assert.ok(savedInvoice);
