@@ -248,9 +248,9 @@ test("only the owner can download corrections for the requested invoice", async 
     beforePaymentStatus: "pending",
     afterPaymentStatus: "pending",
     beforeTotalPaid: 33,
-    afterTotalPaid: 33,
-    originalPaidBy: "autor-historico-sin-recibo",
-    originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+    afterTotalPaid: 30,
+    originalPaidBy: null,
+    originalPaidAt: null,
   }).returning({ id: invoicePaymentCorrectionsTable.id });
   const [originalReceipt] = await db.select({
     reference: invoicePaymentsTable.reference,
@@ -295,6 +295,16 @@ test("only the owner can download corrections for the requested invoice", async 
     assert.equal(noReceiptCorrection[headers.indexOf("Referencia del recibo")], "");
     assert.equal(noReceiptCorrection[headers.indexOf("Registrado por")], "");
     assert.equal(noReceiptCorrection[headers.indexOf("Fecha de registro")], "");
+    assert.equal(noReceiptCorrection[headers.indexOf("Autor")], ownerId);
+    assert.equal(noReceiptCorrection[headers.indexOf("Motivo")], "Corrección histórica sin recibo");
+    assert.deepEqual([
+      noReceiptCorrection[headers.indexOf("Importe antes (CUP)")],
+      noReceiptCorrection[headers.indexOf("Importe después (CUP)")],
+      noReceiptCorrection[headers.indexOf("Fecha antes")],
+      noReceiptCorrection[headers.indexOf("Fecha después")],
+      noReceiptCorrection[headers.indexOf("Total abonado antes (CUP)")],
+      noReceiptCorrection[headers.indexOf("Total abonado después (CUP)")],
+    ], ["", "", "", "", "33.00", "30.00"]);
     assert.ok(!csv.includes("OTRA_FACTURA_NO_EXPORTAR"));
     const foreignInvoiceResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistTwoId);
     assert.equal(foreignInvoiceResponse.status, 403);
