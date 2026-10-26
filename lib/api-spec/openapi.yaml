@@ -813,6 +813,30 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VersatCatalogComparison" }
         "400": { description: Invalid or unsupported CSV file }
+  /versat/catalogs/audit:
+    get:
+      operationId: getVersatCatalogAudit
+      tags: [Billing]
+      summary: Read recent audit events across Versat catalog entries
+      parameters:
+        - in: query
+          name: code
+          required: false
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: kind
+          required: false
+          schema: { type: string, enum: [service, unit, currency, concept, operation, commercial, payment] }
+      responses:
+        "200":
+          description: The most recent 200 catalog audit events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VersatCatalogAuditEvent" }
+        "400": { description: Invalid filter }
+        "403": { description: Owner access required }
   /versat/catalogs/{id}/history:
     get:
       operationId: getVersatCatalogHistory

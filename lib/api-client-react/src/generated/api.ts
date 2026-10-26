@@ -27,6 +27,7 @@ import type {
   DownloadVersatExportFileParams,
   ExportVersatInvoicesParams,
   GetMonthlySettlementParams,
+  GetVersatCatalogAuditParams,
   HealthStatus,
   Invoice,
   InvoiceAcceptanceNoticeStatus,
@@ -3813,6 +3814,90 @@ export const useCompareVersatCatalogs = <TError = ErrorType<void>,
       > => {
       return useMutation(getCompareVersatCatalogsMutationOptions(options));
     }
+
+export const getGetVersatCatalogAuditUrl = (params?: GetVersatCatalogAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/versat/catalogs/audit?${stringifiedParams}` : `/api/versat/catalogs/audit`
+}
+
+/**
+ * @summary Read recent audit events across Versat catalog entries
+ */
+export const getVersatCatalogAudit = async (params?: GetVersatCatalogAuditParams, options?: Parameters<typeof customFetch>[1]): Promise<VersatCatalogAuditEvent[]> => {
+
+  return customFetch<VersatCatalogAuditEvent[]>(getGetVersatCatalogAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVersatCatalogAuditQueryKey = (params?: GetVersatCatalogAuditParams,) => {
+    return [
+    `/api/versat/catalogs/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetVersatCatalogAuditQueryOptions = <TData = Awaited<ReturnType<typeof getVersatCatalogAudit>>, TError = ErrorType<void>>(params?: GetVersatCatalogAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVersatCatalogAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersatCatalogAudit>>> = ({ signal }) => getVersatCatalogAudit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVersatCatalogAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getVersatCatalogAudit>>>
+export type GetVersatCatalogAuditQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read recent audit events across Versat catalog entries
+ */
+
+export function useGetVersatCatalogAudit<TData = Awaited<ReturnType<typeof getVersatCatalogAudit>>, TError = ErrorType<void>>(
+ params?: GetVersatCatalogAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersatCatalogAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVersatCatalogAuditQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetVersatCatalogHistoryUrl = (id: number,) => {
 

@@ -1600,6 +1600,27 @@ export const ListInvoicesPaymentStatus = {
   paid: 'paid',
 } as const;
 
+export type GetVersatCatalogAuditParams = {
+/**
+ * @maxLength 100
+ */
+code?: string;
+kind?: GetVersatCatalogAuditKind;
+};
+
+export type GetVersatCatalogAuditKind = typeof GetVersatCatalogAuditKind[keyof typeof GetVersatCatalogAuditKind];
+
+
+export const GetVersatCatalogAuditKind = {
+  service: 'service',
+  unit: 'unit',
+  currency: 'currency',
+  concept: 'concept',
+  operation: 'operation',
+  commercial: 'commercial',
+  payment: 'payment',
+} as const;
+
 export type DownloadVersatExportFileParams = {
 from: string;
 to: string;

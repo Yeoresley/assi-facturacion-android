@@ -15,6 +15,8 @@ export * from './downloadVersatExportFileEncoding';
 export * from './downloadVersatExportFileParams';
 export * from './exportVersatInvoicesParams';
 export * from './getMonthlySettlementParams';
+export * from './getVersatCatalogAuditKind';
+export * from './getVersatCatalogAuditParams';
 export * from './healthStatus';
 export * from './invoice';
 export * from './invoiceAcceptanceNoticeStatus';

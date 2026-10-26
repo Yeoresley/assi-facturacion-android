@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetVersatCatalogHistoryQueryKey, getGetVersatCatalogsQueryKey,
-  useCreateVersatCatalogEntry, useGetVersatCatalogHistory, useGetVersatCatalogs,
+  getGetVersatCatalogAuditQueryKey, getGetVersatCatalogHistoryQueryKey, getGetVersatCatalogsQueryKey,
+  useCreateVersatCatalogEntry, useGetVersatCatalogAudit, useGetVersatCatalogHistory, useGetVersatCatalogs,
   useUpdateVersatCatalogEntry,
 } from '@workspace/api-client-react';
 import type { VersatCatalogAuditValues, VersatCatalogEntry, VersatCatalogEntryKind } from '@workspace/api-client-react';
@@ -38,6 +38,8 @@ export default function CatalogsPage() {
   const query = useGetVersatCatalogs({ query: { queryKey: getGetVersatCatalogsQueryKey() } });
   const [kind, setKind] = useState<VersatCatalogEntryKind>('service');
   const [search, setSearch] = useState('');
+  const [auditCode, setAuditCode] = useState('');
+  const [auditKind, setAuditKind] = useState<VersatCatalogEntryKind | ''>('');
   const [editing, setEditing] = useState<VersatCatalogEntry | null>(null);
   const [historyEntry, setHistoryEntry] = useState<VersatCatalogEntry | null>(null);
   const [dialog, setDialog] = useState(false);
@@ -45,6 +47,13 @@ export default function CatalogsPage() {
   const [success, setSuccess] = useState('');
   const create = useCreateVersatCatalogEntry();
   const update = useUpdateVersatCatalogEntry();
+  const auditParams = {
+    ...(auditCode.trim() ? { code: auditCode.trim() } : {}),
+    ...(auditKind ? { kind: auditKind } : {}),
+  };
+  const auditQuery = useGetVersatCatalogAudit(auditParams, {
+    query: { queryKey: getGetVersatCatalogAuditQueryKey(auditParams) },
+  });
   const historyQuery = useGetVersatCatalogHistory(historyEntry?.id ?? 0, {
     query: {
       queryKey: getGetVersatCatalogHistoryQueryKey(historyEntry?.id ?? 0),
@@ -77,6 +86,11 @@ export default function CatalogsPage() {
     if (value == null || value === '') return '—';
     return String(value);
   };
+  const dateLabel = (value: string) =>
+    new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  function openEventHistory(event: NonNullable<typeof auditQuery.data>[number]) {
+    setHistoryEntry({ ...event.newValues, id: event.catalogEntryId });
+  }
 
   function openNew() {
     setEditing(null);
@@ -147,6 +161,19 @@ export default function CatalogsPage() {
         {kinds.map((item) => <button key={item.kind} onClick={() => setKind(item.kind)} className={`panel p-4 text-left transition-transform hover:-translate-y-0.5 ${kind === item.kind ? '!border-[#49867c] !bg-[#f1f6f2]' : ''}`} data-testid={`tab-catalog-${item.kind}`}><div className="eyebrow">{item.label}</div><div className="font-display mt-2 text-[24px] font-bold tracking-[-.05em]">{counts[item.kind] || 0}</div></button>)}
         <Link href="/customers" className="panel p-4 text-left transition-transform hover:-translate-y-0.5" data-testid="link-catalog-customers"><div className="eyebrow">Clientes</div><div className="font-display mt-2 text-[24px] font-bold tracking-[-.05em]">{query.data.customerCount}</div></Link>
       </div>
+      <section className="panel mb-5 overflow-hidden" aria-labelledby="catalog-global-audit-title">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#eeece4] px-4 py-4 md:px-5">
+          <div><div className="eyebrow">Trazabilidad de cambios</div><h2 id="catalog-global-audit-title" className="font-display mt-1 text-lg font-bold">Modificaciones recientes</h2><p className="mt-1 text-[11px] text-[#78857f]">Últimos 200 eventos registrados, del más reciente al más antiguo.</p></div>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <label className="relative min-w-[190px] flex-1 sm:flex-none"><span className="sr-only">Filtrar historial por código</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={15} /><input className="field !h-10 !pl-9" type="search" placeholder="Filtrar por código" value={auditCode} onChange={(event) => setAuditCode(event.target.value)} data-testid="input-catalog-audit-code" /></label>
+            <label><span className="sr-only">Filtrar historial por catálogo</span><select className="field !h-10 min-w-[170px]" value={auditKind} onChange={(event) => setAuditKind(event.target.value as VersatCatalogEntryKind | '')} data-testid="select-catalog-audit-kind"><option value="">Todos los catálogos</option>{kinds.map((item) => <option key={item.kind} value={item.kind}>{item.label}</option>)}</select></label>
+          </div>
+        </div>
+        {auditQuery.isLoading ? <div className="py-8 text-center text-sm text-[#78857f]" role="status">Cargando cambios…</div>
+          : auditQuery.isError ? <div className="p-4"><QueryError retry={() => auditQuery.refetch()} message="No pudimos cargar los cambios recientes." detail={errorDetail(auditQuery.error, '')} /></div>
+            : !auditQuery.data?.length ? <EmptyState title="No hay cambios para mostrar" text={auditCode || auditKind ? 'Prueba con otro código o tipo de catálogo.' : 'Las altas y modificaciones registradas aparecerán aquí.'} />
+              : <div className="max-h-[420px] overflow-auto"><table className="w-full min-w-[760px]"><thead className="sticky top-0 bg-[#faf9f3]"><tr className="eyebrow text-left"><th className="px-5 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Catálogo</th><th className="px-4 py-3 font-medium">Código</th><th className="px-4 py-3 font-medium">Acción</th><th className="px-4 py-3 font-medium">Actor</th><th className="px-5 py-3 text-right font-medium">Historial</th></tr></thead><tbody>{auditQuery.data.map((event) => <tr key={event.id} className="table-row" data-testid={`row-catalog-audit-${event.id}`}><td className="px-5 py-3 text-[11px] text-[#78857f]"><time dateTime={event.createdAt}>{dateLabel(event.createdAt)}</time></td><td className="px-4 py-3 text-[11px]">{kindName(event.kind)}</td><td className="px-4 py-3 font-mono text-[12px] font-medium text-[#2e6960]">{event.newValues.code}</td><td className="px-4 py-3"><span className="rounded-full bg-[#e9f1ed] px-2.5 py-1 text-[10px] font-bold text-[#317060]">{actionLabel(event.action)}</span></td><td className="px-4 py-3 text-[11px] font-semibold text-[#334943]">{event.actorName}{event.actorEmail ? <span className="ml-1 font-normal text-[#78857f]">· {event.actorEmail}</span> : null}</td><td className="px-5 py-3 text-right"><button type="button" className="button button-plain !min-h-8 !px-2.5 text-[11px]" onClick={() => openEventHistory(event)} data-testid={`button-open-audit-history-${event.id}`}><Clock3 size={13} />Ver historial</button></td></tr>)}</tbody></table></div>}
+      </section>
       <section className="panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 md:px-5"><div><div className="eyebrow">{current.label} · {counts[kind] || 0}</div><p className="mt-1 text-[11px] text-[#78857f]">{current.hint}</p></div>
           <label className="relative min-w-[240px] flex-1 sm:max-w-[340px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={16} /><input className="field !h-10 !pl-9" type="search" placeholder="Buscar código o nombre" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-catalog-search" /></label></div>
@@ -179,7 +206,7 @@ export default function CatalogsPage() {
                 const fields = auditFields.filter(({ key }) => !event.previousValues
                   || event.previousValues[key] !== event.newValues[key]);
                 return <li key={event.id} className="rounded-xl border border-[#eeece4] bg-[#fffefa] p-4" data-testid={`catalog-history-event-${event.id}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#eeece4] pb-3"><div><span className="rounded-full bg-[#e9f1ed] px-2.5 py-1 text-[10px] font-bold text-[#317060]">{actionLabel(event.action)}</span><div className="mt-2 text-[12px] font-semibold text-[#334943]">{event.actorName}{event.actorEmail ? <span className="ml-2 font-normal text-[#78857f]">{event.actorEmail}</span> : null}</div></div><time className="text-[11px] text-[#78857f]" dateTime={event.createdAt}>{new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt))}</time></div>
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#eeece4] pb-3"><div><span className="rounded-full bg-[#e9f1ed] px-2.5 py-1 text-[10px] font-bold text-[#317060]">{actionLabel(event.action)}</span><div className="mt-2 text-[12px] font-semibold text-[#334943]">{event.actorName}{event.actorEmail ? <span className="ml-2 font-normal text-[#78857f]">{event.actorEmail}</span> : null}</div></div><time className="text-[11px] text-[#78857f]" dateTime={event.createdAt}>{dateLabel(event.createdAt)}</time></div>
                   <div className="mt-3 space-y-2">{fields.map(({ key, label }) => <div key={key} className="grid gap-1 text-[11px] sm:grid-cols-[120px_1fr_1fr] sm:gap-3"><span className="font-semibold text-[#64736d]">{label}</span><span className="text-[#8a958f]"><span className="sm:hidden">Antes: </span>{auditValue(key, event.previousValues?.[key])}</span><span className="font-medium text-[#334943]"><span className="sm:hidden">Después: </span>{auditValue(key, event.newValues[key])}</span></div>)}</div>
                 </li>;
               })}</ol>}

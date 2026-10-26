@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { strToU8, zipSync } from "fflate";
 import {
@@ -8,6 +8,8 @@ import {
   DownloadInvoiceVersatFileParams, DownloadInvoiceVersatFileResponse,
   DownloadVersatExportFileQueryParams, DownloadVersatExportFileResponse,
   ExportVersatInvoicesQueryParams, ExportVersatInvoicesResponse,
+  GetVersatCatalogAuditQueryParams,
+  GetVersatCatalogAuditResponse,
   GetVersatCatalogHistoryParams, GetVersatCatalogHistoryResponse,
   GetVersatCatalogsResponse,
   UpdateVersatCatalogEntryBody, UpdateVersatCatalogEntryParams, UpdateVersatCatalogEntryResponse,
@@ -272,6 +274,24 @@ router.patch("/versat/catalogs/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(UpdateVersatCatalogEntryResponse.parse(serializeCatalogEntry(result.entry)));
+});
+
+router.get("/versat/catalogs/audit", async (req, res): Promise<void> => {
+  if (!await requireOwner(req, res)) return;
+  const parsed = GetVersatCatalogAuditQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const filters = [];
+  if (parsed.data.kind) filters.push(eq(versatCatalogAuditTable.kind, parsed.data.kind));
+  const code = parsed.data.code?.trim();
+  if (code) filters.push(sql`${versatCatalogAuditTable.newValues}->>'code' ILIKE ${`%${code}%`}`);
+  const audit = await db.select().from(versatCatalogAuditTable)
+    .where(and(...filters))
+    .orderBy(desc(versatCatalogAuditTable.createdAt), desc(versatCatalogAuditTable.id))
+    .limit(200);
+  res.json(GetVersatCatalogAuditResponse.parse(audit));
 });
 
 router.get("/versat/catalogs/:id/history", async (req, res): Promise<void> => {

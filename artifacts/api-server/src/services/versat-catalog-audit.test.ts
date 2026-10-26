@@ -17,6 +17,8 @@ import versatRouter from "../routes/versat";
 const tag = `catalog-audit-${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 const ownerId = `${tag}-owner`;
 const ownerEmail = `${ownerId}@example.invalid`;
+const specialistId = `${tag}-specialist`;
+const specialistEmail = `${specialistId}@example.invalid`;
 const catalogIds: number[] = [];
 const triggerFunction = `fail_catalog_audit_${randomUUID().replaceAll("-", "")}`;
 const triggerName = `fail_catalog_audit_${randomUUID().replaceAll("-", "")}`;
@@ -24,23 +26,32 @@ let server: Server;
 let base: string;
 
 before(async () => {
-  mock.method(clerkClient.users, "getUser", async (id: string) => ({
-    id,
-    firstName: "Audit",
-    lastName: "Owner",
-    primaryEmailAddressId: "verified",
-    emailAddresses: [{
-      id: "verified",
-      emailAddress: ownerEmail,
-      verification: { status: "verified" },
-    }],
-  }));
+  mock.method(clerkClient.users, "getUser", async (id: string) => {
+    const isOwner = id === ownerId;
+    return {
+      id,
+      firstName: "Audit",
+      lastName: isOwner ? "Owner" : "Specialist",
+      primaryEmailAddressId: "verified",
+      emailAddresses: [{
+        id: "verified",
+        emailAddress: isOwner ? ownerEmail : specialistEmail,
+        verification: { status: "verified" },
+      }],
+    };
+  });
 
   await db.insert(teamMembersTable).values({
     userId: ownerId,
     name: "Audit Owner",
     email: ownerEmail,
     role: "owner",
+  });
+  await db.insert(teamMembersTable).values({
+    userId: specialistId,
+    name: "Audit Specialist",
+    email: specialistEmail,
+    role: "specialist",
   });
 
   const app = express();
@@ -77,13 +88,14 @@ after(async () => {
     await db.delete(versatCatalogTable).where(inArray(versatCatalogTable.id, catalogIds));
   }
   await db.delete(teamMembersTable).where(eq(teamMembersTable.userId, ownerId));
+  await db.delete(teamMembersTable).where(eq(teamMembersTable.userId, specialistId));
   await pool.end();
 });
 
-async function request(path: string, method: string, body: unknown) {
+async function request(path: string, method: string, body?: unknown, userId = ownerId) {
   return fetch(`${base}${path}`, {
     method,
-    headers: { "x-synthetic-id": ownerId, "Content-Type": "application/json" },
+    headers: { "x-synthetic-id": userId, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 }
@@ -196,6 +208,27 @@ test("catalog mutations create one actor-attributed audit event with exact snaps
     assert.ok(event.createdAt.getTime() >= startedAt - 1_000);
     assert.ok(event.createdAt.getTime() <= Date.now() + 1_000);
   }
+
+  const filteredAuditResponse = await request(
+    `/versat/catalogs/audit?code=${encodeURIComponent(initial.code)}&kind=service`,
+    "GET",
+  );
+  assert.equal(filteredAuditResponse.status, 200);
+  const filteredAudit = await filteredAuditResponse.json() as Array<{ catalogEntryId: number; action: string; kind: string; newValues: { code: string }; actorName: string }>;
+  assert.equal(filteredAudit.length, 1);
+  assert.equal(filteredAudit[0].catalogEntryId, created.id);
+  assert.equal(filteredAudit[0].action, "created");
+  assert.equal(filteredAudit[0].kind, "service");
+  assert.equal(filteredAudit[0].newValues.code, initial.code);
+  assert.equal(filteredAudit[0].actorName, "Audit Owner");
+
+  const unmatchedAuditResponse = await request(
+    `/versat/catalogs/audit?code=${encodeURIComponent(initial.code)}&kind=unit`,
+    "GET",
+  );
+  assert.deepEqual(await unmatchedAuditResponse.json(), []);
+  const specialistAuditResponse = await request("/versat/catalogs/audit", "GET", undefined, specialistId);
+  assert.equal(specialistAuditResponse.status, 403, "global catalog history is owner-only");
 
   const rollbackEntry = await db.insert(versatCatalogTable).values({
     kind: "service",
