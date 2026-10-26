@@ -18,3 +18,4 @@
 - [Auditoría de catálogos](catalog-audit-history.md) — registrar actor y snapshots al cambiar; no inventar responsables para entradas anteriores al historial.
 - [Desfase del esquema de desarrollo](dev-schema-drift.md) — no asumir que las tablas declaradas en Drizzle ya existen en la base compartida de desarrollo.
 - [Alcance de enlaces de comprobante](receipt-share-scope.md) — una URL de recibo debe usar una capacidad distinta y limitada, nunca el token que autoriza la factura completa.
+- [Migración histórica de facturas](historical-invoice-migration.md) — conservar autores de Versat, considerar cobradas las ausentes del CxC y no inventar fechas de pago.
