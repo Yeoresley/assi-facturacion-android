@@ -23,6 +23,8 @@ export default function ExportPage() {
   const [downloadNote, setDownloadNote] = useState<string[]>([]);
   const [catalogCsv, setCatalogCsv] = useState(() => window.sessionStorage.getItem(VERSAT_CATALOG_CSV_SESSION_KEY) ?? '');
   const [catalogFilename, setCatalogFilename] = useState('');
+  const [catalogReading, setCatalogReading] = useState(false);
+  const [catalogFileNote, setCatalogFileNote] = useState('');
   const [catalogComparison, setCatalogComparison] = useState<VersatCatalogComparison | null>(null);
   const [comparedCsv, setComparedCsv] = useState('');
   const [catalogError, setCatalogError] = useState('');
@@ -34,28 +36,35 @@ export default function ExportPage() {
   const catalogCheck = useCompareVersatCatalogs();
 
   async function selectCatalogFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
     setCatalogError('');
+    setCatalogFileNote('');
     setCatalogComparison(null);
     setComparedCsv('');
     window.sessionStorage.removeItem(VERSAT_CATALOG_CSV_SESSION_KEY);
-    if (!file) return;
-    if (file.size > 1_500_000) {
+    if (!files.length) return;
+    if (files.some((file) => file.size > 1_500_000) || files.reduce((size, file) => size + file.size, 0) > 1_500_000) {
       setCatalogCsv('');
       setCatalogFilename('');
-      setCatalogError('El archivo supera el límite de 1,5 MB.');
+      setCatalogError('Los archivos superan el límite total de 1,5 MB.');
       return;
     }
+    setCatalogReading(true);
     try {
-      const content = await file.text();
-      if (content.length > 1_500_000) throw new Error('El archivo supera el límite de 1,5 MB.');
-      setCatalogCsv(content);
-      setCatalogFilename(file.name);
+      const { prepareVersatCatalogCsv } = await import('@/lib/versat-catalog-file');
+      const prepared = await prepareVersatCatalogCsv(files);
+      setCatalogCsv(prepared.csv);
+      setCatalogFilename(prepared.filenames.join(', '));
+      setCatalogFileNote(prepared.excludedEntityFiles.length
+        ? `No se compararon las entidades/clientes: ${prepared.excludedEntityFiles.join(', ')}.`
+        : '');
     } catch (error) {
       setCatalogCsv('');
       setCatalogFilename('');
-      setCatalogError(error instanceof Error ? error.message : 'No se pudo leer el archivo.');
+      setCatalogError(error instanceof Error ? error.message : 'No se pudieron leer los archivos.');
+    } finally {
+      setCatalogReading(false);
     }
   }
 
@@ -112,12 +121,12 @@ export default function ExportPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e7f1ed] text-[#39746a]"><FileSpreadsheet size={17} /></span>
-          <div><div className="eyebrow">Comprobación previa obligatoria</div><h2 className="font-display mt-1 text-base font-bold">Compara los catálogos con Versat</h2><p className="mt-1 max-w-[680px] text-[11px] leading-5 text-[#78857f]">Carga el CSV o TSV reciente exportado desde Versat. Debe tener las columnas <span className="font-mono">kind, sourceId, code, exportValue</span> (también se aceptan sus nombres en español). Se comparan solo los registros activos de la aplicación.</p></div>
+          <div><div className="eyebrow">Comprobación previa obligatoria</div><h2 className="font-display mt-1 text-base font-bold">Compara los catálogos con Versat</h2><p className="mt-1 max-w-[680px] text-[11px] leading-5 text-[#78857f]">Selecciona directamente los libros .xlsx recientes de servicios, unidades, monedas, conceptos, operaciones, comerciales y formas de pago. También se admite un CSV o TSV estándar. Los libros se leen sin modificarlos; las entidades/clientes no forman parte de esta comprobación. Solo se comparan los registros activos de la aplicación.</p></div>
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-        <label><span className="field-label">Archivo del catálogo Versat (.csv, .tsv o .txt)</span><input className="field !h-auto py-2" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" onChange={selectCatalogFile} data-testid="input-versat-catalog-file" /><span className="mt-1 block text-[10px] text-[#8a958f]">{catalogFilename || 'Separador coma, punto y coma o tabulador; tamaño máximo 1,5 MB.'}</span></label>
-        <button type="button" className="button button-primary" onClick={compareCatalog} disabled={!catalogCsv || catalogCheck.isPending} data-testid="button-compare-versat-catalogs"><ShieldCheck size={15} />{catalogCheck.isPending ? 'Comparando…' : 'Comparar catálogo'}</button>
+        <label><span className="field-label">Archivos de catálogo Versat (.xlsx, .csv, .tsv o .txt)</span><input className="field !h-auto py-2" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values,text/plain" onChange={selectCatalogFile} data-testid="input-versat-catalog-file" /><span className="mt-1 block text-[10px] text-[#8a958f]">{catalogReading ? 'Leyendo archivos de catálogo…' : catalogFilename || 'Puedes seleccionar varios libros .xlsx a la vez; máximo combinado 1,5 MB.'}</span>{catalogFileNote && <span className="mt-1 block text-[10px] text-[#8a6a25]" role="status">{catalogFileNote}</span>}</label>
+        <button type="button" className="button button-primary" onClick={compareCatalog} disabled={!catalogCsv || catalogReading || catalogCheck.isPending} data-testid="button-compare-versat-catalogs"><ShieldCheck size={15} />{catalogCheck.isPending ? 'Comparando…' : 'Comparar catálogo'}</button>
       </div>
       {catalogError && <div className="mt-3 rounded-lg bg-[#fbefeb] px-4 py-2.5 text-[11px] leading-5 text-[#a04539]" role="alert">{catalogError}</div>}
       {catalogComparison && <div className={`mt-4 rounded-xl border px-4 py-3 ${catalogComparison.compatible ? 'border-[#c9dfd1] bg-[#edf6ef]' : 'border-[#ead9b6] bg-[#fcf5e6]'}`} role="status">
