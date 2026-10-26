@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { amountInWords, printInvoice } from './invoice-print';
 
 const invoiceStyles = readFileSync(new URL('../components/invoice-document.css', import.meta.url), 'utf8');
+const appStyles = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
 const authenticatedInvoicePage = readFileSync(new URL('../pages/invoice-detail.tsx', import.meta.url), 'utf8');
 const sharedInvoicePage = readFileSync(new URL('../pages/shared-invoice.tsx', import.meta.url), 'utf8');
 
@@ -20,6 +21,15 @@ test('la factura permite que textos excepcionalmente largos se ajusten y paginen
 test('las vistas autenticada y compartida reutilizan el mismo documento imprimible', () => {
   assert.match(authenticatedInvoicePage, /<InvoiceDocument invoice=\{inv\} \/>/);
   assert.match(sharedInvoicePage, /<InvoiceDocument invoice=\{invoice\.data\} shareToken=\{token\} \/>/);
+  assert.match(authenticatedInvoicePage, /className="print-invoice-page fade-in/);
+  assert.match(sharedInvoicePage, /className="print-invoice-page mx-auto/);
+});
+
+test('la impresión móvil aísla la factura, conserva la tabla completa y evita cortar cuño y firmas', () => {
+  assert.match(invoiceStyles, /\.print-invoice-page\s*>\s*:not\(\.legal-invoice\)\s*\{\s*display:none!important;/);
+  assert.match(invoiceStyles, /\.legal-lines\s*\{[^}]*width:100%!important[^}]*table-layout:fixed!important/);
+  assert.match(invoiceStyles, /\.legal-responsibilities\s*>\s*div,\.legal-stamp-placeholder,\.legal-signature,\.legal-stamp\s*\{[^}]*break-inside:avoid[^}]*page-break-inside:avoid/);
+  assert.match(appStyles, /\.no-print,\s*\.sidebar,\s*\.mobile-nav,\s*\.topbar\s*\{\s*display:none!important;/);
 });
 
 test('total del PDF de referencia y centavos', () => {

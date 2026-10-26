@@ -42,7 +42,7 @@ export default function SharedInvoicePage() {
     <footer className="no-print mt-5 text-center text-[10px] text-[#87928b]">Enlace temporal de comprobante · ASSI</footer>
   </div></div>;
   if (!invoice.data) return null;
-  return <div className="shared-invoice-page min-h-[100dvh] bg-[#f6f4eb] px-4 py-8 md:px-8 md:py-12"><div className="mx-auto max-w-[820px]">
+  return <div className="shared-invoice-page min-h-[100dvh] bg-[#f6f4eb] px-4 py-8 md:px-8 md:py-12"><div className="print-invoice-page mx-auto max-w-[820px]">
     <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3"><BrandMark /><button onClick={() => printInvoice().catch(err => setNotice(err.message))} className="button button-primary"><Printer size={15} />Imprimir / Guardar PDF</button></div>
     {notice && <p className="no-print mb-4 text-xs" role="alert">{notice}</p>}
     <InvoiceDocument invoice={invoice.data} shareToken={token} />

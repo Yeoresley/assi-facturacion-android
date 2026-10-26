@@ -87,10 +87,17 @@
   .fade-in { animation:none!important; transform:none!important; opacity:1!important; }
   .app-shell,.app-content,.main-content { display:block!important; width:auto!important; max-width:none!important; min-height:0!important; margin:0!important; padding:0!important; overflow:visible!important; background:white!important; }
   .shared-invoice-page { padding:0!important; margin:0!important; background:white!important; }
+  /* Print only the invoice itself. This also excludes mobile controls that
+     may be introduced later without relying on each one having .no-print. */
+  .print-invoice-page { display:block!important; width:100%!important; max-width:none!important; min-width:0!important; margin:0!important; padding:0!important; overflow:visible!important; }
+  .print-invoice-page > :not(.legal-invoice) { display:none!important; }
   html, body, #root { background:white!important; color:#111!important; height:auto!important; overflow:visible!important; }
-  .legal-invoice { width:100%; max-width:none!important; margin:0; padding:0!important; font-size:10px; }
+  .legal-invoice { box-sizing:border-box; width:100%; max-width:none!important; min-width:0!important; margin:0; padding:0!important; font-size:10px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .legal-invoice { line-height:1.25; }
   .legal-invoice p { margin:2px 0; }
+  .legal-lines { box-sizing:border-box; width:100%!important; max-width:100%!important; table-layout:fixed!important; }
+  .legal-lines th,.legal-lines td { min-width:0; overflow-wrap:anywhere; }
+  .legal-lines .numeric { white-space:nowrap; }
   .legal-header-cell { break-inside:avoid; padding-bottom:6px; }
   .legal-lines { overflow:visible!important; }
   /* Chromium will not repeat a thead taller than a quarter of a page.
@@ -110,6 +117,8 @@
   .legal-words { margin-bottom:12px!important; }
   .legal-payment { margin-bottom:14px!important; }
   .legal-responsibilities { gap:14px 15px; }
+  .legal-responsibilities > div,.legal-stamp-placeholder,.legal-signature,.legal-stamp { break-inside:avoid; page-break-inside:avoid; }
+  .legal-signature,.legal-stamp { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .legal-totals { margin-top:10px; margin-bottom:12px; }
   .legal-notes { margin:12px 0; }
   .legal-image-error { color:#a22!important; }
