@@ -9,7 +9,7 @@ import {
   CreateSettlementPaymentResponse,
   GetMonthlySettlementResponse,
 } from "@workspace/api-zod";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   customersTable,
   db,
@@ -224,6 +224,41 @@ const request = (
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
 });
 
+async function editDuringSettlementExpenseRead(
+  startRequest: () => Promise<Response>,
+  edit: () => Promise<void>,
+): Promise<Response> {
+  let releaseLock!: () => void;
+  let signalLockReady!: () => void;
+  const lockReady = new Promise<void>((resolve) => { signalLockReady = resolve; });
+  const holdLock = new Promise<void>((resolve) => { releaseLock = resolve; });
+  const blocker = db.transaction(async (tx) => {
+    await tx.execute(sql`LOCK TABLE settlement_expenses IN ACCESS EXCLUSIVE MODE`);
+    signalLockReady();
+    await holdLock;
+  });
+  await lockReady;
+  const responsePromise = startRequest();
+  let waitingForExpenseRead = false;
+  try {
+    const waitDeadline = Date.now() + 5_000;
+    while (!waitingForExpenseRead && Date.now() < waitDeadline) {
+      const { rows } = await pool.query(
+        "SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query ILIKE '%settlement_expenses%' LIMIT 1",
+      );
+      waitingForExpenseRead = rows.length > 0;
+      if (!waitingForExpenseRead) await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    if (waitingForExpenseRead) await edit();
+  } finally {
+    releaseLock();
+    await blocker;
+  }
+  const response = await responsePromise;
+  assert.equal(waitingForExpenseRead, true, "request should pause during its expense read");
+  return response;
+}
+
 test("specialists see only their settlement transfer history, while the owner can see the team", async () => {
   const ownResponse = await request(specialistOneId);
   assert.equal(ownResponse.status, 200);
@@ -352,16 +387,31 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     updatedBy: ownerId,
   });
 
-  const closeResponse = await request(ownerId, "POST", {
-    period,
-    specialistId: specialistOneId,
-  }, "/settlements/closures");
+  const closeResponse = await editDuringSettlementExpenseRead(
+    () => request(ownerId, "POST", {
+      period,
+      specialistId: specialistOneId,
+    }, "/settlements/closures"),
+    () => db.transaction(async (tx) => {
+      await tx.update(invoiceLinesTable).set({ unitPrice: 20_000, amount: 20_000 })
+        .where(eq(invoiceLinesTable.id, invoiceLineId));
+      await tx.update(settlementClassificationsTable).set({ salesType: "license" })
+        .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
+    }),
+  );
   assert.equal(closeResponse.status, 201);
   const firstClosure = CreateSettlementClosureResponse.parse(await closeResponse.json());
   assert.equal(firstClosure.version, 1);
   assert.equal(firstClosure.supersedesId, null);
   assert.equal(firstClosure.approvedBy, ownerId);
   assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.salesType, "service");
+  assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.amount, 10_000);
+  const firstVersions = await db.select({ version: settlementClosuresTable.version })
+    .from(settlementClosuresTable).where(and(
+      eq(settlementClosuresTable.period, period),
+      eq(settlementClosuresTable.specialistId, specialistOneId),
+    ));
+  assert.deepEqual(firstVersions.map(({ version }) => version), [1]);
   const approvedNet = firstClosure.snapshot.totals.netPayable;
 
   const otherSpecialistResponse = await request(specialistTwoId);
@@ -385,8 +435,16 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   assert.equal(afterEdit.closureHistory.length, 1);
 
   const reason = "Clasificación corregida tras revisar el servicio";
-  const correctionResponse = await request(ownerId, "POST", { reason },
-    `/settlements/closures/${firstClosure.id}/corrections`);
+  const correctionResponse = await editDuringSettlementExpenseRead(
+    () => request(ownerId, "POST", { reason },
+      `/settlements/closures/${firstClosure.id}/corrections`),
+    () => db.transaction(async (tx) => {
+      await tx.update(invoiceLinesTable).set({ unitPrice: 30_000, amount: 30_000 })
+        .where(eq(invoiceLinesTable.id, invoiceLineId));
+      await tx.update(settlementClassificationsTable).set({ salesType: "service" })
+        .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
+    }),
+  );
   assert.equal(correctionResponse.status, 201);
   const correction = CreateSettlementClosureResponse.parse(await correctionResponse.json());
   assert.equal(correction.version, 2);
@@ -394,6 +452,7 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   assert.equal(correction.approvedBy, ownerId);
   assert.equal(correction.correctionReason, reason);
   assert.equal(correction.snapshot.invoices[0]?.lines[0]?.salesType, "license");
+  assert.equal(correction.snapshot.invoices[0]?.lines[0]?.amount, 20_000);
 
   const correctedResponse = await request(specialistOneId);
   const corrected = GetMonthlySettlementResponse.parse(await correctedResponse.json()).results[0]!;

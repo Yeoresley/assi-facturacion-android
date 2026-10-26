@@ -714,17 +714,6 @@ router.post("/settlements/closures", async (req, res): Promise<void> => {
     res.status(404).json({ error: "No se encontró el especialista." });
     return;
   }
-  const { snapshot, missingServiceCount, missingCurrencies } =
-    await buildSettlementClosureSnapshot(period, specialistId);
-  if (missingServiceCount || missingCurrencies.length) {
-    const missing: string[] = [];
-    if (missingServiceCount) missing.push(`${missingServiceCount} clasificación(es)`);
-    if (missingCurrencies.length) missing.push(`tasas para ${missingCurrencies.join(", ")}`);
-    res.status(422).json({
-      error: `No se puede cerrar: faltan ${missing.join(" y ")}.`,
-    });
-    return;
-  }
   try {
     const created = await db.transaction(async (tx) => {
       const lockKey = `${period}:${specialistId}`;
@@ -734,6 +723,14 @@ router.post("/settlements/closures", async (req, res): Promise<void> => {
         eq(settlementClosuresTable.specialistId, specialistId),
       )).orderBy(desc(settlementClosuresTable.version)).limit(1);
       if (latest) throw new SettlementRequestError("Esta liquidación ya está cerrada. Usa la opción de corrección.", 409);
+      const { snapshot, missingServiceCount, missingCurrencies } =
+        await buildSettlementClosureSnapshot(period, specialistId, tx);
+      if (missingServiceCount || missingCurrencies.length) {
+        const missing: string[] = [];
+        if (missingServiceCount) missing.push(`${missingServiceCount} clasificación(es)`);
+        if (missingCurrencies.length) missing.push(`tasas para ${missingCurrencies.join(", ")}`);
+        throw new SettlementRequestError(`No se puede cerrar: faltan ${missing.join(" y ")}.`, 422);
+      }
       const [closure] = await tx.insert(settlementClosuresTable).values({
         period,
         specialistId,
@@ -742,12 +739,17 @@ router.post("/settlements/closures", async (req, res): Promise<void> => {
         approvedBy: member.userId,
       }).returning();
       return closure;
-    });
+    }, { isolationLevel: "repeatable read" });
     res.status(201).json(CreateSettlementClosureResponse.parse(serializedSettlementClosure(created)));
   } catch (error) {
     const knownError = error instanceof SettlementRequestError;
-    res.status(knownError ? error.status : 500).json({
-      error: knownError ? error.message : "No se pudo cerrar la liquidación.",
+    const duplicate = isDuplicate(error);
+    res.status(knownError ? error.status : duplicate ? 409 : 500).json({
+      error: knownError
+        ? error.message
+        : duplicate
+          ? "Esta liquidación cambió en otra sesión. Actualiza la página."
+          : "No se pudo cerrar la liquidación.",
     });
   }
 });
@@ -776,14 +778,6 @@ router.post("/settlements/closures/:id/corrections", async (req, res): Promise<v
     res.status(404).json({ error: "No se encontró el cierre que quieres corregir." });
     return;
   }
-  const { snapshot, missingServiceCount, missingCurrencies } =
-    await buildSettlementClosureSnapshot(previous.period, previous.specialistId);
-  if (missingServiceCount || missingCurrencies.length) {
-    res.status(422).json({
-      error: "No se puede guardar la corrección mientras haya clasificaciones o tasas pendientes.",
-    });
-    return;
-  }
   try {
     const created = await db.transaction(async (tx) => {
       const lockKey = `${previous.period}:${previous.specialistId}`;
@@ -795,22 +789,35 @@ router.post("/settlements/closures/:id/corrections", async (req, res): Promise<v
       if (!latest || latest.id !== previous.id) {
         throw new SettlementRequestError("La liquidación cambió en otra sesión. Actualiza la página.", 409);
       }
+      const { snapshot, missingServiceCount, missingCurrencies } =
+        await buildSettlementClosureSnapshot(previous.period, previous.specialistId, tx);
+      if (missingServiceCount || missingCurrencies.length) {
+        throw new SettlementRequestError(
+          "No se puede guardar la corrección mientras haya clasificaciones o tasas pendientes.",
+          422,
+        );
+      }
       const [closure] = await tx.insert(settlementClosuresTable).values({
         period: previous.period,
         specialistId: previous.specialistId,
-        version: previous.version + 1,
-        supersedesId: previous.id,
+        version: latest.version + 1,
+        supersedesId: latest.id,
         snapshot,
         approvedBy: member.userId,
         correctionReason: reason,
       }).returning();
       return closure;
-    });
+    }, { isolationLevel: "repeatable read" });
     res.status(201).json(CreateSettlementClosureResponse.parse(serializedSettlementClosure(created)));
   } catch (error) {
     const knownError = error instanceof SettlementRequestError;
-    res.status(knownError ? error.status : 500).json({
-      error: knownError ? error.message : "No se pudo guardar la corrección.",
+    const duplicate = isDuplicate(error);
+    res.status(knownError ? error.status : duplicate ? 409 : 500).json({
+      error: knownError
+        ? error.message
+        : duplicate
+          ? "La liquidación cambió en otra sesión. Actualiza la página."
+          : "No se pudo guardar la corrección.",
     });
   }
 });

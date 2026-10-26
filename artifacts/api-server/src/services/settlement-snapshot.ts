@@ -32,6 +32,7 @@ const numberValue = (value: Decimal.Value) => new Decimal(value).toNumber();
 export async function buildSettlementClosureSnapshot(
   period: string,
   specialistId: string,
+  reader: Pick<typeof db, "select"> = db,
 ): Promise<{
   snapshot: SettlementClosureSnapshot;
   missingServiceCount: number;
@@ -41,20 +42,20 @@ export async function buildSettlementClosureSnapshot(
     getInvoiceRows(undefined, and(
       eq(invoicesTable.status, "confirmed"),
       eq(invoicesTable.specialistId, specialistId),
-    )),
-    db.select().from(settlementClassificationsTable),
-    db.select().from(settlementExpensesTable).where(and(
+    ), reader),
+    reader.select().from(settlementClassificationsTable),
+    reader.select().from(settlementExpensesTable).where(and(
       eq(settlementExpensesTable.period, period),
       eq(settlementExpensesTable.specialistId, specialistId),
     )),
-    db.select().from(settlementInvoiceInclusionsTable).where(and(
+    reader.select().from(settlementInvoiceInclusionsTable).where(and(
       eq(settlementInvoiceInclusionsTable.period, period),
       isNull(settlementInvoiceInclusionsTable.revokedAt),
     )),
-    db.select({ invoiceId: settlementInvoiceInclusionsTable.invoiceId })
+    reader.select({ invoiceId: settlementInvoiceInclusionsTable.invoiceId })
       .from(settlementInvoiceInclusionsTable).where(isNull(settlementInvoiceInclusionsTable.revokedAt)),
-    db.select().from(settlementExchangeRatesTable).where(eq(settlementExchangeRatesTable.period, period)),
-    db.select({ name: teamMembersTable.name }).from(teamMembersTable)
+    reader.select().from(settlementExchangeRatesTable).where(eq(settlementExchangeRatesTable.period, period)),
+    reader.select({ name: teamMembersTable.name }).from(teamMembersTable)
       .where(and(eq(teamMembersTable.userId, specialistId), eq(teamMembersTable.role, "specialist"))).limit(1),
   ]);
 
