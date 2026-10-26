@@ -146,7 +146,10 @@ before(async () => {
   invoiceOneId = invoiceOne.id;
   invoiceTwoId = invoiceTwo.id;
   const paymentRows = await db.insert(invoicePaymentsTable).values([
-    { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 10, currency: "CUP", paidOn: "2026-10-19", paidBy: ownerId },
+    {
+      invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 10, currency: "CUP",
+      paidOn: "2026-10-19", paidBy: ownerId, recordedAt: new Date("2026-10-19T12:00:00Z"),
+    },
     { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 25, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
     { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 80, currency: "CUP", paidOn: "2026-10-19", paidBy: ownerId },
     { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 20, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
@@ -160,7 +163,7 @@ before(async () => {
       correctedBy: ownerId, targetPaymentId: paymentOneId, reversedPaymentId: null,
       beforePaymentAmount: 10, afterPaymentAmount: 8, beforePaidOn: "2026-10-19", afterPaidOn: "2026-10-18",
       beforeInvoiceStatus: "sent", afterInvoiceStatus: "accepted", beforePaymentStatus: "pending", afterPaymentStatus: "pending",
-      beforeTotalPaid: 35, afterTotalPaid: 33, originalPaidBy: ownerId, originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+      beforeTotalPaid: 35, afterTotalPaid: 33, originalPaidBy: null, originalPaidAt: null,
     },
     {
       invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), reason: "OTRA_FACTURA_NO_EXPORTAR",
@@ -233,26 +236,74 @@ function assertPaymentSnapshot(
 }
 
 test("only the owner can download corrections for the requested invoice", async () => {
-  const specialistResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistOneId);
-  assert.equal(specialistResponse.status, 403);
+  const [noReceiptCorrection] = await db.insert(invoicePaymentCorrectionsTable).values({
+    invoiceId: invoiceOneId,
+    idempotencyKey: randomUUID(),
+    reason: "Corrección histórica sin recibo",
+    correctedBy: ownerId,
+    targetPaymentId: null,
+    reversedPaymentId: null,
+    beforeInvoiceStatus: "sent",
+    afterInvoiceStatus: "sent",
+    beforePaymentStatus: "pending",
+    afterPaymentStatus: "pending",
+    beforeTotalPaid: 33,
+    afterTotalPaid: 33,
+    originalPaidBy: "autor-historico-sin-recibo",
+    originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+  }).returning({ id: invoicePaymentCorrectionsTable.id });
+  const [originalReceipt] = await db.select({
+    reference: invoicePaymentsTable.reference,
+  }).from(invoicePaymentsTable).where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+  await db.update(invoicePaymentsTable).set({ reference: "REF-RECIBO-UNO" })
+    .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+  try {
+    const specialistResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistOneId);
+    assert.equal(specialistResponse.status, 403);
 
-  const ownerResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, ownerId);
-  assert.equal(ownerResponse.status, 200);
-  const result = await ownerResponse.json() as { filename: string; base64: string; contentType: string };
-  assert.equal(result.filename, `correcciones-factura-${invoiceOneId}.csv`);
-  assert.equal(result.contentType, "text/csv; charset=utf-8");
-  const csv = Buffer.from(result.base64, "base64").toString("utf8");
-  assert.ok(csv.startsWith("\uFEFF"));
-  assert.ok(csv.includes("Importe antes (CUP)"));
-  assert.ok(csv.includes("Total abonado antes (CUP)"));
-  assert.ok(csv.includes(`"${invoiceOnePaymentId}"`));
-  assert.ok(csv.includes(JSON.stringify(ownerId)));
-  assert.ok(csv.includes('"Motivo ""solo factura uno"""'));
-  assert.ok(csv.includes('"10.00","8.00","2026-10-19","2026-10-18","35.00","33.00"'));
-  assert.ok(!csv.includes("OTRA_FACTURA_NO_EXPORTAR"));
-
-  const foreignInvoiceResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistTwoId);
-  assert.equal(foreignInvoiceResponse.status, 403);
+    const ownerResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, ownerId);
+    assert.equal(ownerResponse.status, 200);
+    const result = await ownerResponse.json() as { filename: string; base64: string; contentType: string };
+    assert.equal(result.filename, `correcciones-factura-${invoiceOneId}.csv`);
+    assert.equal(result.contentType, "text/csv; charset=utf-8");
+    const csv = Buffer.from(result.base64, "base64").toString("utf8");
+    assert.ok(csv.startsWith("\uFEFF"));
+    const [headerLine, ...dataLines] = csv.slice(1).trimEnd().split("\r\n");
+    const parseCsvLine = (line: string) => [...line.matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)]
+      .map(([, value]) => value.replaceAll('""', '"'));
+    const headers = parseCsvLine(headerLine);
+    const exportedRows = dataLines.map(parseCsvLine);
+    const receiptCorrection = exportedRows.find((row) => row[headers.indexOf("Abono")] === String(invoiceOnePaymentId));
+    const noReceiptCorrection = exportedRows.find((row) => row[headers.indexOf("Abono")] === "Sin recibo original");
+    assert.ok(receiptCorrection);
+    assert.ok(noReceiptCorrection);
+    assert.ok(headers.includes("Importe antes (CUP)"));
+    assert.ok(headers.includes("Total abonado antes (CUP)"));
+    assert.equal(receiptCorrection[headers.indexOf("Referencia del recibo")], "REF-RECIBO-UNO");
+    assert.equal(receiptCorrection[headers.indexOf("Registrado por")], ownerId);
+    assert.equal(receiptCorrection[headers.indexOf("Fecha de registro")], "2026-10-19T12:00:00.000Z");
+    assert.equal(receiptCorrection[headers.indexOf("Autor")], ownerId);
+    assert.equal(receiptCorrection[headers.indexOf("Motivo")], 'Motivo "solo factura uno"');
+    assert.deepEqual([
+      receiptCorrection[headers.indexOf("Importe antes (CUP)")],
+      receiptCorrection[headers.indexOf("Importe después (CUP)")],
+      receiptCorrection[headers.indexOf("Fecha antes")],
+      receiptCorrection[headers.indexOf("Fecha después")],
+      receiptCorrection[headers.indexOf("Total abonado antes (CUP)")],
+      receiptCorrection[headers.indexOf("Total abonado después (CUP)")],
+    ], ["10.00", "8.00", "2026-10-19", "2026-10-18", "35.00", "33.00"]);
+    assert.equal(noReceiptCorrection[headers.indexOf("Referencia del recibo")], "");
+    assert.equal(noReceiptCorrection[headers.indexOf("Registrado por")], "");
+    assert.equal(noReceiptCorrection[headers.indexOf("Fecha de registro")], "");
+    assert.ok(!csv.includes("OTRA_FACTURA_NO_EXPORTAR"));
+    const foreignInvoiceResponse = await request(`/invoices/${invoiceOneId}/payment-corrections/export`, specialistTwoId);
+    assert.equal(foreignInvoiceResponse.status, 403);
+  } finally {
+    await db.delete(invoicePaymentCorrectionsTable)
+      .where(eq(invoicePaymentCorrectionsTable.id, noReceiptCorrection.id));
+    await db.update(invoicePaymentsTable).set({ reference: originalReceipt.reference })
+      .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+  }
 });
 
 test("specialists see only their commercial's invoice payments in lists, details and authorized public links", async () => {

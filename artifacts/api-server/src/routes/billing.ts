@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gte, ilike, inArray, isNull, lte, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateCustomerBody,
@@ -57,6 +57,7 @@ import {
   db,
   invoiceAcceptanceNotificationsTable,
   invoiceLinesTable,
+  invoicePaymentsTable,
   invoicePaymentCorrectionsTable,
   invoiceSharesTable,
   invoicesTable,
@@ -648,7 +649,21 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
     return;
   }
 
-  const corrections = await db.select().from(invoicePaymentCorrectionsTable)
+  const corrections = await db.select({
+    correction: invoicePaymentCorrectionsTable,
+    receipt: {
+      reference: invoicePaymentsTable.reference,
+      paidBy: invoicePaymentsTable.paidBy,
+      recordedAt: invoicePaymentsTable.recordedAt,
+    },
+  }).from(invoicePaymentCorrectionsTable)
+    .leftJoin(invoicePaymentsTable, and(
+      eq(invoicePaymentsTable.invoiceId, invoice.id),
+      eq(invoicePaymentsTable.id, sql`coalesce(
+        ${invoicePaymentCorrectionsTable.targetPaymentId},
+        ${invoicePaymentCorrectionsTable.reversedPaymentId}
+      )`),
+    ))
     .where(eq(invoicePaymentCorrectionsTable.invoiceId, invoice.id))
     .orderBy(invoicePaymentCorrectionsTable.createdAt, invoicePaymentCorrectionsTable.id);
   const csvEscape = (value: string | number | null): string => {
@@ -659,6 +674,9 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
   const rows = [
     [
       "Abono",
+      "Referencia del recibo",
+      "Registrado por",
+      "Fecha de registro",
       "Autor",
       "Fecha de corrección",
       "Motivo",
@@ -669,8 +687,11 @@ router.get("/invoices/:id/payment-corrections/export", async (req, res): Promise
       `Total abonado antes (${invoice.currency})`,
       `Total abonado después (${invoice.currency})`,
     ],
-    ...corrections.map((correction) => [
+    ...corrections.map(({ correction, receipt }) => [
       correction.targetPaymentId ?? correction.reversedPaymentId ?? "Sin recibo original",
+      receipt ? receipt.reference : null,
+      receipt ? correction.originalPaidBy ?? receipt.paidBy : null,
+      receipt ? (correction.originalPaidAt ?? receipt.recordedAt).toISOString() : null,
       correction.correctedBy,
       correction.createdAt.toISOString(),
       correction.reason,
