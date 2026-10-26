@@ -29,6 +29,49 @@ export function validPaymentDate(value: string): boolean {
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
+type PaymentMethodSummaryRecord = {
+  id: number;
+  amount: number;
+  currency: string;
+  paidOn: string;
+  paymentMethod: "transfer" | "cash" | "other" | null;
+};
+
+export function summarizePaymentsByMethod(
+  payments: PaymentMethodSummaryRecord[],
+  corrections: Array<Pick<typeof invoicePaymentCorrectionsTable.$inferSelect,
+    "id" | "targetPaymentId" | "reversedPaymentId" | "afterPaymentAmount" | "afterPaidOn">>,
+  from?: string,
+  to?: string,
+) {
+  const reversedPaymentIds = new Set(corrections.flatMap(({ reversedPaymentId }) =>
+    reversedPaymentId === null ? [] : [reversedPaymentId]));
+  const latestCorrections = new Map<number, (typeof corrections)[number]>();
+  for (const correction of [...corrections].sort((a, b) => a.id - b.id)) {
+    if (correction.targetPaymentId !== null) {
+      latestCorrections.set(correction.targetPaymentId, correction);
+    }
+  }
+  const totals = new Map<string, { currency: string; method: "transfer" | "cash" | "other" | "unspecified"; cents: number; count: number }>();
+  for (const payment of payments) {
+    if (reversedPaymentIds.has(payment.id)) continue;
+    const correction = latestCorrections.get(payment.id);
+    const paidOn = correction?.afterPaidOn ?? payment.paidOn;
+    if ((from && paidOn < from) || (to && paidOn > to)) continue;
+    const method = payment.paymentMethod ?? "unspecified";
+    const key = `${payment.currency}:${method}`;
+    const entry = totals.get(key) ?? { currency: payment.currency, method, cents: 0, count: 0 };
+    entry.cents += cents(correction?.afterPaymentAmount ?? payment.amount);
+    entry.count += 1;
+    totals.set(key, entry);
+  }
+  return [...totals.values()]
+    .sort((a, b) => a.currency.localeCompare(b.currency) || a.method.localeCompare(b.method))
+    .map(({ currency, method, cents: amountCents, count }) => ({
+      currency, method, amount: amountCents / 100, count,
+    }));
+}
+
 export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paymentStatus" | "total">,
   payments: Array<Pick<typeof invoicePaymentsTable.$inferSelect, "id" | "amount" | "currency" | "paidOn" | "recordedAt" | "reference" | "paymentMethod">>,
   corrections: Array<typeof invoicePaymentCorrectionsTable.$inferSelect> = []) {

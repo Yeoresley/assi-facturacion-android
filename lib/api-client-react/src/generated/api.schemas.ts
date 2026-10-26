@@ -826,6 +826,27 @@ export interface BillingOverview {
   recentInvoices: Invoice[];
 }
 
+export type PaymentMethodSummaryItemMethod = typeof PaymentMethodSummaryItemMethod[keyof typeof PaymentMethodSummaryItemMethod];
+
+
+export const PaymentMethodSummaryItemMethod = {
+  transfer: 'transfer',
+  cash: 'cash',
+  other: 'other',
+  unspecified: 'unspecified',
+} as const;
+
+export interface PaymentMethodSummaryItem {
+  currency: string;
+  method: PaymentMethodSummaryItemMethod;
+  /** @minimum 0 */
+  amount: number;
+  /** @minimum 0 */
+  count: number;
+}
+
+export type PaymentMethodSummary = PaymentMethodSummaryItem[];
+
 export type TeamMemberRole = typeof TeamMemberRole[keyof typeof TeamMemberRole];
 
 
@@ -1575,6 +1596,11 @@ export type GetMonthlySettlementParams = {
  * @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$
  */
 period: string;
+};
+
+export type GetPaymentMethodSummaryParams = {
+from?: string;
+to?: string;
 };
 
 export type ListCustomersParams = {

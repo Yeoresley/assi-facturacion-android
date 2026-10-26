@@ -1500,6 +1500,29 @@ export const GetBillingOverviewResponse = zod.object({
 
 
 /**
+ * @summary Get payment totals grouped by method
+ */
+export const GetPaymentMethodSummaryQueryParams = zod.object({
+  "from": zod.date().optional(),
+  "to": zod.date().optional()
+})
+
+export const getPaymentMethodSummaryResponseAmountMin = 0;
+
+export const getPaymentMethodSummaryResponseCountMin = 0;
+
+
+
+export const GetPaymentMethodSummaryResponseItem = zod.object({
+  "currency": zod.string(),
+  "method": zod.enum(['transfer', 'cash', 'other', 'unspecified']),
+  "amount": zod.number().min(getPaymentMethodSummaryResponseAmountMin),
+  "count": zod.number().int().min(getPaymentMethodSummaryResponseCountMin)
+})
+export const GetPaymentMethodSummaryResponse = zod.array(GetPaymentMethodSummaryResponseItem)
+
+
+/**
  * @summary List customers
  */
 export const ListCustomersQueryParams = zod.object({

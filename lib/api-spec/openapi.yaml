@@ -366,6 +366,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BillingOverview"
+  /billing/payment-method-summary:
+    get:
+      operationId: getPaymentMethodSummary
+      tags: [billing]
+      summary: Get payment totals grouped by method
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Payment totals by currency and method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodSummary"
   /customers:
     get:
       operationId: listCustomers
@@ -1503,6 +1522,17 @@ components:
       properties:
         currency: { type: string }
         amount: { type: number, minimum: 0 }
+    PaymentMethodSummary:
+      type: array
+      items: { $ref: "#/components/schemas/PaymentMethodSummaryItem" }
+    PaymentMethodSummaryItem:
+      type: object
+      required: [currency, method, amount, count]
+      properties:
+        currency: { type: string }
+        method: { type: string, enum: [transfer, cash, other, unspecified] }
+        amount: { type: number, minimum: 0 }
+        count: { type: integer, minimum: 0 }
     TeamMember:
       type: object
       required: [userId, name, email, role, commercialId, suspended]

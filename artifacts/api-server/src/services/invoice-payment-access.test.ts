@@ -147,12 +147,12 @@ before(async () => {
   invoiceTwoId = invoiceTwo.id;
   const paymentRows = await db.insert(invoicePaymentsTable).values([
     {
-      invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 10, currency: "CUP",
-      paidOn: "2026-10-19", paidBy: ownerId, recordedAt: new Date("2026-10-19T12:00:00Z"),
+      invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 10, currency: tag,
+      paidOn: "2026-10-19", paidBy: ownerId, paymentMethod: "transfer", recordedAt: new Date("2026-10-19T12:00:00Z"),
     },
-    { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 25, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
-    { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 80, currency: "CUP", paidOn: "2026-10-19", paidBy: ownerId },
-    { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 20, currency: "CUP", paidOn: "2026-10-20", paidBy: ownerId },
+    { invoiceId: invoiceOneId, idempotencyKey: randomUUID(), amount: 25, currency: tag, paidOn: "2026-10-20", paidBy: ownerId, paymentMethod: "cash" },
+    { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 80, currency: tag, paidOn: "2026-10-19", paidBy: ownerId, paymentMethod: "other" },
+    { invoiceId: invoiceTwoId, idempotencyKey: randomUUID(), amount: 20, currency: tag, paidOn: "2026-10-20", paidBy: ownerId },
   ]).returning({ id: invoicePaymentsTable.id, invoiceId: invoicePaymentsTable.invoiceId });
   const paymentOneId = paymentRows.find((payment) => payment.invoiceId === invoiceOneId)!.id;
   invoiceOnePaymentId = paymentOneId;
@@ -372,9 +372,34 @@ test("specialists see only their commercial's invoice payments in lists, details
   assert.ok(paymentResult.payments
     .filter(({ id }) => id !== referencedPayment.id)
     .every(({ reference: value }) => value === null));
-  assert.ok(paymentResult.payments
-    .filter(({ id }) => id !== referencedPayment.id)
-    .every(({ paymentMethod }) => paymentMethod === null));
+  const paymentSummaryResponse = await request("/billing/payment-method-summary?from=2026-10-18&to=2026-10-21", ownerId);
+  assert.equal(paymentSummaryResponse.status, 200);
+  const paymentSummary = await paymentSummaryResponse.json() as Array<{
+    currency: string; method: string; amount: number; count: number;
+  }>;
+  assert.deepEqual(paymentSummary.filter(({ currency }) => currency === tag)
+    .map(({ method, amount, count }) => ({ method, amount, count })),
+  [
+    { method: "cash", amount: 25, count: 1 },
+    { method: "other", amount: 70, count: 1 },
+    { method: "transfer", amount: 8, count: 1 },
+    { method: "unspecified", amount: 20, count: 1 },
+  ]);
+  const narrowedSummaryResponse = await request("/billing/payment-method-summary?from=2026-10-20&to=2026-10-20", ownerId);
+  assert.equal(narrowedSummaryResponse.status, 200);
+  const narrowedSummary = await narrowedSummaryResponse.json() as typeof paymentSummary;
+  assert.deepEqual(narrowedSummary.filter(({ currency }) => currency === tag)
+    .map(({ method, amount, count }) => ({ method, amount, count })),
+  [
+    { method: "cash", amount: 25, count: 1 },
+    { method: "unspecified", amount: 20, count: 1 },
+  ]);
+  const invalidPeriodResponse = await request("/billing/payment-method-summary?from=2026-10-21&to=2026-10-18", ownerId);
+  assert.equal(invalidPeriodResponse.status, 400);
+  const specialistSummaryResponse = await request(
+    "/billing/payment-method-summary?from=2026-10-18&to=2026-10-21", specialistOneId,
+  );
+  assert.equal(specialistSummaryResponse.status, 403);
   const updatedOwnSummary = { id: invoiceOneId, totalPaid: 38, balanceDue: 62, payments: [10, 25, 5] };
 
   const createdResponse = await request(`/invoices/${invoiceOneId}/share`, specialistOneId, "POST");

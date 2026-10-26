@@ -34,7 +34,7 @@ import SettlementsPage from '@/pages/settlements';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { CorrectPaidButton, MarkPaidButton, PaymentBadge } from '@/components/invoice-payment';
+import { CorrectPaidButton, MarkPaidButton, PaymentBadge, PaymentMethodSummaryPanel } from '@/components/invoice-payment';
 import { IssuerSettings } from '@/components/issuer-settings';
 import { NumberingSettings } from '@/components/numbering-settings';
 import { ProductionTestDataCleanup } from '@/components/production-test-data-cleanup';
@@ -325,6 +325,7 @@ function Dashboard() {
        overview.data.outstandingByCurrency.length === 0 ? <div className="mt-4"><EmptyState title="No hay saldos pendientes" text="Las facturas emitidas del equipo están cobradas o todavía no tienen saldo pendiente." /></div> :
        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{overview.data.outstandingByCurrency.map(({ currency, amount }) => <div className="rounded-xl border border-[#e8e5da] bg-[#fffefa] p-4" key={currency} data-testid={`outstanding-${currency}`}><div className="eyebrow">{currency}</div><div className="font-display mt-2 text-[24px] font-bold tabular-nums tracking-[-.05em]">{money(amount, currency)}</div></div>)}</div>}
     </section>
+    {owner && <PaymentMethodSummaryPanel />}
     <div className="mt-8 grid gap-5 xl:grid-cols-[1fr_300px]">
       <section className="panel overflow-hidden"><div className="flex items-center justify-between px-5 py-5"><div><div className="eyebrow">Trabajo reciente</div><h2 className="font-display mt-1 text-lg font-bold tracking-[-.04em]">Últimas facturas</h2></div><Link href="/invoices" className="flex items-center gap-1 text-[12px] font-bold text-[#387368]">Ver todas <ArrowRight size={14} /></Link></div>
         {overview.isLoading ? <div className="space-y-4 p-5">{[0,1,2].map((x) => <div className="skeleton h-9" key={x} />)}</div> : (overview.isError || !overview.data) ? <div className="p-5"><QueryError retry={() => overview.refetch()} /></div> : <InvoiceTable invoices={overview.data.recentInvoices || []} />}

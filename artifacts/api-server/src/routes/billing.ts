@@ -23,6 +23,8 @@ import {
   GetSharedInvoiceReceiptResponse,
   InviteTeamMemberBody,
   GetBillingOverviewResponse,
+  GetPaymentMethodSummaryQueryParams,
+  GetPaymentMethodSummaryResponse,
   ListCustomersQueryParams,
   ListCustomersResponse,
   ListInvoicesQueryParams,
@@ -75,7 +77,7 @@ import seriesRouter from "./invoice-series";
 import { lockNumbering, NumberingError, reserveNumber, validateSeriesSelection } from "../services/invoice-numbering";
 import { transitionInvoice } from "../services/issue-invoice";
 import {
-  correctInvoicePayment, recordInvoicePayment, InvoicePaymentError, paymentFilter,
+  correctInvoicePayment, recordInvoicePayment, InvoicePaymentError, paymentFilter, summarizePaymentsByMethod, validPaymentDate,
 } from "../services/invoice-payment";
 import { outstandingByCurrency } from "../services/invoice-outstanding";
 import { captureLegalImageSnapshot } from "../services/invoice-legal-images";
@@ -157,6 +159,45 @@ router.get("/billing/overview", async (req, res): Promise<void> => {
     recentInvoices: invoices.slice(0, 6).map(serializeInvoice),
   };
   res.json(GetBillingOverviewResponse.parse(counts));
+});
+
+router.get("/billing/payment-method-summary", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const parsed = GetPaymentMethodSummaryQueryParams.safeParse(dateQuery(req.query));
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const from = parsed.data.from?.toISOString().slice(0, 10);
+  const to = parsed.data.to?.toISOString().slice(0, 10);
+  if ((from && !validPaymentDate(from)) || (to && !validPaymentDate(to)) ||
+      (from && to && from > to)) {
+    res.status(400).json({ error: "Indica un período válido con fechas en orden." });
+    return;
+  }
+  const rows = await db.select({
+    id: invoicePaymentsTable.id,
+    invoiceId: invoicePaymentsTable.invoiceId,
+    amount: invoicePaymentsTable.amount,
+    currency: invoicePaymentsTable.currency,
+    paidOn: invoicePaymentsTable.paidOn,
+    paymentMethod: invoicePaymentsTable.paymentMethod,
+  }).from(invoicePaymentsTable)
+    .innerJoin(invoicesTable, eq(invoicePaymentsTable.invoiceId, invoicesTable.id))
+    .where(invoiceScope(owner));
+  const invoiceIds = [...new Set(rows.map(({ invoiceId }) => invoiceId))];
+  const corrections = rows.length
+    ? await db.select({
+        id: invoicePaymentCorrectionsTable.id,
+        targetPaymentId: invoicePaymentCorrectionsTable.targetPaymentId,
+        reversedPaymentId: invoicePaymentCorrectionsTable.reversedPaymentId,
+        afterPaymentAmount: invoicePaymentCorrectionsTable.afterPaymentAmount,
+        afterPaidOn: invoicePaymentCorrectionsTable.afterPaidOn,
+      }).from(invoicePaymentCorrectionsTable)
+        .where(inArray(invoicePaymentCorrectionsTable.invoiceId, invoiceIds))
+    : [];
+  res.json(GetPaymentMethodSummaryResponse.parse(summarizePaymentsByMethod(rows, corrections, from, to)));
 });
 
 router.get("/customers", async (req, res): Promise<void> => {

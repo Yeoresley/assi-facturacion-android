@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   downloadInvoicePaymentCorrections, getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey,
-  getGetInvoiceQueryKey, getListInvoicesQueryKey, useCorrectInvoicePayment, useCreateInvoicePayment,
-  useGetCurrentTeamMember,
+  getGetInvoiceQueryKey, getGetPaymentMethodSummaryQueryKey, getListInvoicesQueryKey,
+  useCorrectInvoicePayment, useCreateInvoicePayment, useGetCurrentTeamMember, useGetPaymentMethodSummary,
 } from '@workspace/api-client-react';
-import type { Invoice } from '@workspace/api-client-react';
+import type { Invoice, PaymentMethodSummaryItemMethod } from '@workspace/api-client-react';
 import { ArrowDownToLine, HandCoins, ReceiptText, RotateCcw } from 'lucide-react';
 import { Link } from 'wouter';
-import { date, downloadBase64File, errorDetail, money } from '@/lib/shared';
+import { date, downloadBase64File, errorDetail, money, QueryError } from '@/lib/shared';
 import { paymentMethodLabel } from '@/lib/payment-method';
 
 type PayInfo = Pick<Invoice, 'status' | 'paymentStatus' | 'paidAt' | 'totalPaid' | 'balanceDue' | 'currency'>;
@@ -94,6 +94,7 @@ export function MarkPaidButton({ invoice }: { invoice: Invoice }) {
           client.invalidateQueries({ queryKey: getListInvoicesQueryKey() }),
           client.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id) }),
           client.invalidateQueries({ queryKey: getGetBillingOverviewQueryKey() }),
+          client.invalidateQueries({ queryKey: getGetPaymentMethodSummaryQueryKey() }),
         ]);
       },
     });
@@ -233,6 +234,7 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
           client.invalidateQueries({ queryKey: getListInvoicesQueryKey() }),
           client.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id) }),
           client.invalidateQueries({ queryKey: getGetBillingOverviewQueryKey() }),
+          client.invalidateQueries({ queryKey: getGetPaymentMethodSummaryQueryKey() }),
         ]);
       },
     });
@@ -390,6 +392,60 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
           </li>)}
         </ul>
       </section>}
+    </div>
+  </section>;
+}
+
+const summaryMethodLabels: Record<PaymentMethodSummaryItemMethod, string> = {
+  transfer: 'Transferencia',
+  cash: 'Efectivo',
+  other: 'Otro medio',
+  unspecified: 'Sin especificar',
+};
+
+function currentMonthStart() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+export function PaymentMethodSummaryPanel() {
+  const [from, setFrom] = useState(currentMonthStart);
+  const [to, setTo] = useState(localToday);
+  const validPeriod = !from || !to || from <= to;
+  const params = {
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+  };
+  const summary = useGetPaymentMethodSummary(params, {
+    query: {
+      queryKey: getGetPaymentMethodSummaryQueryKey(params),
+      enabled: validPeriod,
+      retry: false,
+      refetchInterval: 20000,
+    },
+  });
+  const currencies = [...new Set((summary.data ?? []).map(({ currency }) => currency))];
+
+  return <section className="panel mt-5 overflow-hidden" aria-labelledby="payment-method-summary-title" data-testid="payment-method-summary">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#eeece4] px-4 py-4 sm:px-5">
+      <div><div className="eyebrow">Seguimiento de cobros</div><h2 id="payment-method-summary-title" className="font-display mt-1 text-lg font-bold tracking-[-.04em]">Cobros por medio</h2><p className="mt-1 text-[11px] text-[#7c8881]">Importes y cantidad de abonos, según la fecha efectiva de recepción.</p></div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-[10px] font-semibold text-[#71817b]">Desde<input className="field mt-1 !h-9 text-[11px]" type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Fecha inicial del resumen de cobros" data-testid="input-payment-summary-from" /></label>
+        <label className="text-[10px] font-semibold text-[#71817b]">Hasta<input className="field mt-1 !h-9 text-[11px]" type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="Fecha final del resumen de cobros" data-testid="input-payment-summary-to" /></label>
+      </div>
+    </div>
+    <div className="px-4 py-4 sm:px-5">
+      {!validPeriod ? <div className="rounded-lg bg-[#fbefeb] px-3 py-2 text-[12px] text-[#9a3b2e]" role="alert">La fecha inicial no puede ser posterior a la fecha final.</div> :
+       summary.isLoading ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((index) => <div className="rounded-xl border border-[#e8e5da] p-4" key={index}><div className="skeleton h-3 w-24" /><div className="skeleton mt-3 h-7 w-28" /></div>)}</div> :
+       summary.isError ? <div><QueryError retry={() => summary.refetch()} message="No se pudo consultar cuánto se cobró por cada medio." /></div> :
+       currencies.length === 0 ? <div className="rounded-lg border border-dashed border-[#dedfd4] bg-[#fbfaf5] px-4 py-5 text-center text-[12px] text-[#7b8780]">No hay abonos registrados en este período.</div> :
+       <div className="space-y-5">{currencies.map((currency) => <section key={currency} aria-label={`Cobros en ${currency}`} data-testid={`payment-method-currency-${currency}`}>
+         <h3 className="eyebrow mb-2">{currency}</h3>
+         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{summary.data?.filter((item) => item.currency === currency).map((item) => <div className="rounded-xl border border-[#e8e5da] bg-[#fffefa] p-4" key={item.method} data-testid={`payment-method-${item.method}-${currency}`}>
+           <div className="flex items-center justify-between gap-2"><div className="text-[12px] font-semibold text-[#5f716a]">{summaryMethodLabels[item.method]}</div><div className="text-[10px] text-[#87918a]">{item.count} {item.count === 1 ? 'abono' : 'abonos'}</div></div>
+           <div className="font-display mt-2 text-[21px] font-bold tabular-nums tracking-[-.04em]">{money(item.amount, currency)}</div>
+         </div>)}</div>
+       </section>)}</div>}
     </div>
   </section>;
 }
