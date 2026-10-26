@@ -26,9 +26,11 @@ import { buildFac } from "./versat-file";
 const tag = `catalog-history-${randomUUID().slice(0, 8)}`;
 const ownerId = `${tag}-owner`;
 const specialistId = `${tag}-specialist`;
+const otherSpecialistId = `${tag}-other-specialist`;
 const ownerEmail = `${ownerId}@example.invalid`;
 const specialistEmail = `${specialistId}@example.invalid`;
-const userIds = [ownerId, specialistId];
+const otherSpecialistEmail = `${otherSpecialistId}@example.invalid`;
+const userIds = [ownerId, specialistId, otherSpecialistId];
 const catalogIds: number[] = [];
 const invoiceIds: number[] = [];
 const originalCatalogExportValues: Array<{ id: number; exportValue: string }> = [];
@@ -40,7 +42,9 @@ let entries: Record<string, typeof versatCatalogTable.$inferSelect>;
 
 before(async () => {
   mock.method(clerkClient.users, "getUser", async (id: string) => {
-    const email = id === ownerId ? ownerEmail : specialistEmail;
+    const email = id === ownerId
+      ? ownerEmail
+      : id === otherSpecialistId ? otherSpecialistEmail : specialistEmail;
     return {
       id,
       firstName: "Synthetic",
@@ -57,6 +61,7 @@ before(async () => {
   await db.insert(teamMembersTable).values([
     { userId: ownerId, name: ownerId, email: ownerEmail, role: "owner" },
     { userId: specialistId, name: specialistId, email: specialistEmail, role: "specialist" },
+    { userId: otherSpecialistId, name: otherSpecialistId, email: otherSpecialistEmail, role: "specialist" },
   ]);
 
   const sourceId = () => Math.floor(Math.random() * 1_000_000_000) + 1;
@@ -78,7 +83,10 @@ before(async () => {
   catalogIds.push(...createdEntries.map(({ id }) => id));
   entries = Object.fromEntries(createdEntries.map((entry) => [entry.code.slice(tag.length + 1), entry]));
   commercialId = entries.COM.id;
-  await db.insert(teamInvitationsTable).values({ email: specialistEmail, commercialId });
+  await db.insert(teamInvitationsTable).values([
+    { email: specialistEmail, commercialId },
+    { email: otherSpecialistEmail, commercialId },
+  ]);
 
   const [customer] = await db.insert(customersTable).values({
     name: `${tag} customer`,
@@ -121,7 +129,10 @@ after(async () => {
     await db.delete(invoicesTable).where(inArray(invoicesTable.id, invoiceIds));
   }
   if (customerId) await db.delete(customersTable).where(eq(customersTable.id, customerId));
-  await db.delete(teamInvitationsTable).where(eq(teamInvitationsTable.email, specialistEmail));
+  await db.delete(teamInvitationsTable).where(inArray(teamInvitationsTable.email, [
+    specialistEmail,
+    otherSpecialistEmail,
+  ]));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, userIds));
   if (catalogIds.length) {
     await db.delete(versatCatalogAuditTable)
@@ -163,6 +174,61 @@ const invoiceBody = (overrides: Record<string, unknown> = {}) => ({
     unitPrice: 125,
   }],
   ...overrides,
+});
+
+test("invoice assignment is owner-controlled and limited to existing team specialists", async () => {
+  const ownerCreated = await request("/invoices", ownerId, "POST", invoiceBody({
+    specialistId,
+    versat: { ...invoiceBody().versat, number: `${tag}-OWNER-CREATE` },
+  }));
+  assert.equal(ownerCreated.status, 201);
+  const created = await ownerCreated.json() as { id: number };
+  invoiceIds.push(created.id);
+  const [createdInvoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, created.id));
+  assert.equal(createdInvoice.specialistId, specialistId);
+
+  const ownerEdit = await request(`/invoices/${created.id}`, ownerId, "PATCH", invoiceBody({
+    specialistId: otherSpecialistId,
+    versat: { ...invoiceBody().versat, number: `${tag}-OWNER-EDIT` },
+  }));
+  assert.equal(ownerEdit.status, 200);
+  const [reassignedInvoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, created.id));
+  assert.equal(reassignedInvoice.status, "draft");
+  assert.equal(reassignedInvoice.specialistId, otherSpecialistId);
+
+  const invalidOwnerCreate = await request("/invoices", ownerId, "POST", invoiceBody({
+    specialistId: `${tag}-not-a-team-specialist`,
+    versat: { ...invoiceBody().versat, number: `${tag}-INVALID-OWNER` },
+  }));
+  assert.equal(invalidOwnerCreate.status, 422);
+
+  const specialistCreate = await request("/invoices", specialistId, "POST", invoiceBody({
+    specialistId: otherSpecialistId,
+    versat: { ...invoiceBody().versat, number: `${tag}-SPECIALIST-CREATE` },
+  }));
+  assert.equal(specialistCreate.status, 201);
+  const specialistCreated = await specialistCreate.json() as { id: number };
+  invoiceIds.push(specialistCreated.id);
+  const [specialistDraft] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, specialistCreated.id));
+  assert.equal(specialistDraft.specialistId, specialistId);
+
+  const specialistEdit = await request(
+    `/invoices/${specialistCreated.id}`,
+    specialistId,
+    "PATCH",
+    invoiceBody({
+      specialistId: otherSpecialistId,
+      versat: { ...invoiceBody().versat, number: `${tag}-SPECIALIST-EDIT` },
+    }),
+  );
+  assert.equal(specialistEdit.status, 200);
+  const [specialistEditedDraft] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, specialistCreated.id));
+  assert.equal(specialistEditedDraft.status, "draft");
+  assert.equal(specialistEditedDraft.specialistId, specialistId);
 });
 
 async function deactivateCatalogEntry(id: number) {
