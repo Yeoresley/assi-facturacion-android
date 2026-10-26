@@ -8,6 +8,7 @@ import {
   CreateInvoiceShareResponse,
   GetInvoiceResponse,
   GetSharedInvoiceResponse,
+  ListInvoiceImageAccessesResponse,
   ListInvoiceSharesResponse,
 } from "@workspace/api-zod";
 import { eq, inArray } from "drizzle-orm";
@@ -280,6 +281,26 @@ test("public shares omit internal correction audit while team detail preserves i
     assert.equal(await image.text(), "synthetic-image");
     assert.equal((await request(`/shared-invoices/${receiptToken}/images/${kind}`, "")).status, 404);
   }
+  const imageAccessUrl = `/invoices/${invoiceId}/image-accesses`;
+  for (const [actor, status] of [[owner, 200], [specialist, 403], [other, 403], [unassigned, 403], ["", 401], [pending, 403]] as const) {
+    const historyResponse = await request(imageAccessUrl, actor);
+    assert.equal(historyResponse.status, status);
+    assert.match(historyResponse.headers.get("cache-control")!, /no-store/);
+    if (actor === owner) {
+      const history = ListInvoiceImageAccessesResponse.parse(await historyResponse.json());
+      assert.deepEqual(history.map(({ invoiceId: recordedInvoice, shareId: recordedShare, kind }) =>
+        ({ invoiceId: recordedInvoice, shareId: recordedShare, kind })), [
+        { invoiceId, shareId, kind: "signature" },
+        { invoiceId, shareId, kind: "stamp" },
+      ]);
+      assert.ok(history.every(access => Number.isFinite(access.openedAt.getTime())));
+      assert.ok(!JSON.stringify(history).includes(token));
+      assert.ok(!JSON.stringify(history).includes(hash(token)));
+    }
+  }
+  const foreignHistory = await request(`/invoices/${otherInvoiceId}/image-accesses`, owner);
+  assert.equal(foreignHistory.status, 200);
+  assert.deepEqual(ListInvoiceImageAccessesResponse.parse(await foreignHistory.json()), []);
   const created = await request(`/invoices/${invoiceId}/share`, specialist, "POST");
   assert.match(created.headers.get("cache-control")!, /no-store/);
   const newLink = CreateInvoiceShareResponse.parse(await created.json());
@@ -313,6 +334,8 @@ test("public shares omit internal correction audit while team detail preserves i
     }
   }
   assert.equal(downloads, previousDownloads);
+  const afterInvalidAccesses = ListInvoiceImageAccessesResponse.parse(await (await request(imageAccessUrl, owner)).json());
+  assert.equal(afterInvalidAccesses.length, 2, "expired and revoked links must not record successful openings");
   const remaining = ListInvoiceSharesResponse.parse(await (await request(list, owner)).json());
   assert.deepEqual(remaining.map(link => link.id), [newLink.id]);
   assert.ok(remaining[0].createdAt);

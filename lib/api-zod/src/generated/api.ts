@@ -2779,6 +2779,25 @@ export const ListInvoiceSharesResponse = zod.array(ListInvoiceSharesResponseItem
 
 
 /**
+ * @summary List public legal image openings (owner only; no tokens or visitor identity)
+ */
+
+
+
+export const ListInvoiceImageAccessesParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const ListInvoiceImageAccessesResponseItem = zod.object({
+  "invoiceId": zod.number().int(),
+  "shareId": zod.number().int(),
+  "kind": zod.enum(['stamp', 'signature']),
+  "openedAt": zod.coerce.date()
+})
+export const ListInvoiceImageAccessesResponse = zod.array(ListInvoiceImageAccessesResponseItem)
+
+
+/**
  * @summary Revoke only this link, preserving the invoice and share history
  */
 

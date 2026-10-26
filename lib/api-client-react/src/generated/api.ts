@@ -30,6 +30,7 @@ import type {
   HealthStatus,
   Invoice,
   InvoiceExportRow,
+  InvoiceImageAccess,
   InvoiceInput,
   InvoicePaymentCorrectionInput,
   InvoicePaymentCorrectionResponse,
@@ -2934,6 +2935,83 @@ export function useListInvoiceShares<TData = Awaited<ReturnType<typeof listInvoi
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListInvoiceSharesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListInvoiceImageAccessesUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/image-accesses`
+}
+
+/**
+ * @summary List public legal image openings (owner only; no tokens or visitor identity)
+ */
+export const listInvoiceImageAccesses = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceImageAccess[]> => {
+
+  return customFetch<InvoiceImageAccess[]>(getListInvoiceImageAccessesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInvoiceImageAccessesQueryKey = (id: number,) => {
+    return [
+    `/api/invoices/${id}/image-accesses`
+    ] as const;
+    }
+
+
+export const getListInvoiceImageAccessesQueryOptions = <TData = Awaited<ReturnType<typeof listInvoiceImageAccesses>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceImageAccesses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInvoiceImageAccessesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoiceImageAccesses>>> = ({ signal }) => listInvoiceImageAccesses(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoiceImageAccesses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInvoiceImageAccessesQueryResult = NonNullable<Awaited<ReturnType<typeof listInvoiceImageAccesses>>>
+export type ListInvoiceImageAccessesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List public legal image openings (owner only; no tokens or visitor identity)
+ */
+
+export function useListInvoiceImageAccesses<TData = Awaited<ReturnType<typeof listInvoiceImageAccesses>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceImageAccesses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInvoiceImageAccessesQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

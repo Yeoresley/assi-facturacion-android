@@ -18,6 +18,8 @@ export * from './getMonthlySettlementParams';
 export * from './healthStatus';
 export * from './invoice';
 export * from './invoiceExportRow';
+export * from './invoiceImageAccess';
+export * from './invoiceImageAccessKind';
 export * from './invoiceInput';
 export * from './invoiceLine';
 export * from './invoiceLineInput';

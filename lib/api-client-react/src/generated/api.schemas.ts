@@ -707,6 +707,21 @@ export interface InvoiceShareInfo {
   expiresAt: string;
 }
 
+export type InvoiceImageAccessKind = typeof InvoiceImageAccessKind[keyof typeof InvoiceImageAccessKind];
+
+
+export const InvoiceImageAccessKind = {
+  stamp: 'stamp',
+  signature: 'signature',
+} as const;
+
+export interface InvoiceImageAccess {
+  invoiceId: number;
+  shareId: number;
+  kind: InvoiceImageAccessKind;
+  openedAt: string;
+}
+
 export interface InvoiceExportRow {
   id?: number;
   /** @nullable */

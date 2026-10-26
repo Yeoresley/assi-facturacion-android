@@ -13,6 +13,7 @@ export function activeInvoiceShare() {
 export async function getActiveInvoiceShare(token: string) {
   const hash = createHash("sha256").update(token).digest("hex");
   const [share] = await db.select({
+    id: invoiceSharesTable.id,
     invoiceId: invoiceSharesTable.invoiceId,
     paymentId: invoiceSharesTable.paymentId,
   })

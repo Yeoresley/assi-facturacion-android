@@ -1,7 +1,7 @@
-import { and, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import { Router, type Response } from "express";
-import { db, invoicesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
-import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, UpdateIssuerBody } from "@workspace/api-zod";
+import { db, invoiceImageAccessesTable, invoicesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
+import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, ListInvoiceImageAccessesParams, ListInvoiceImageAccessesResponse, UpdateIssuerBody } from "@workspace/api-zod";
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
 import { getInvoiceRow, serializeInvoice } from "../services/invoice-records";
 import { privateImage } from "../lib/private-images";
@@ -65,7 +65,7 @@ router.put("/invoices/:id/legal-document", async (req, res) => {
   res.json(GetInvoiceResponse.parse(serializeInvoice((await getInvoiceRow(id))!)));
 });
 
-async function sendImage(id: number, kind: string, res: Response, scope?: SQL) {
+async function sendImage(id: number, kind: string, res: Response, scope?: SQL, shareId?: number) {
   if (!["stamp", "signature"].includes(kind)) { res.sendStatus(404); return; }
   const invoice = await getInvoiceRow(id, scope);
   // Drafts and cancellations never expose scans, even if an old share exists.
@@ -74,6 +74,13 @@ async function sendImage(id: number, kind: string, res: Response, scope?: SQL) {
   try {
     const file = privateImage(path);
     const [data] = await file.download();
+    if (shareId !== undefined) {
+      await db.insert(invoiceImageAccessesTable).values({
+        invoiceId: id,
+        shareId,
+        kind: kind as "stamp" | "signature",
+      });
+    }
     res.set({ "Content-Type": "image/png", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" }).send(data);
   } catch {
     res.status(503).json({ error: "No se pudo cargar la imagen autorizada. No imprimas hasta resolverlo." });
@@ -91,7 +98,30 @@ router.get("/shared-invoices/:token/images/:kind", async (req, res) => {
   res.set("Cache-Control", "private, no-store");
   const share = await getActiveInvoiceShare(req.params.token);
   if (!share || share.paymentId !== null) { res.sendStatus(404); return; }
-  await sendImage(share.invoiceId, req.params.kind, res);
+  await sendImage(share.invoiceId, req.params.kind, res, undefined, share.id);
+});
+
+router.get("/invoices/:id/image-accesses", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  if (!await requireOwner(req, res)) return;
+  const params = ListInvoiceImageAccessesParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Identificador no válido." }); return; }
+  const invoiceId = params.data.id;
+  const [invoice] = await db.select({ id: invoicesTable.id }).from(invoicesTable)
+    .where(eq(invoicesTable.id, invoiceId)).limit(1);
+  if (!invoice) { res.status(404).json({ error: "Factura no disponible." }); return; }
+  const accesses = await db.select({
+    invoiceId: invoiceImageAccessesTable.invoiceId,
+    shareId: invoiceImageAccessesTable.shareId,
+    kind: invoiceImageAccessesTable.kind,
+    openedAt: invoiceImageAccessesTable.openedAt,
+  }).from(invoiceImageAccessesTable)
+    .where(eq(invoiceImageAccessesTable.invoiceId, invoiceId))
+    .orderBy(desc(invoiceImageAccessesTable.openedAt), desc(invoiceImageAccessesTable.id));
+  res.json(ListInvoiceImageAccessesResponse.parse(accesses.map(access => ({
+    ...access,
+    openedAt: access.openedAt.toISOString(),
+  }))));
 });
 
 export default router;

@@ -21,6 +21,7 @@ export * from "./customers";
 export * from "./invoices";
 export * from "./invoice-payments";
 export * from "./invoice-shares";
+export * from "./invoice-image-accesses";
 export * from "./team";
 export * from "./versat-catalog";
 export * from "./issuer";

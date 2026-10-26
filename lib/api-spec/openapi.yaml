@@ -628,6 +628,26 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/InvoiceShareInfo" }
         "404": { description: Invoice unavailable }
+  /invoices/{id}/image-accesses:
+    get:
+      operationId: listInvoiceImageAccesses
+      tags: [invoices]
+      summary: List public legal image openings (owner only; no tokens or visitor identity)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Public image opening history for the invoice
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/InvoiceImageAccess" }
+        "403": { description: Owner access required }
+        "404": { description: Invoice unavailable }
   /invoices/{id}/shares/{shareId}:
     delete:
       operationId: revokeInvoiceShare
@@ -1281,6 +1301,14 @@ components:
         id: { type: integer }
         createdAt: { type: ["string", "null"], format: date-time, description: Unknown for legacy links }
         expiresAt: { type: string, format: date-time }
+    InvoiceImageAccess:
+      type: object
+      required: [invoiceId, shareId, kind, openedAt]
+      properties:
+        invoiceId: { type: integer }
+        shareId: { type: integer }
+        kind: { type: string, enum: [stamp, signature] }
+        openedAt: { type: string, format: date-time }
     InvoiceExportRow:
       type: object
       required: [invoiceNumber, issueDate, customerName, taxId, currency, subtotal, total, status]
