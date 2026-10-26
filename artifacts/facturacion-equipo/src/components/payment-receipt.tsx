@@ -16,7 +16,7 @@ export function PaymentReceiptPaper({ receipt }: { receipt: SharedInvoiceReceipt
       <div className="payment-receipt-title"><p>Factura {receipt.invoiceNumber}</p><h1>COMPROBANTE<br />DE ABONO</h1></div>
     </header>
     <section className="payment-receipt-customer">
-      <div><span>Cliente</span><strong>{receipt.customerName}</strong></div>
+      <div className="payment-receipt-customer-name"><span>Cliente</span><strong>{receipt.customerName}</strong></div>
       <div><span>Fecha de pago</span><strong>{date(receipt.paidOn)}</strong></div>
     </section>
     {receipt.paymentMethod && <section className="payment-receipt-customer">

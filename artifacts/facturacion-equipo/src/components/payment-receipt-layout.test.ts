@@ -13,8 +13,19 @@ test('la referencia larga del recibo ocupa el ancho disponible y se parte sin de
   assert.match(stylesheet, /\.payment-receipt-customer strong\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/);
 });
 
+test('el nombre largo del cliente tiene una fila completa y no oculta los datos de pago al imprimir', () => {
+  assert.match(component, /className="payment-receipt-customer-name"><span>Cliente<\/span><strong>\{receipt\.customerName\}<\/strong>/);
+  assert.match(stylesheet, /\.payment-receipt-customer-name\s*\{\s*grid-column:\s*1\s*\/\s*-1;\s*\}/);
+  assert.match(stylesheet, /\.payment-receipt-customer strong\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(component, /<span>Referencia del cobro<\/span><strong>\{receipt\.reference\}<\/strong>/);
+  assert.match(component, /<span>Importe recibido<\/span>/);
+  assert.match(component, /<span>Saldo restante después de este abono<\/span>/);
+  assert.match(stylesheet, /\.payment-receipt-customer,\.payment-receipt-amount,\.payment-receipt-balance\s*\{\s*break-inside:\s*avoid;/);
+});
+
 test('el enlace compartido imprime el mismo recibo con sus estilos de impresión', () => {
   assert.match(sharedPage, /<PaymentReceiptPaper receipt=\{receiptQuery\.data!\} \/>/);
   assert.match(sharedPage, /printInvoice\(\{ documentType: 'receipt' \}\)/);
+  assert.match(sharedPage, /className="mx-auto max-w-\[820px\] receipt-print-page"/);
   assert.match(stylesheet, /\.printing-payment-receipt\s+\.payment-receipt-paper\s*\{\s*break-inside:\s*avoid;\s*page-break-inside:\s*avoid;/);
 });
