@@ -27,6 +27,12 @@ No cambiar automáticamente facturas históricas con estado Enviada o Pagada: co
 
 **How to apply:** La aceptación automática se aplica a pagos registrados ahora y a exportaciones válidas generadas desde la aplicación; no hacer una actualización masiva retroactiva.
 
+Para la migración histórica de las facturas de Versat aportadas en PDF, el propietario indicó considerarlas aceptadas por los clientes y, puesto que ya están importadas en Versat, registrarlas también como Confirmadas. Si el PDF no identifica quién la realizó, asignarla a Yeoresley Dominguez.
+
+**Why:** Es la instrucción expresa del propietario para atribuir y reflejar el estado de aceptación de este historial importado.
+
+**How to apply:** Limitar esta regla a las facturas históricas entregadas para la migración. No inventar una fecha de aceptación distinta de la fecha de registro de la migración ni usar esta asignación para facturas nuevas.
+
 Solo el Administrador debe tener la opción «Marcar Pagada» en el listado de facturas; los especialistas o comerciales deben poder ver sus facturas pendientes de pago.
 
 **Why:** El usuario quiere centralizar en el administrador el registro de los pagos y que cada comercial conozca qué facturas todavía debe cobrar.
