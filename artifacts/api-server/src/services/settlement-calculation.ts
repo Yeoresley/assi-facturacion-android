@@ -72,7 +72,7 @@ export function settlementPaymentCompletionDate(
   const reversed = new Set(reversedPaymentIds);
   const activePayments = payments.filter((payment) => !reversed.has(payment.id));
   const activeTotal = activePayments.reduce((sum, payment) => sum.plus(payment.amount), new Decimal(0));
-  if (activeTotal.plus("0.005").lt(total) || activePayments.length === 0) return null;
+  if (activeTotal.lt(total) || activePayments.length === 0) return null;
   return activePayments.reduce<string | null>((latest, payment) =>
     !latest || payment.paidOn > latest ? payment.paidOn : latest, null);
 }

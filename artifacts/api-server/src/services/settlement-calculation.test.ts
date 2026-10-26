@@ -95,6 +95,40 @@ test("a corrected receipt date moves settlement month without changing original 
   ]);
 });
 
+test("a corrected amount below the invoice total removes its effective completion date", () => {
+  const originalPayments = [
+    { id: 1, amount: 60, paidOn: "2026-09-30" },
+    { id: 2, amount: 40, paidOn: "2026-10-04" },
+  ];
+  const { payments: partiallyCorrectedPayments, reversedPaymentIds } =
+    applySettlementPaymentCorrections(originalPayments, [{
+      id: 1,
+      targetPaymentId: 2,
+      reversedPaymentId: null,
+      afterPaymentAmount: 39.99,
+      afterPaidOn: "2026-10-04",
+    }]);
+
+  assert.equal(
+    settlementPaymentCompletionDate(100, partiallyCorrectedPayments, reversedPaymentIds),
+    null,
+  );
+  assert.equal(
+    settlementPaymentCompletionDate(100, [
+      ...partiallyCorrectedPayments,
+      { id: 3, amount: 0.01, paidOn: "2026-10-05" },
+    ], reversedPaymentIds),
+    "2026-10-05",
+  );
+});
+
+test("a receipt total even fractionally below the invoice total is not complete", () => {
+  assert.equal(
+    settlementPaymentCompletionDate(100, [{ id: 1, amount: 99.999, paidOn: "2026-10-04" }]),
+    null,
+  );
+});
+
 test("the latest correction wins for the same receipt even when corrections arrive out of order", () => {
   const originalPayments = [
     { id: 1, amount: 60, paidOn: "2026-09-29" },

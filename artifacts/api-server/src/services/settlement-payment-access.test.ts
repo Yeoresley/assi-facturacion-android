@@ -14,6 +14,7 @@ import {
   customersTable,
   db,
   invoiceLinesTable,
+  invoicePaymentCorrectionsTable,
   invoicePaymentsTable,
   invoicesTable,
   pool,
@@ -24,6 +25,7 @@ import {
   teamMembersTable,
 } from "@workspace/db";
 import settlementsRouter from "../routes/settlements";
+import { correctInvoicePayment } from "./invoice-payment";
 
 const tag = `settlement-payment-access-${randomUUID()}`;
 const ownerId = `${tag}-owner`;
@@ -39,6 +41,7 @@ let customerId: number;
 let invoiceId: number;
 let ownerCommercialInvoiceId: number;
 let awaitingConfirmationInvoiceId: number;
+let correctedPartialInvoiceId: number;
 let invoiceLineId: number;
 
 before(async () => {
@@ -127,6 +130,45 @@ before(async () => {
     amount: 10_000,
   }).returning();
   invoiceLineId = line.id;
+  const [correctedPartialInvoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-corrected-partial`,
+    customerId,
+    specialistId: specialistOneId,
+    specialistName: specialistOneId,
+    issueDate: paidOn,
+    currency: "CUP",
+    status: "confirmed",
+    paymentStatus: "paid",
+    confirmedBy: ownerId,
+    confirmedAt: new Date(),
+    subtotal: 100,
+    total: 100,
+  }).returning();
+  correctedPartialInvoiceId = correctedPartialInvoice.id;
+  await db.insert(invoiceLinesTable).values({
+    invoiceId: correctedPartialInvoiceId,
+    description: `${tag}-corrected-partial-service`,
+    serviceCode: `${tag}-corrected-partial-service-code`,
+    quantity: 1,
+    unitPrice: 100,
+    amount: 100,
+  });
+  const [correctedPayment] = await db.insert(invoicePaymentsTable).values({
+    invoiceId: correctedPartialInvoiceId,
+    idempotencyKey: randomUUID(),
+    amount: 100,
+    currency: "CUP",
+    paidOn,
+    paidBy: ownerId,
+  }).returning();
+  await correctInvoicePayment(correctedPartialInvoiceId, {
+    paymentId: correctedPayment.id,
+    amount: 99.99,
+    paidOn,
+    reason: "Ajuste de prueba de importe",
+    idempotencyKey: randomUUID(),
+    confirmed: true,
+  }, { role: "owner", userId: ownerId });
   await db.insert(invoicePaymentsTable).values({
     invoiceId,
     idempotencyKey: randomUUID(),
@@ -202,8 +244,15 @@ after(async () => {
   ));
   await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
-  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId) {
-    await db.delete(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId].filter((id): id is number => Boolean(id))));
+  if (correctedPartialInvoiceId) {
+    await db.delete(invoicePaymentCorrectionsTable)
+      .where(eq(invoicePaymentCorrectionsTable.invoiceId, correctedPartialInvoiceId));
+    await db.delete(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, correctedPartialInvoiceId));
+  }
+  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId) {
+    await db.delete(invoicesTable).where(inArray(invoicesTable.id, [
+      invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId, correctedPartialInvoiceId,
+    ].filter((id): id is number => Boolean(id))));
   }
   if (customerId) await db.delete(customersTable).where(inArray(customersTable.id, [customerId]));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
@@ -300,6 +349,25 @@ test("paid invoices awaiting Versat confirmation are visible only in their speci
   assert.ok(ownerResult.paidAwaitingConfirmation.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId));
   assert.equal(
     ownerResult.results.some((result) => result.invoices.some(({ invoiceId: id }) => id === awaitingConfirmationInvoiceId)),
+    false,
+  );
+});
+
+test("a receipt correction that leaves a balance does not add the invoice to an automatic settlement month", async () => {
+  const [invoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, correctedPartialInvoiceId));
+  assert.equal(invoice.paymentStatus, "pending");
+
+  const response = await request(specialistOneId);
+  assert.equal(response.status, 200);
+  const result = GetMonthlySettlementResponse.parse(await response.json());
+  assert.equal(
+    result.results.flatMap(({ invoices }) => invoices)
+      .some(({ invoiceId: id }) => id === correctedPartialInvoiceId),
+    false,
+  );
+  assert.equal(
+    result.paidAwaitingConfirmation.some(({ invoiceId: id }) => id === correctedPartialInvoiceId),
     false,
   );
 });

@@ -71,6 +71,14 @@ function settlementPaidOn(invoice: Awaited<ReturnType<typeof getInvoiceRows>>[nu
   return settlementPaymentCompletionDate(invoice.total, payments, reversedPaymentIds);
 }
 
+function settlementPaidOnOrLegacyDate(
+  invoice: Awaited<ReturnType<typeof getInvoiceRows>>[number],
+): string | null {
+  const paidOn = settlementPaidOn(invoice);
+  if (paidOn || invoice.payments.length > 0 || invoice.paymentCorrections.length > 0) return paidOn;
+  return invoice.paidAt?.toISOString().slice(0, 10) ?? null;
+}
+
 function serializedExpense(expense: typeof settlementExpensesTable.$inferSelect) {
   return {
     ...expense,
@@ -274,7 +282,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
   const paidAwaitingConfirmation = paidAwaitingConfirmationRows.flatMap((invoice) => {
     if (invoice.paymentStatus !== "paid") return [];
     // Legacy invoices may have been marked paid before payment receipts were recorded.
-    const paidOn = settlementPaidOn(invoice) ?? invoice.paidAt?.toISOString().slice(0, 10) ?? null;
+    const paidOn = settlementPaidOnOrLegacyDate(invoice);
     if (!paidOn?.startsWith(period)) return [];
     return [{
       invoiceId: invoice.id,
