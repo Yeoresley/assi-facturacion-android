@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/assi-facturacion-android/"
+title = "Facturación ASSI Android"
+description = "Aplicación Android de ASSI para que especialistas y administradores consulten clientes, gestionen facturas y liquidaciones con el mismo acceso y datos de la aplicación web."
+version = "1.0.0"
+id = "artifacts/assi-facturacion-android"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/assi-facturacion-android/" ]
+localPort = 23278
+
+[services.development]
+run = "pnpm --filter @workspace/assi-facturacion-android run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/assi-facturacion-android", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/assi-facturacion-android", "run", "serve" ]
+
+[services.env]
+PORT = "23278"
+BASE_PATH = "/assi-facturacion-android/"

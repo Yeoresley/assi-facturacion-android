@@ -14,7 +14,7 @@
 - [Identidad visual ASSI](assi-brand.md) — usar los logotipos ASSI y una paleta azul/cian; mantener los PDF contables compatibles con Versat.
 - [Datos de prueba antes de producción](test-data-before-production.md) — las facturas actuales son de prueba y deben eliminarse antes de iniciar producción.
 - [Respuesta a vulnerabilidades de dependencias](dependency-security-response.md) — si no hay parche upstream, retirar la ruta vulnerable y validar también el grafo instalado.
-- [Secuencia web y Android](android-roadmap.md) — terminar y estabilizar la aplicación web antes de comenzar la APK para Android.
+- [Secuencia web y Android](android-roadmap.md) — Android ya puede avanzar en paralelo; la web debe seguir estabilizándose antes de producción.
 - [Auditoría de catálogos](catalog-audit-history.md) — registrar actor y snapshots al cambiar; no inventar responsables para entradas anteriores al historial.
 - [Desfase del esquema de desarrollo](dev-schema-drift.md) — no asumir que las tablas declaradas en Drizzle ya existen en la base compartida de desarrollo.
 - [Alcance de enlaces de comprobante](receipt-share-scope.md) — una URL de recibo debe usar una capacidad distinta y limitada, nunca el token que autoriza la factura completa.
