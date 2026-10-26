@@ -1082,6 +1082,7 @@ export const AuthorizeInvoiceDocumentResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -1318,6 +1319,7 @@ export const GetBillingOverviewResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -1627,6 +1629,7 @@ export const ListInvoicesResponseItem = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -1878,6 +1881,7 @@ export const CreateInvoiceResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -2074,6 +2078,7 @@ export const GetInvoiceResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -2328,6 +2333,7 @@ export const UpdateInvoiceResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
@@ -2528,6 +2534,7 @@ export const UpdateInvoiceStatusResponse = zod.object({
 })).optional(),
   "paidAt": zod.coerce.date().nullable(),
   "acceptedAt": zod.coerce.date().nullish(),
+  "acceptedSource": zod.union([zod.literal('specialist'),zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullish(),
   "confirmedAt": zod.coerce.date().nullish(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({

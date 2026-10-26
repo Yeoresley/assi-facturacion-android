@@ -260,6 +260,7 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   const accepted = await stored(d.id);
   assert.equal(accepted.acceptedBy, specialist.userId);
   assert.ok(accepted.acceptedAt instanceof Date);
+  assert.equal(accepted.acceptedSource, "specialist");
   await transitionInvoice(d.id, "accepted");
   assert.deepEqual((await stored(d.id)).acceptedAt, accepted.acceptedAt);
   await assert.rejects(transitionInvoice(d.id, "confirmed"), /administrador/);
@@ -279,8 +280,23 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   assert.equal(autoAccepted.status, "confirmed");
   assert.equal(autoAccepted.acceptedBy, owner.userId);
   assert.ok(autoAccepted.acceptedAt instanceof Date);
+  assert.equal(autoAccepted.acceptedSource, "versat_import");
   assert.equal(autoAccepted.confirmedBy, owner.userId);
   assert.ok(autoAccepted.confirmedAt instanceof Date);
+
+  const historicalAccepted = await draft(s.id);
+  await transitionInvoice(historicalAccepted.id, "finished");
+  const historicalAcceptedAt = new Date("2024-01-15T10:00:00.000Z");
+  await db.update(invoicesTable).set({
+    status: "accepted",
+    acceptedBy: "historic-specialist",
+    acceptedAt: historicalAcceptedAt,
+  }).where(eq(invoicesTable.id, historicalAccepted.id));
+  await scopedTransitionInvoice(historicalAccepted.id, "confirmed", sql`true`, owner);
+  const historicalConfirmed = await stored(historicalAccepted.id);
+  assert.equal(historicalConfirmed.acceptedSource, null);
+  assert.equal(historicalConfirmed.acceptedBy, "historic-specialist");
+  assert.deepEqual(historicalConfirmed.acceptedAt, historicalAcceptedAt);
 });
 
 test("error recovery keeps the same official number, requires acceptance again, and enforces commercial", async () => {
@@ -341,6 +357,7 @@ test("only the administrator records payment; a full payment marks the invoice a
   assert.equal(paid.status, "accepted");
   assert.equal(paid.acceptedBy, owner.userId);
   assert.ok(paid.acceptedAt instanceof Date);
+  assert.equal(paid.acceptedSource, "payment");
   assert.equal(paid.confirmedAt, null);
   assert.deepEqual(paid.legalDocument, before.legalDocument);
   assert.equal(paid.versatNumber, before.versatNumber);
@@ -370,6 +387,7 @@ test("partial abonos mark the invoice accepted and preserve exact cents, date an
   assert.equal(firstSaved.status, "accepted");
   assert.equal(firstSaved.acceptedBy, owner.userId);
   assert.ok(firstSaved.acceptedAt instanceof Date);
+  assert.equal(firstSaved.acceptedSource, "payment");
   assert.equal((await stored(d.id)).paidAt, null);
   assert.equal((await stored(d.id)).paidBy, null);
   assert.equal((await stored(d.id)).paymentStatus, "pending");

@@ -38,11 +38,16 @@ export async function transitionInvoice(
       status, versat, versatNumber: versat?.number ?? null,
       // Historical "paid" was a lifecycle status. Preserve that fact when adopting the new workflow.
       ...(current.status === "paid" ? { paymentStatus: "paid" as const } : {}),
-      ...(status === "accepted" ? { acceptedBy: actor.userId, acceptedAt: transitionAt } : {}),
+      ...(status === "accepted" ? {
+        acceptedBy: actor.userId, acceptedAt: transitionAt, acceptedSource: "specialist" as const,
+      } : {}),
       ...(status === "confirmed" ? {
         // Import confirmation is also an acceptance signal if the specialist missed the one-click action.
         acceptedBy: current.acceptedBy ?? actor.userId,
         acceptedAt: current.acceptedAt ?? transitionAt,
+        ...(current.status !== "accepted" && !current.acceptedAt
+          ? { acceptedSource: "versat_import" as const }
+          : {}),
         confirmedBy: actor.userId,
         confirmedAt: transitionAt,
       } : {}),

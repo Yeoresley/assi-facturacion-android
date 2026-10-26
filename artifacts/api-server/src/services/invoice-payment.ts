@@ -170,7 +170,7 @@ export async function recordInvoicePayment(
       paidBy: actor.userId, reference, paymentMethod,
     }).returning();
     const nextPayments = [...entries, payment];
-    const acceptance = acceptanceFromWorkflowEvent(invoice, actor.userId);
+    const acceptance = acceptanceFromWorkflowEvent(invoice, actor.userId, "payment");
     const invoiceUpdate = {
       ...acceptance,
       ...(nextPaidCents === totalCents ? {

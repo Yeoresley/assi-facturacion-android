@@ -2,6 +2,7 @@ import type { Invoice } from "@workspace/db";
 
 export type InvoiceStatus = Invoice["status"];
 export type WorkflowStatus = Exclude<InvoiceStatus, "sent" | "paid">;
+export type InvoiceAcceptanceSource = NonNullable<Invoice["acceptedSource"]>;
 export const statusCodes: Record<WorkflowStatus, number> = {
   draft: 1, finished: 2, confirmed: 3, voided: 4, cancelled: 5, error: 6, accepted: 7,
 };
@@ -20,16 +21,18 @@ const transitions: Record<InvoiceStatus, readonly WorkflowStatus[]> = {
 };
 
 export function acceptanceFromWorkflowEvent(
-  current: Pick<Invoice, "status" | "acceptedBy" | "acceptedAt">,
+  current: Pick<Invoice, "status" | "acceptedBy" | "acceptedAt" | "acceptedSource">,
   actorUserId: string,
+  source: Extract<InvoiceAcceptanceSource, "payment" | "versat_export">,
   acceptedAt = new Date(),
-): Partial<Pick<Invoice, "status" | "acceptedBy" | "acceptedAt">> {
+): Partial<Pick<Invoice, "status" | "acceptedBy" | "acceptedAt" | "acceptedSource">> {
   if (current.status === "accepted" || current.status === "confirmed") {
     if (current.acceptedBy && current.acceptedAt) return {};
     return {
       status: current.status,
       acceptedBy: current.acceptedBy ?? actorUserId,
       acceptedAt: current.acceptedAt ?? acceptedAt,
+      // Existing accepted invoices without an origin are historical/unknown; don't infer one.
     };
   }
   if (current.status === "finished" || current.status === "sent" || current.status === "paid") {
@@ -37,6 +40,7 @@ export function acceptanceFromWorkflowEvent(
       status: "accepted",
       acceptedBy: current.acceptedBy ?? actorUserId,
       acceptedAt: current.acceptedAt ?? acceptedAt,
+      acceptedSource: source,
     };
   }
   return {};

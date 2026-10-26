@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoiceAcceptedSource } from './invoiceAcceptedSource';
 import type { InvoiceLine } from './invoiceLine';
 import type { InvoicePayment } from './invoicePayment';
 import type { InvoicePaymentCorrection } from './invoicePaymentCorrection';
@@ -44,6 +45,8 @@ export interface Invoice {
   paidAt: Date | null;
   /** @nullable */
   acceptedAt?: Date | null;
+  /** @nullable */
+  acceptedSource?: InvoiceAcceptedSource;
   /** @nullable */
   confirmedAt?: Date | null;
   /** @nullable */

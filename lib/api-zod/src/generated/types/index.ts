@@ -17,6 +17,7 @@ export * from './exportVersatInvoicesParams';
 export * from './getMonthlySettlementParams';
 export * from './healthStatus';
 export * from './invoice';
+export * from './invoiceAcceptedSource';
 export * from './invoiceExportRow';
 export * from './invoiceImageAccess';
 export * from './invoiceImageAccessKind';

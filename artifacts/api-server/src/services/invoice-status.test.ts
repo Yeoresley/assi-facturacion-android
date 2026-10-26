@@ -11,24 +11,34 @@ test("conserva los siete códigos del catálogo de Versat", () => {
 test("un pago o una exportación aceptan una factura terminada sin reemplazar una aceptación previa", () => {
   const acceptedAt = new Date("2026-10-21T12:00:00Z");
   assert.deepEqual(acceptanceFromWorkflowEvent({
-    status: "finished", acceptedBy: null, acceptedAt: null,
-  }, "owner-1", acceptedAt), {
-    status: "accepted", acceptedBy: "owner-1", acceptedAt,
+    status: "finished", acceptedBy: null, acceptedAt: null, acceptedSource: null,
+  }, "owner-1", "payment", acceptedAt), {
+    status: "accepted", acceptedBy: "owner-1", acceptedAt, acceptedSource: "payment",
   });
   assert.deepEqual(acceptanceFromWorkflowEvent({
-    status: "accepted", acceptedBy: "specialist-1", acceptedAt,
-  }, "owner-2", new Date()), {});
+    status: "accepted", acceptedBy: "specialist-1", acceptedAt, acceptedSource: "specialist",
+  }, "owner-2", "payment", new Date()), {});
   assert.deepEqual(acceptanceFromWorkflowEvent({
-    status: "confirmed", acceptedBy: "owner-1", acceptedAt,
-  }, "owner-2", new Date()), {});
+    status: "confirmed", acceptedBy: "owner-1", acceptedAt, acceptedSource: "versat_import",
+  }, "owner-2", "versat_export", new Date()), {});
   assert.deepEqual(acceptanceFromWorkflowEvent({
-    status: "confirmed", acceptedBy: null, acceptedAt: null,
-  }, "owner-2", acceptedAt), {
+    status: "confirmed", acceptedBy: null, acceptedAt: null, acceptedSource: null,
+  }, "owner-2", "versat_export", acceptedAt), {
     status: "confirmed", acceptedBy: "owner-2", acceptedAt,
   });
   assert.deepEqual(acceptanceFromWorkflowEvent({
-    status: "paid", acceptedBy: null, acceptedAt: null,
-  }, "owner-2", acceptedAt), {
+    status: "paid", acceptedBy: null, acceptedAt: null, acceptedSource: null,
+  }, "owner-2", "payment", acceptedAt), {
+    status: "accepted", acceptedBy: "owner-2", acceptedAt, acceptedSource: "payment",
+  });
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "finished", acceptedBy: null, acceptedAt: null, acceptedSource: null,
+  }, "owner-2", "versat_export", acceptedAt), {
+    status: "accepted", acceptedBy: "owner-2", acceptedAt, acceptedSource: "versat_export",
+  });
+  assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "accepted", acceptedBy: null, acceptedAt: null, acceptedSource: null,
+  }, "owner-2", "payment", acceptedAt), {
     status: "accepted", acceptedBy: "owner-2", acceptedAt,
   });
 });

@@ -279,6 +279,19 @@ export const InvoicePaymentStatus = {
 /**
  * @nullable
  */
+export type InvoiceAcceptedSource = typeof InvoiceAcceptedSource[keyof typeof InvoiceAcceptedSource] | null;
+
+
+export const InvoiceAcceptedSource = {
+  specialist: 'specialist',
+  payment: 'payment',
+  versat_export: 'versat_export',
+  versat_import: 'versat_import',
+} as const;
+
+/**
+ * @nullable
+ */
 export type InvoicePaymentPaymentMethod = typeof InvoicePaymentPaymentMethod[keyof typeof InvoicePaymentPaymentMethod] | null;
 
 
@@ -429,6 +442,8 @@ export interface Invoice {
   paidAt: string | null;
   /** @nullable */
   acceptedAt?: string | null;
+  /** @nullable */
+  acceptedSource?: InvoiceAcceptedSource;
   /** @nullable */
   confirmedAt?: string | null;
   /** @nullable */

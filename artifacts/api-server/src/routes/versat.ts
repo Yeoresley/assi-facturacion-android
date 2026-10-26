@@ -352,7 +352,7 @@ router.post("/invoices/:id/versat-file", async (req, res): Promise<void> => {
         filename: facFilename(invoice.versat!.number!), base64: bytes.toString("base64"),
         contentType: "text/plain;charset=windows-1252", invoiceCount: 1, warnings: facWarnings,
       });
-      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId);
+      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId, "versat_export");
       if (Object.keys(acceptance).length) {
         await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
       }
@@ -412,7 +412,7 @@ router.post("/versat/export-file", async (req, res): Promise<void> => {
     });
     const acceptedAt = new Date();
     for (const invoice of invoices) {
-      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId, acceptedAt);
+      const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId, "versat_export", acceptedAt);
       if (Object.keys(acceptance).length) {
         await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
       }

@@ -31,6 +31,7 @@ export const invoicesTable = pgTable("invoices", {
     .default("draft"),
   acceptedBy: text("accepted_by"),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedSource: text("accepted_source").$type<"specialist" | "payment" | "versat_export" | "versat_import">(),
   confirmedBy: text("confirmed_by"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   paymentStatus: text("payment_status").$type<"pending" | "paid">().notNull().default("pending"),

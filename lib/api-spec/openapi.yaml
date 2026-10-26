@@ -1084,6 +1084,9 @@ components:
           items: { $ref: "#/components/schemas/InvoicePaymentCorrection" }
         paidAt: { type: ["string", "null"], format: date-time }
         acceptedAt: { type: ["string", "null"], format: date-time }
+        acceptedSource:
+          type: ["string", "null"]
+          enum: [specialist, payment, versat_export, versat_import, null]
         confirmedAt: { type: ["string", "null"], format: date-time }
         notes: { type: ["string", "null"] }
         versat:
