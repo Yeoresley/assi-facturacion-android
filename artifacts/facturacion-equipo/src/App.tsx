@@ -16,9 +16,9 @@ import {
 } from '@workspace/api-client-react';
 import type { ListInvoicesPaymentStatus, ListInvoicesStatus, Customer, CustomerInput, Invoice, InvoiceInput, InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import {
-  ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, Bell, BookOpen, CalendarDays,
-  Check, ChevronDown, CircleHelp, Clipboard, FilePlus2, FileText, Filter, HandCoins, LayoutDashboard,
-  LogOut, Mail, Printer, Search, Settings2, ShieldAlert, Users, WalletCards, X,
+  ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, Bell, CalendarDays,
+  Check, ChevronDown, CircleHelp, Clipboard, FilePlus2, FileText, Filter, HandCoins,
+  LogOut, Mail, Printer, Search, ShieldAlert, Users, X,
 } from 'lucide-react';
 import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation, useParams } from 'wouter';
 import { BrandMark, EmptyState, PageHeading, QueryError, Status, statusLabels, date, money } from '@/lib/shared';
@@ -38,6 +38,7 @@ import { CorrectPaidButton, MarkPaidButton, PaymentBadge } from '@/components/in
 import { IssuerSettings } from '@/components/issuer-settings';
 import { NumberingSettings } from '@/components/numbering-settings';
 import { ProductionTestDataCleanup } from '@/components/production-test-data-cleanup';
+import { getNavigationItems, getOwnerRouteRedirect, ownerOnlyRoutes } from '@/lib/team-navigation';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -88,16 +89,6 @@ const clerkAppearance = {
     main: 'text-[#213d39]',
   },
 };
-
-const navItems = [
-  { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
-  { href: '/invoices', label: 'Facturas', icon: FileText },
-  { href: '/customers', label: 'Clientes', icon: Users },
-  { href: '/catalogs', label: 'Catálogos', icon: BookOpen },
-  { href: '/settlements', label: 'Liquidación', icon: WalletCards },
-  { href: '/export', label: 'Exportar', icon: ArrowDownToLine },
-  { href: '/settings', label: 'Ajustes', icon: Settings2 },
-];
 
 function CacheInvalidator() {
   const { addListener } = useClerk();
@@ -225,8 +216,7 @@ function Shell({ children }: { children: ReactNode }) {
   const me = member.data;
   if (me.suspended) return <AccessMessage title="Tu acceso está suspendido" body="El propietario ha suspendido tu acceso al equipo. Tus facturas e historial se conservan. Pídele que reactive tu acceso y comprueba de nuevo." retry={() => member.refetch()} />;
   if (me.role === 'pending') return <AccessMessage title="Tu acceso está pendiente" body="La cuenta está creada. El propietario del espacio debe habilitar tu acceso antes de entrar al escritorio." retry={() => member.refetch()} />;
-  const visibleNavItems = navItems.filter(({ href }) => me.role === 'owner' || !['/export', '/settings', '/catalogs'].includes(href));
-  const sidebarItems = [...visibleNavItems, ...(me.role === 'owner' ? [{ href: '/team/members', label: 'Equipo', icon: Users }] : [])];
+  const sidebarItems = getNavigationItems(me.role, true);
   return <div className="app-shell flex bg-[#f6f4eb]">
     <aside className="sidebar fixed inset-y-0 left-0 z-20 flex w-[238px] flex-col px-4 py-5">
       <Link href="/dashboard" className="mb-9 px-2"><BrandMark tone="dark" /></Link>
@@ -248,7 +238,7 @@ function Shell({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
-    <nav className="mobile-nav">{visibleNavItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
+    <nav className="mobile-nav" aria-label="Navegación principal">{getNavigationItems(me.role, true).map(({ href, label, icon: Icon }) => <Link href={href} key={href} aria-current={location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'page' : undefined} className={location === href || (href === '/invoices' && location.startsWith('/invoices')) ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
   </div>;
 }
 
@@ -388,7 +378,8 @@ function OwnerOnly({ children }: { children: ReactNode }) {
   const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false } });
   if (member.isLoading) return <div className="grid min-h-[50vh] place-items-center"><div className="skeleton h-6 w-40" aria-label="Verificando permisos" /></div>;
   if (member.isError || !member.data) return <AccessMessage title="No pudimos comprobar tu permiso" body="No se pudo verificar que tu cuenta sea propietaria. Vuelve al escritorio e inténtalo de nuevo." retry={() => member.refetch()} />;
-  if (member.data.role !== 'owner') return <Redirect to="/dashboard" />;
+  const redirect = getOwnerRouteRedirect(member.data.role);
+  if (redirect) return <Redirect to={redirect} />;
   return <>{children}</>;
 }
 function OwnerRoute({ children }: { children: ReactNode }) { return <AuthenticatedRoute><OwnerOnly>{children}</OwnerOnly></AuthenticatedRoute>; }
@@ -410,13 +401,13 @@ function AppRoutes() {
         <Route path="/invoices/new"><AuthenticatedRoute><InvoiceFormPage /></AuthenticatedRoute></Route>
         <Route path="/invoices/:id/edit"><AuthenticatedRoute><InvoiceFormPage /></AuthenticatedRoute></Route>
         <Route path="/invoices/:id"><AuthenticatedRoute><InvoiceDetailPage /></AuthenticatedRoute></Route>
-        <Route path="/catalogs"><OwnerRoute><CatalogsPage /></OwnerRoute></Route>
+        <Route path={ownerOnlyRoutes.catalogs}><OwnerRoute><CatalogsPage /></OwnerRoute></Route>
         <Route path="/customers"><AuthenticatedRoute><CustomersPage /></AuthenticatedRoute></Route>
         <Route path="/customers/:id"><AuthenticatedRoute><Customer360Page /></AuthenticatedRoute></Route>
-        <Route path="/export"><OwnerRoute><ExportPage /></OwnerRoute></Route>
+        <Route path={ownerOnlyRoutes.export}><OwnerRoute><ExportPage /></OwnerRoute></Route>
         <Route path="/settlements"><AuthenticatedRoute><SettlementsPage /></AuthenticatedRoute></Route>
-        <Route path="/settings"><OwnerRoute><Settings /></OwnerRoute></Route>
-        <Route path="/team/members"><OwnerRoute><TeamMembers /></OwnerRoute></Route>
+        <Route path={ownerOnlyRoutes.settings}><OwnerRoute><Settings /></OwnerRoute></Route>
+        <Route path={ownerOnlyRoutes.team}><OwnerRoute><TeamMembers /></OwnerRoute></Route>
         <Route><NotFound /></Route>
       </Switch></RoutedBoundary><Toaster /></TooltipProvider>
     </QueryClientProvider>
