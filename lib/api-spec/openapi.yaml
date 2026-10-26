@@ -497,6 +497,45 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/owner-assignment-reviews:
+    get:
+      operationId: listOwnerInvoiceAssignmentReviews
+      tags: [invoices]
+      summary: List historical owner invoices with Versat commercial data
+      responses:
+        "200":
+          description: Owner-assigned invoices with their distinct Versat commercial data
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OwnerInvoiceAssignmentReview" }
+        "403": { description: Owner access required }
+  /invoices/{id}/owner-assignment:
+    patch:
+      operationId: assignOwnerInvoiceToSpecialist
+      tags: [invoices]
+      summary: Reassign one owner invoice to its matching Versat specialist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OwnerInvoiceAssignmentInput" }
+      responses:
+        "200":
+          description: The selected invoice was reassigned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerInvoiceAssignmentResult" }
+        "403": { description: Owner access required }
+        "404": { description: Invoice or specialist not found }
+        "409": { description: Invoice assignment changed; refresh and retry }
+        "422": { description: Specialist is not assigned to the invoice's Versat commercial }
   /invoices/{id}:
     get:
       operationId: getInvoice
@@ -1255,6 +1294,39 @@ components:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLine" }
         createdAt: { type: string, format: date-time }
+    OwnerInvoiceAssignmentReview:
+      type: object
+      required: [id, number, customerName, issueDate, currentSpecialistId, currentSpecialistName, versatCommercialId, versatCommercialName, matchingSpecialists]
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        customerName: { type: string }
+        issueDate: { type: string, format: date }
+        currentSpecialistId: { type: string }
+        currentSpecialistName: { type: string }
+        versatCommercialId: { type: integer }
+        versatCommercialName: { type: string }
+        matchingSpecialists:
+          type: array
+          items: { $ref: "#/components/schemas/OwnerInvoiceAssignmentCandidate" }
+    OwnerInvoiceAssignmentCandidate:
+      type: object
+      required: [specialistId, specialistName]
+      properties:
+        specialistId: { type: string }
+        specialistName: { type: string }
+    OwnerInvoiceAssignmentInput:
+      type: object
+      required: [specialistId]
+      properties:
+        specialistId: { type: string, minLength: 1 }
+    OwnerInvoiceAssignmentResult:
+      type: object
+      required: [id, specialistId, specialistName]
+      properties:
+        id: { type: integer }
+        specialistId: { type: string }
+        specialistName: { type: string }
     SharedInvoice:
       type: object
       required: [number, customerName, issueDate, dueDate, currency, status, confirmedAt, notes, versat, legalDocument, subtotal, total, lines]

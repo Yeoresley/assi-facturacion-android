@@ -2098,6 +2098,50 @@ export const CreateInvoiceResponse = zod.object({
 
 
 /**
+ * @summary List historical owner invoices with Versat commercial data
+ */
+export const ListOwnerInvoiceAssignmentReviewsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "number": zod.string(),
+  "customerName": zod.string(),
+  "issueDate": zod.coerce.date(),
+  "currentSpecialistId": zod.string(),
+  "currentSpecialistName": zod.string(),
+  "versatCommercialId": zod.number().int(),
+  "versatCommercialName": zod.string(),
+  "matchingSpecialists": zod.array(zod.object({
+  "specialistId": zod.string(),
+  "specialistName": zod.string()
+}))
+})
+export const ListOwnerInvoiceAssignmentReviewsResponse = zod.array(ListOwnerInvoiceAssignmentReviewsResponseItem)
+
+
+/**
+ * @summary Reassign one owner invoice to its matching Versat specialist
+ */
+
+
+
+export const AssignOwnerInvoiceToSpecialistParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+
+
+
+export const AssignOwnerInvoiceToSpecialistBody = zod.object({
+  "specialistId": zod.string().min(1)
+})
+
+export const AssignOwnerInvoiceToSpecialistResponse = zod.object({
+  "id": zod.number().int(),
+  "specialistId": zod.string(),
+  "specialistName": zod.string()
+})
+
+
+/**
  * @summary Get an invoice with line items
  */
 export const GetInvoiceParams = zod.object({

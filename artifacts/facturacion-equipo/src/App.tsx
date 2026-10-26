@@ -35,6 +35,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { CorrectPaidButton, MarkPaidButton, PaymentBadge, PaymentMethodSummaryPanel } from '@/components/invoice-payment';
+import { HistoricalInvoiceAssignmentReview } from '@/components/historical-invoice-assignment-review';
 import { IssuerSettings } from '@/components/issuer-settings';
 import { NumberingSettings } from '@/components/numbering-settings';
 import { ProductionTestDataCleanup } from '@/components/production-test-data-cleanup';
@@ -346,6 +347,7 @@ function Invoices() {
   const query = useListInvoices(params, { query: { queryKey: getListInvoicesQueryKey(params), refetchInterval: 20000 } });
   return <div className="fade-in">
     <PageHeading eyebrow="Archivo del equipo" title="Facturas" description="Busca una factura o filtra por estado." action={<Link href="/invoices/new" className="button button-primary"><FilePlus2 size={16} />Nueva factura</Link>} />
+    <HistoricalInvoiceAssignmentReview />
     <section className="panel overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 md:px-5">
         <label className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9690]" size={16} /><input className="field !h-10 !pl-9" type="search" placeholder="Buscar por número o cliente" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-invoice-search" /></label>

@@ -29,6 +29,10 @@ import {
   ListCustomersResponse,
   ListInvoicesQueryParams,
   ListInvoicesResponse,
+  ListOwnerInvoiceAssignmentReviewsResponse,
+  AssignOwnerInvoiceToSpecialistBody,
+  AssignOwnerInvoiceToSpecialistParams,
+  AssignOwnerInvoiceToSpecialistResponse,
   ListInvoiceAcceptanceNotificationsResponse,
   ListTeamMembersResponse,
   UpdateCustomerBody,
@@ -303,6 +307,119 @@ router.delete("/customers/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.get("/invoices/owner-assignment-reviews", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const rows = await db.select({
+    id: invoicesTable.id,
+    number: invoicesTable.number,
+    issueDate: invoicesTable.issueDate,
+    specialistId: invoicesTable.specialistId,
+    specialistName: invoicesTable.specialistName,
+    versat: invoicesTable.versat,
+    customerName: customersTable.name,
+  }).from(invoicesTable)
+    .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
+    .where(eq(invoicesTable.specialistId, owner.userId))
+    .orderBy(desc(invoicesTable.createdAt));
+  const eligibleRows = rows.filter(({ versat }) => !!versat);
+  const specialists = eligibleRows.length
+    ? await db.select({
+        specialistId: teamMembersTable.userId,
+        specialistName: teamMembersTable.name,
+        commercialId: teamInvitationsTable.commercialId,
+      }).from(teamMembersTable)
+        .innerJoin(teamInvitationsTable, eq(teamMembersTable.email, teamInvitationsTable.email))
+        .where(eq(teamMembersTable.role, "specialist"))
+    : [];
+  const reviews = eligibleRows.flatMap((invoice) => {
+    const versat = invoice.versat;
+    if (!versat) return [];
+    return [{
+      id: invoice.id,
+      number: invoice.number,
+      customerName: versat.customerName || invoice.customerName,
+      issueDate: invoice.issueDate,
+      currentSpecialistId: invoice.specialistId,
+      currentSpecialistName: invoice.specialistName,
+      versatCommercialId: versat.commercialId,
+      versatCommercialName: versat.commercialName,
+      matchingSpecialists: specialists
+        .filter(({ commercialId }) => commercialId === versat.commercialId)
+        .map(({ specialistId, specialistName }) => ({ specialistId, specialistName })),
+    }];
+  });
+  res.json(ListOwnerInvoiceAssignmentReviewsResponse.parse(reviews));
+});
+
+router.patch("/invoices/:id/owner-assignment", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = AssignOwnerInvoiceToSpecialistParams.safeParse(req.params);
+  const body = AssignOwnerInvoiceToSpecialistBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.error?.message ?? body.error?.message });
+    return;
+  }
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [invoice] = await tx.select({
+        id: invoicesTable.id,
+        versat: invoicesTable.versat,
+      }).from(invoicesTable)
+        .where(and(
+          eq(invoicesTable.id, params.data.id),
+          eq(invoicesTable.specialistId, owner.userId),
+        ))
+        .for("update")
+        .limit(1);
+      if (!invoice) throw new Error("INVOICE_NOT_FOUND");
+      if (!invoice.versat) throw new Error("INVOICE_HAS_NO_VERSAT_COMMERCIAL");
+
+      const [specialist] = await tx.select({
+        userId: teamMembersTable.userId,
+        name: teamMembersTable.name,
+      }).from(teamMembersTable)
+        .innerJoin(teamInvitationsTable, eq(teamMembersTable.email, teamInvitationsTable.email))
+        .where(and(
+          eq(teamMembersTable.userId, body.data.specialistId),
+          eq(teamMembersTable.role, "specialist"),
+          eq(teamInvitationsTable.commercialId, invoice.versat.commercialId),
+        ))
+        .for("update")
+        .limit(1);
+      if (!specialist) throw new Error("SPECIALIST_COMMERCIAL_MISMATCH");
+
+      const [updated] = await tx.update(invoicesTable)
+        .set({ specialistId: specialist.userId, specialistName: specialist.name })
+        .where(and(
+          eq(invoicesTable.id, invoice.id),
+          eq(invoicesTable.specialistId, owner.userId),
+        ))
+        .returning({
+          id: invoicesTable.id,
+          specialistId: invoicesTable.specialistId,
+          specialistName: invoicesTable.specialistName,
+        });
+      if (!updated) throw new Error("INVOICE_ASSIGNMENT_CHANGED");
+      return updated;
+    });
+    res.json(AssignOwnerInvoiceToSpecialistResponse.parse(result));
+  } catch (error) {
+    if (error instanceof Error && error.message === "INVOICE_NOT_FOUND") {
+      res.status(404).json({ error: "No se encontró una factura que siga asignada al propietario." });
+    } else if (error instanceof Error && error.message === "INVOICE_HAS_NO_VERSAT_COMMERCIAL") {
+      res.status(422).json({ error: "La factura no tiene datos comerciales de Versat para validar." });
+    } else if (error instanceof Error && error.message === "SPECIALIST_COMMERCIAL_MISMATCH") {
+      res.status(422).json({ error: "El especialista elegido no tiene asignado el comercial de Versat de esta factura." });
+    } else if (error instanceof Error && error.message === "INVOICE_ASSIGNMENT_CHANGED") {
+      res.status(409).json({ error: "La asignación de la factura cambió. Actualiza la lista e inténtalo de nuevo." });
+    } else {
+      throw error;
+    }
+  }
 });
 
 router.get("/invoices", async (req, res): Promise<void> => {

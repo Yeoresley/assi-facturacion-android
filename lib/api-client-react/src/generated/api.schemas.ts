@@ -497,6 +497,34 @@ export interface Invoice {
   createdAt: string;
 }
 
+export interface OwnerInvoiceAssignmentCandidate {
+  specialistId: string;
+  specialistName: string;
+}
+
+export interface OwnerInvoiceAssignmentReview {
+  id: number;
+  number: string;
+  customerName: string;
+  issueDate: string;
+  currentSpecialistId: string;
+  currentSpecialistName: string;
+  versatCommercialId: number;
+  versatCommercialName: string;
+  matchingSpecialists: OwnerInvoiceAssignmentCandidate[];
+}
+
+export interface OwnerInvoiceAssignmentInput {
+  /** @minLength 1 */
+  specialistId: string;
+}
+
+export interface OwnerInvoiceAssignmentResult {
+  id: number;
+  specialistId: string;
+  specialistName: string;
+}
+
 export type SharedInvoiceStatus = typeof SharedInvoiceStatus[keyof typeof SharedInvoiceStatus];
 
 

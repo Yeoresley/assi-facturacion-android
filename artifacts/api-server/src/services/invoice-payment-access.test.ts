@@ -10,6 +10,8 @@ import {
   GetInvoiceResponse,
   GetSharedInvoiceResponse,
   ListInvoicesResponse,
+  ListOwnerInvoiceAssignmentReviewsResponse,
+  AssignOwnerInvoiceToSpecialistResponse,
 } from "@workspace/api-zod";
 import { eq, inArray } from "drizzle-orm";
 import {
@@ -225,6 +227,91 @@ const request = (path: string, actor = specialistOneId, method = "GET", body?: u
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
+test("owner can review historical invoices separately and reassign only a confirmed, matching invoice", async () => {
+  const [historicInvoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-owner-historic`,
+    customerId,
+    specialistId: ownerId,
+    specialistName: "Synthetic owner",
+    issueDate: "2025-06-14",
+    currency: "CUP",
+    status: "confirmed",
+    versat: {
+      conceptId: 1,
+      operationId: 1,
+      commercialId: commercialOneId,
+      paymentId: 1,
+      number: "HIST",
+      talon: "1",
+      bankAccountMC: null,
+      bankAccountOM: null,
+      contract: null,
+      currencyName: "CUP",
+      conceptCode: "TEST",
+      operationName: `${tag}-historic`,
+      commercialName: `${tag}-one`,
+      commercialPosition: "",
+      paymentName: "Synthetic payment",
+      customerCode: "TEST",
+      customerName: `${tag}-historic customer`,
+      customerAddress: null,
+      customerTaxId: null,
+    },
+    subtotal: 40,
+    total: 40,
+  }).returning();
+  try {
+    const specialistList = await request("/invoices/owner-assignment-reviews", specialistOneId);
+    assert.equal(specialistList.status, 403);
+
+    const ownerResponse = await request("/invoices/owner-assignment-reviews", ownerId);
+    assert.equal(ownerResponse.status, 200);
+    const reviews = ListOwnerInvoiceAssignmentReviewsResponse.parse(await ownerResponse.json());
+    const review = reviews.find(({ id }) => id === historicInvoice.id);
+    assert.ok(review);
+    assert.equal(review.currentSpecialistId, ownerId);
+    assert.equal(review.currentSpecialistName, "Synthetic owner");
+    assert.equal(review.versatCommercialId, commercialOneId);
+    assert.equal(review.versatCommercialName, `${tag}-one`);
+    assert.deepEqual(review.matchingSpecialists, [{
+      specialistId: specialistOneId,
+      specialistName: "Synthetic Payment Access",
+    }]);
+
+    const rejected = await request(
+      `/invoices/${historicInvoice.id}/owner-assignment`, ownerId, "PATCH", { specialistId: specialistTwoId },
+    );
+    assert.equal(rejected.status, 422);
+    assert.equal(
+      (await db.select({ specialistId: invoicesTable.specialistId }).from(invoicesTable)
+        .where(eq(invoicesTable.id, historicInvoice.id)))[0].specialistId,
+      ownerId,
+    );
+
+    const assigned = await request(
+      `/invoices/${historicInvoice.id}/owner-assignment`, ownerId, "PATCH", { specialistId: specialistOneId },
+    );
+    assert.equal(assigned.status, 200);
+    const result = AssignOwnerInvoiceToSpecialistResponse.parse(await assigned.json());
+    assert.deepEqual(result, {
+      id: historicInvoice.id,
+      specialistId: specialistOneId,
+      specialistName: "Synthetic Payment Access",
+    });
+    assert.equal(
+      (await db.select({ specialistId: invoicesTable.specialistId }).from(invoicesTable)
+        .where(eq(invoicesTable.id, invoiceTwoId)))[0].specialistId,
+      specialistTwoId,
+    );
+
+    const afterAssignment = await request("/invoices/owner-assignment-reviews", ownerId);
+    const remaining = ListOwnerInvoiceAssignmentReviewsResponse.parse(await afterAssignment.json());
+    assert.ok(!remaining.some(({ id }) => id === historicInvoice.id));
+  } finally {
+    await db.delete(invoicesTable).where(eq(invoicesTable.id, historicInvoice.id));
+  }
+});
+
 function assertPaymentSnapshot(
   invoice: { id: number; totalPaid: number; balanceDue: number; payments: Array<{ amount: number }> },
   expected: { id: number; totalPaid: number; balanceDue: number; payments: number[] },
@@ -317,8 +404,8 @@ test("only the owner can download corrections for the requested invoice", async 
 });
 
 test("specialists see only their commercial's invoice payments in lists, details and authorized public links", async () => {
-  const ownSummary = { id: invoiceOneId, totalPaid: 33, balanceDue: 67, payments: [10, 25] };
-  const otherSummary = { id: invoiceTwoId, totalPaid: 90, balanceDue: 110, payments: [80, 20] };
+  const ownSummary = { id: invoiceOneId, totalPaid: 33, balanceDue: 67, payments: [8, 25] };
+  const otherSummary = { id: invoiceTwoId, totalPaid: 90, balanceDue: 110, payments: [70, 20] };
 
   for (const [specialist, visible, hidden] of [
     [specialistOneId, ownSummary, otherSummary],
@@ -400,7 +487,7 @@ test("specialists see only their commercial's invoice payments in lists, details
     "/billing/payment-method-summary?from=2026-10-18&to=2026-10-21", specialistOneId,
   );
   assert.equal(specialistSummaryResponse.status, 403);
-  const updatedOwnSummary = { id: invoiceOneId, totalPaid: 38, balanceDue: 62, payments: [10, 25, 5] };
+  const updatedOwnSummary = { id: invoiceOneId, totalPaid: 38, balanceDue: 62, payments: [8, 25, 5] };
 
   const createdResponse = await request(`/invoices/${invoiceOneId}/share`, specialistOneId, "POST");
   assert.equal(createdResponse.status, 200);
