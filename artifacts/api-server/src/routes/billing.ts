@@ -15,6 +15,8 @@ import {
   DeleteCustomerParams,
   GetInvoiceParams,
   GetInvoiceResponse,
+  GetInvoiceAcceptanceNotificationParams,
+  GetInvoiceAcceptanceNotificationResponse,
   GetSharedInvoiceParams,
   GetSharedInvoiceResponse,
   GetSharedInvoiceReceiptParams,
@@ -25,6 +27,7 @@ import {
   ListCustomersResponse,
   ListInvoicesQueryParams,
   ListInvoicesResponse,
+  ListInvoiceAcceptanceNotificationsResponse,
   ListTeamMembersResponse,
   UpdateCustomerBody,
   UpdateCustomerParams,
@@ -46,10 +49,13 @@ import {
   DownloadInvoicePaymentCorrectionsResponse,
   UpdateTeamMemberAccessBody,
   UpdateTeamMemberAccessParams,
+  MarkInvoiceAcceptanceNotificationReadParams,
+  MarkInvoiceAcceptanceNotificationReadResponse,
 } from "@workspace/api-zod";
 import {
   customersTable,
   db,
+  invoiceAcceptanceNotificationsTable,
   invoiceLinesTable,
   invoicePaymentCorrectionsTable,
   invoiceSharesTable,
@@ -382,6 +388,81 @@ router.get("/invoices/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetInvoiceResponse.parse(serializeInvoice(invoice)));
+});
+
+router.get("/invoices/:id/acceptance-notification", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = GetInvoiceAcceptanceNotificationParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [invoice] = await db.select({
+    id: invoicesTable.id,
+    number: invoicesTable.number,
+    specialistName: invoicesTable.specialistName,
+  }).from(invoicesTable).where(eq(invoicesTable.id, params.data.id)).limit(1);
+  if (!invoice) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  const [notice] = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, invoice.id)).limit(1);
+  res.json(GetInvoiceAcceptanceNotificationResponse.parse({
+    delivered: !!notice,
+    invoiceNumber: invoice.number,
+    specialistName: invoice.specialistName,
+    reason: notice?.reason ?? null,
+    deliveredAt: notice?.deliveredAt.toISOString() ?? null,
+  }));
+});
+
+router.get("/notifications", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  const notices = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.recipientUserId, member.userId))
+    .orderBy(desc(invoiceAcceptanceNotificationsTable.deliveredAt))
+    .limit(50);
+  res.json(ListInvoiceAcceptanceNotificationsResponse.parse(notices.map((notice) => ({
+    ...notice,
+    deliveredAt: notice.deliveredAt.toISOString(),
+    readAt: notice.readAt?.toISOString() ?? null,
+  }))));
+});
+
+router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  const params = MarkInvoiceAcceptanceNotificationReadParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  let [notice] = await db.update(invoiceAcceptanceNotificationsTable)
+    .set({ readAt: new Date() })
+    .where(and(
+      eq(invoiceAcceptanceNotificationsTable.id, params.data.id),
+      eq(invoiceAcceptanceNotificationsTable.recipientUserId, member.userId),
+      isNull(invoiceAcceptanceNotificationsTable.readAt),
+    ))
+    .returning();
+  if (!notice) {
+    [notice] = await db.select().from(invoiceAcceptanceNotificationsTable).where(and(
+      eq(invoiceAcceptanceNotificationsTable.id, params.data.id),
+      eq(invoiceAcceptanceNotificationsTable.recipientUserId, member.userId),
+    )).limit(1);
+  }
+  if (!notice) {
+    res.status(404).json({ error: "Notice not found" });
+    return;
+  }
+  res.json(MarkInvoiceAcceptanceNotificationReadResponse.parse({
+    ...notice,
+    deliveredAt: notice.deliveredAt.toISOString(),
+    readAt: notice.readAt?.toISOString() ?? null,
+  }));
 });
 
 router.patch("/invoices/:id", async (req, res): Promise<void> => {

@@ -2610,6 +2610,59 @@ export const UpdateInvoiceStatusResponse = zod.object({
 
 
 /**
+ * @summary Check whether an automatic acceptance notice was delivered to the assigned specialist
+ */
+
+
+
+export const GetInvoiceAcceptanceNotificationParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const GetInvoiceAcceptanceNotificationResponse = zod.object({
+  "delivered": zod.boolean(),
+  "invoiceNumber": zod.string(),
+  "specialistName": zod.string(),
+  "reason": zod.enum(['payment', 'versat_import']).nullable(),
+  "deliveredAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary List automatic invoice acceptance notices for the signed-in specialist
+ */
+export const ListInvoiceAcceptanceNotificationsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "reason": zod.enum(['payment', 'versat_import']),
+  "deliveredAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})
+export const ListInvoiceAcceptanceNotificationsResponse = zod.array(ListInvoiceAcceptanceNotificationsResponseItem)
+
+
+/**
+ * @summary Mark an automatic invoice acceptance notice as read
+ */
+
+
+
+export const MarkInvoiceAcceptanceNotificationReadParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const MarkInvoiceAcceptanceNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "reason": zod.enum(['payment', 'versat_import']),
+  "deliveredAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})
+
+
+/**
  * @summary Administrator records a partial or full invoice payment
  */
 export const CreateInvoicePaymentParams = zod.object({

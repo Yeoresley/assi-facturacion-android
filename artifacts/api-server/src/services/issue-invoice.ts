@@ -5,6 +5,7 @@ import { getVersatDataIssues } from "./versat-file";
 import { transitionIssue, type WorkflowStatus } from "./invoice-status";
 import { canAccessInvoice } from "./invoice-access";
 import type { CurrentTeamMember } from "../middlewares/team-access";
+import { createInvoiceAcceptanceNotification } from "./invoice-acceptance-notifications";
 
 export async function transitionInvoice(
   id: number, status: WorkflowStatus, scope: SQL,
@@ -53,5 +54,8 @@ export async function transitionInvoice(
       } : {}),
     })
       .where(eq(invoicesTable.id, current.id));
+    if (status === "confirmed" && current.status !== "accepted" && !current.acceptedAt) {
+      await createInvoiceAcceptanceNotification(tx, current, "versat_import");
+    }
   });
 }

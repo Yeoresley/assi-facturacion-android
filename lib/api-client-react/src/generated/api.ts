@@ -29,6 +29,8 @@ import type {
   GetMonthlySettlementParams,
   HealthStatus,
   Invoice,
+  InvoiceAcceptanceNoticeStatus,
+  InvoiceAcceptanceNotification,
   InvoiceExportRow,
   InvoiceImageAccess,
   InvoiceInput,
@@ -2463,6 +2465,234 @@ export const useUpdateInvoiceStatus = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateInvoiceStatusMutationOptions(options));
+    }
+
+export const getGetInvoiceAcceptanceNotificationUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/acceptance-notification`
+}
+
+/**
+ * @summary Check whether an automatic acceptance notice was delivered to the assigned specialist
+ */
+export const getInvoiceAcceptanceNotification = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceAcceptanceNoticeStatus> => {
+
+  return customFetch<InvoiceAcceptanceNoticeStatus>(getGetInvoiceAcceptanceNotificationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInvoiceAcceptanceNotificationQueryKey = (id: number,) => {
+    return [
+    `/api/invoices/${id}/acceptance-notification`
+    ] as const;
+    }
+
+
+export const getGetInvoiceAcceptanceNotificationQueryOptions = <TData = Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInvoiceAcceptanceNotificationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>> = ({ signal }) => getInvoiceAcceptanceNotification(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInvoiceAcceptanceNotificationQueryResult = NonNullable<Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>>
+export type GetInvoiceAcceptanceNotificationQueryError = ErrorType<void>
+
+
+/**
+ * @summary Check whether an automatic acceptance notice was delivered to the assigned specialist
+ */
+
+export function useGetInvoiceAcceptanceNotification<TData = Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInvoiceAcceptanceNotification>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInvoiceAcceptanceNotificationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListInvoiceAcceptanceNotificationsUrl = () => {
+
+
+
+
+  return `/api/notifications`
+}
+
+/**
+ * @summary List automatic invoice acceptance notices for the signed-in specialist
+ */
+export const listInvoiceAcceptanceNotifications = async ( options?: Parameters<typeof customFetch>[1]): Promise<InvoiceAcceptanceNotification[]> => {
+
+  return customFetch<InvoiceAcceptanceNotification[]>(getListInvoiceAcceptanceNotificationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInvoiceAcceptanceNotificationsQueryKey = () => {
+    return [
+    `/api/notifications`
+    ] as const;
+    }
+
+
+export const getListInvoiceAcceptanceNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInvoiceAcceptanceNotificationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>> = ({ signal }) => listInvoiceAcceptanceNotifications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInvoiceAcceptanceNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>>
+export type ListInvoiceAcceptanceNotificationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List automatic invoice acceptance notices for the signed-in specialist
+ */
+
+export function useListInvoiceAcceptanceNotifications<TData = Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvoiceAcceptanceNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInvoiceAcceptanceNotificationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkInvoiceAcceptanceNotificationReadUrl = (id: number,) => {
+
+
+
+
+  return `/api/notifications/${id}/read`
+}
+
+/**
+ * @summary Mark an automatic invoice acceptance notice as read
+ */
+export const markInvoiceAcceptanceNotificationRead = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InvoiceAcceptanceNotification> => {
+
+  return customFetch<InvoiceAcceptanceNotification>(getMarkInvoiceAcceptanceNotificationReadUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkInvoiceAcceptanceNotificationReadMutationKey = () => ['markInvoiceAcceptanceNotificationRead'] as const;
+
+export const getMarkInvoiceAcceptanceNotificationReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>, TError,MarkInvoiceAcceptanceNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>, TError,MarkInvoiceAcceptanceNotificationReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkInvoiceAcceptanceNotificationReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>, MarkInvoiceAcceptanceNotificationReadMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  markInvoiceAcceptanceNotificationRead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkInvoiceAcceptanceNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>>
+
+    export type MarkInvoiceAcceptanceNotificationReadMutationError = ErrorType<void>
+    export type MarkInvoiceAcceptanceNotificationReadMutationVariables = {id: number}
+
+    /**
+ * @summary Mark an automatic invoice acceptance notice as read
+ */
+export const useMarkInvoiceAcceptanceNotificationRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>, TError,MarkInvoiceAcceptanceNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markInvoiceAcceptanceNotificationRead>>,
+        TError,
+        MarkInvoiceAcceptanceNotificationReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkInvoiceAcceptanceNotificationReadMutationOptions(options));
     }
 
 export const getCreateInvoicePaymentUrl = (id: number,) => {

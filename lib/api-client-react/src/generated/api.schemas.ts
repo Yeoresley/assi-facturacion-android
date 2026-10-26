@@ -650,6 +650,45 @@ export interface InvoicePaymentCorrectionInput {
   confirmed: true;
 }
 
+export type InvoiceAcceptanceNotificationReason = typeof InvoiceAcceptanceNotificationReason[keyof typeof InvoiceAcceptanceNotificationReason];
+
+
+export const InvoiceAcceptanceNotificationReason = {
+  payment: 'payment',
+  versat_import: 'versat_import',
+} as const;
+
+export interface InvoiceAcceptanceNotification {
+  id: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  reason: InvoiceAcceptanceNotificationReason;
+  deliveredAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type InvoiceAcceptanceNoticeStatusReason = typeof InvoiceAcceptanceNoticeStatusReason[keyof typeof InvoiceAcceptanceNoticeStatusReason] | null;
+
+
+export const InvoiceAcceptanceNoticeStatusReason = {
+  payment: 'payment',
+  versat_import: 'versat_import',
+} as const;
+
+export interface InvoiceAcceptanceNoticeStatus {
+  delivered: boolean;
+  invoiceNumber: string;
+  specialistName: string;
+  /** @nullable */
+  reason: InvoiceAcceptanceNoticeStatusReason;
+  /** @nullable */
+  deliveredAt: string | null;
+}
+
 export type InvoicePaymentResponsePaymentStatus = typeof InvoicePaymentResponsePaymentStatus[keyof typeof InvoicePaymentResponsePaymentStatus];
 
 

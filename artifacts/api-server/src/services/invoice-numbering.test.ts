@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
-  customersTable, db, pool, invoiceLinesTable, invoiceNumberReservationsTable, invoicePaymentsTable, invoicesTable,
+  customersTable, db, pool, invoiceAcceptanceNotificationsTable, invoiceLinesTable, invoiceNumberReservationsTable, invoicePaymentsTable, invoicesTable,
   invoicePaymentCorrectionsTable, invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
 } from "@workspace/db";
 import { allocateNumber, formatSeries, lockNumbering, reserveNumber, validateSeriesSelection } from "./invoice-numbering";
@@ -276,6 +276,7 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   const forgottenAcceptance = await draft(s.id);
   await transitionInvoice(forgottenAcceptance.id, "finished");
   await scopedTransitionInvoice(forgottenAcceptance.id, "confirmed", sql`true`, owner);
+  await scopedTransitionInvoice(forgottenAcceptance.id, "confirmed", sql`true`, owner);
   const autoAccepted = await stored(forgottenAcceptance.id);
   assert.equal(autoAccepted.status, "confirmed");
   assert.equal(autoAccepted.acceptedBy, owner.userId);
@@ -283,6 +284,13 @@ test("acceptance is specialist-only, import confirmation owner-only, with persis
   assert.equal(autoAccepted.acceptedSource, "versat_import");
   assert.equal(autoAccepted.confirmedBy, owner.userId);
   assert.ok(autoAccepted.confirmedAt instanceof Date);
+  const importNotices = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, forgottenAcceptance.id));
+  assert.equal(importNotices.length, 1);
+  assert.equal(importNotices[0].recipientUserId, forgottenAcceptance.specialistId);
+  assert.equal(importNotices[0].reason, "versat_import");
+  assert.equal((await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, d.id))).length, 0);
 
   const historicalAccepted = await draft(s.id);
   await transitionInvoice(historicalAccepted.id, "finished");
@@ -347,6 +355,13 @@ test("only the administrator records payment; a full payment marks the invoice a
   const retryKey = randomUUID();
   const retries = await Promise.all(Array.from({ length: 4 }, () => recordPayment(d.id, owner, 1, "2026-10-19", retryKey)));
   const paid = await stored(d.id);
+  const paymentNotices = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, d.id));
+  assert.equal(paymentNotices.length, 1);
+  assert.equal(paymentNotices[0].recipientUserId, d.specialistId);
+  assert.equal(paymentNotices[0].invoiceNumber, d.number);
+  assert.equal(paymentNotices[0].reason, "payment");
+  assert.ok(paymentNotices[0].deliveredAt instanceof Date);
   assert.equal(retries.filter((result) => result.created).length, 1);
   assert.equal(retries[0].totalPaid, 1);
   assert.equal(retries[0].balanceDue, 0);
@@ -365,6 +380,8 @@ test("only the administrator records payment; a full payment marks the invoice a
   assert.throws(() => buildFac({ ...paid, lines: [] }), /líneas/);
   const duplicate = await recordPayment(d.id, { userId: "other-owner", role: "owner" }, 1, "2026-10-19", retryKey);
   assert.equal(duplicate.created, false);
+  assert.equal((await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, d.id))).length, 1);
   assert.equal((await stored(d.id)).paidBy, owner.userId);
   assert.deepEqual((await stored(d.id)).paidAt, paid.paidAt);
   await transitionInvoice(d.id, "accepted");
@@ -411,6 +428,8 @@ test("partial abonos mark the invoice accepted and preserve exact cents, date an
   assert.deepEqual(saved.acceptedAt, firstSaved.acceptedAt);
   assert.equal(saved.paidBy, owner.userId);
   assert.ok(saved.paidAt instanceof Date);
+  assert.equal((await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, d.id))).length, 1);
   assert.equal((await db.select().from(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, d.id))).length, 2);
   await transitionInvoice(d.id, "accepted");
   assert.equal((await stored(d.id)).paymentStatus, "paid");

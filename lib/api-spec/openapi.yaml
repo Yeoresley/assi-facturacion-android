@@ -484,6 +484,54 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}/acceptance-notification:
+    get:
+      operationId: getInvoiceAcceptanceNotification
+      tags: [invoices]
+      summary: Check whether an automatic acceptance notice was delivered to the assigned specialist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Delivery state for this invoice's automatic acceptance notice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceAcceptanceNoticeStatus" }
+        "403": { description: Only the administrator can inspect delivery }
+        "404": { description: Invoice not found }
+  /notifications:
+    get:
+      operationId: listInvoiceAcceptanceNotifications
+      tags: [invoices]
+      summary: List automatic invoice acceptance notices for the signed-in specialist
+      responses:
+        "200":
+          description: Notices delivered to the signed-in user
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/InvoiceAcceptanceNotification" }
+  /notifications/{id}/read:
+    patch:
+      operationId: markInvoiceAcceptanceNotificationRead
+      tags: [invoices]
+      summary: Mark an automatic invoice acceptance notice as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Notice marked as read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceAcceptanceNotification" }
+        "404": { description: Notice not found for the signed-in user }
   /invoices/{id}/payments:
     post:
       operationId: createInvoicePayment
@@ -1231,6 +1279,25 @@ components:
         recordedAt: { type: string, format: date-time }
         reference: { type: ["string", "null"], maxLength: 120 }
         paymentMethod: { type: ["string", "null"], enum: [transfer, cash, other, null] }
+    InvoiceAcceptanceNotification:
+      type: object
+      required: [id, invoiceId, invoiceNumber, reason, deliveredAt, readAt]
+      properties:
+        id: { type: integer }
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        reason: { type: string, enum: [payment, versat_import] }
+        deliveredAt: { type: string, format: date-time }
+        readAt: { type: ["string", "null"], format: date-time }
+    InvoiceAcceptanceNoticeStatus:
+      type: object
+      required: [delivered, invoiceNumber, specialistName, reason, deliveredAt]
+      properties:
+        delivered: { type: boolean }
+        invoiceNumber: { type: string }
+        specialistName: { type: string }
+        reason: { type: ["string", "null"], enum: [payment, versat_import] }
+        deliveredAt: { type: ["string", "null"], format: date-time }
     InvoicePaymentCorrection:
       type: object
       required: [id, reason, correctedBy, createdAt, targetPaymentId, reversedPaymentId, beforePaymentAmount, afterPaymentAmount, beforePaidOn, afterPaidOn, beforeInvoiceStatus, afterInvoiceStatus, beforePaymentStatus, afterPaymentStatus, beforeTotalPaid, afterTotalPaid, originalPaidBy, originalPaidAt]

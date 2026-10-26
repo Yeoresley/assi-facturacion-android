@@ -4,6 +4,7 @@ import {
 } from "@workspace/db";
 import type { CurrentTeamMember } from "../middlewares/team-access";
 import { acceptanceFromWorkflowEvent } from "./invoice-status";
+import { createInvoiceAcceptanceNotification } from "./invoice-acceptance-notifications";
 
 export const collectibleStatuses = ["finished", "accepted", "confirmed", "sent", "paid"] as const;
 
@@ -179,6 +180,9 @@ export async function recordInvoicePayment(
     };
     if (Object.keys(invoiceUpdate).length) {
       await tx.update(invoicesTable).set(invoiceUpdate).where(eq(invoicesTable.id, id));
+    }
+    if (acceptance.acceptedSource === "payment") {
+      await createInvoiceAcceptanceNotification(tx, invoice, "payment");
     }
     return { ...summarizePayments(
       {

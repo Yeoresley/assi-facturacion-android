@@ -20,6 +20,7 @@
 export * from "./customers";
 export * from "./invoices";
 export * from "./invoice-payments";
+export * from "./invoice-acceptance-notifications";
 export * from "./invoice-shares";
 export * from "./invoice-image-accesses";
 export * from "./team";

@@ -11,11 +11,12 @@ import {
   useUpdateInvoiceStatus, getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey,
   getGetInvoiceQueryKey, getGetSharedInvoiceQueryKey, getListCustomersQueryKey,
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListTeamMembersQueryKey,
-  getHealthCheckQueryKey,
+  getHealthCheckQueryKey, getListInvoiceAcceptanceNotificationsQueryKey,
+  useListInvoiceAcceptanceNotifications, useMarkInvoiceAcceptanceNotificationRead,
 } from '@workspace/api-client-react';
 import type { ListInvoicesPaymentStatus, ListInvoicesStatus, Customer, CustomerInput, Invoice, InvoiceInput, InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import {
-  ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, BookOpen, CalendarDays,
+  ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Banknote, Bell, BookOpen, CalendarDays,
   Check, ChevronDown, CircleHelp, Clipboard, FilePlus2, FileText, Filter, HandCoins, LayoutDashboard,
   LogOut, Mail, Printer, Search, Settings2, ShieldAlert, Users, WalletCards, X,
 } from 'lucide-react';
@@ -242,10 +243,55 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="desktop-account-label text-[12px] text-[#89918a]">Cuenta del equipo <span className="mx-2">/</span><span className="font-semibold text-[#39534e]">{me.role === 'owner' ? 'Propietario' : 'Especialista'}</span></div>
         <div className="flex items-center gap-3"><div className="account-details hidden text-right sm:block"><div className="text-[12px] font-bold">{me.name || user?.fullName || 'Cuenta'}</div><div className="text-[10px] text-[#84908a]">{me.email || user?.primaryEmailAddress?.emailAddress}</div></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dce9df] text-[11px] font-bold text-[#315c51]">{(me.name || user?.firstName || 'CC').split(/\s+/).map((s) => s[0]).slice(0, 2).join('').toUpperCase()}</div></div>
       </header>
-      <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">{children}</main>
+      <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">
+        <AcceptanceNoticeBanner enabled={me.role === 'specialist'} />
+        {children}
+      </main>
     </div>
     <nav className="mobile-nav">{visibleNavItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} className={location === href ? 'active' : ''}><Icon size={18} /><span>{label}</span></Link>)}</nav>
   </div>;
+}
+
+function AcceptanceNoticeBanner({ enabled }: { enabled: boolean }) {
+  const client = useQueryClient();
+  const notices = useListInvoiceAcceptanceNotifications({
+    query: {
+      queryKey: getListInvoiceAcceptanceNotificationsQueryKey(),
+      enabled,
+      staleTime: 0,
+      refetchInterval: enabled ? 15000 : false,
+      retry: false,
+    },
+  });
+  const markRead = useMarkInvoiceAcceptanceNotificationRead({
+    mutation: {
+      onSuccess: () => client.invalidateQueries({ queryKey: getListInvoiceAcceptanceNotificationsQueryKey() }),
+    },
+  });
+  if (!enabled || (!notices.isError && !notices.data?.some((notice) => !notice.readAt))) return null;
+  const unread = (notices.data ?? []).filter((notice) => !notice.readAt);
+  return <section className="mb-5 space-y-2" aria-label="Avisos de aceptación automática" data-testid="acceptance-notifications">
+    {notices.isError && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#efd2cc] bg-[#fbefeb] px-4 py-3 text-[12px] text-[#9a453a]" role="alert">
+      <span>No se pudieron cargar los avisos nuevos.</span>
+      <button className="font-bold underline" onClick={() => notices.refetch()}>Reintentar</button>
+    </div>}
+    {unread.map((notice) => <article key={notice.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#cfe2e9] bg-[#eaf5f8] px-4 py-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#087eaf]"><Bell size={15} /></span>
+        <div className="min-w-0 text-[12px] leading-5">
+          <div className="font-bold text-[#12365a]">Factura {notice.invoiceNumber} aceptada automáticamente</div>
+          <p className="text-[#617887]">{notice.reason === 'payment'
+            ? 'El administrador registró un pago y la factura quedó Aceptada.'
+            : 'El administrador confirmó la importación en Versat y la factura quedó Aceptada.'}</p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Link href={`/invoices/${notice.invoiceId}`} onClick={() => markRead.mutate({ id: notice.id })} className="button button-soft !min-h-8 !px-3 text-[11px]">Ver factura</Link>
+        <button className="button button-plain !min-h-8 !px-3 text-[11px]" disabled={markRead.isPending} onClick={() => markRead.mutate({ id: notice.id })}>Entendido</button>
+      </div>
+    </article>)}
+    {markRead.isError && <p className="px-2 text-[11px] text-[#9a453a]" role="alert">No se pudo actualizar el aviso como leído. Vuelve a intentarlo.</p>}
+  </section>;
 }
 
 function AccessMessage({ title, body, retry }: { title: string; body: string; retry: () => void }) {

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetBillingOverviewQueryKey, getGetCurrentTeamMemberQueryKey, getGetInvoiceQueryKey,
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListInvoiceSeriesQueryKey,
+  getGetInvoiceAcceptanceNotificationQueryKey, useGetInvoiceAcceptanceNotification,
   useCreateInvoiceReceiptShare, useCreateInvoiceShare, useDownloadInvoiceVersatFile, useGetCurrentTeamMember, useGetInvoice, useUpdateInvoiceStatus,
   getListInvoiceSharesQueryKey, useListInvoiceShares,
 } from '@workspace/api-client-react';
@@ -25,6 +26,14 @@ export default function InvoiceDetailPage() {
   const valid = Number.isFinite(id) && id > 0;
   const invoice = useGetInvoice(id, { query: { queryKey: getGetInvoiceQueryKey(id), enabled: valid, refetchInterval: 15000 } });
   const member = useGetCurrentTeamMember({ query: { queryKey: getGetCurrentTeamMemberQueryKey(), retry: false, refetchInterval: 30000 } });
+  const acceptanceNotice = useGetInvoiceAcceptanceNotification(id, {
+    query: {
+      queryKey: getGetInvoiceAcceptanceNotificationQueryKey(id),
+      enabled: valid && member.data?.role === 'owner',
+      retry: false,
+      refetchInterval: member.data?.role === 'owner' ? 15000 : false,
+    },
+  });
   const file = useDownloadInvoiceVersatFile();
   const updateStatus = useUpdateInvoiceStatus();
   const createShare = useCreateInvoiceShare();
@@ -143,6 +152,16 @@ export default function InvoiceDetailPage() {
       <CorrectPaidButton invoice={inv} />
     </div>
     <InvoicePaymentHistory invoice={inv} canGenerateReceipts={isOwner} canExportCorrections={isOwner} />
+    {isOwner && (inv.acceptedSource === 'payment' || inv.acceptedSource === 'versat_import') && <section className="no-print mb-4 rounded-xl border border-[#dce8ed] bg-white px-4 py-3" data-testid="acceptance-notice-delivery">
+      <div className="text-[11px] font-bold text-[#315b52]">Aviso de aceptación automática</div>
+      {acceptanceNotice.isPending ? <p className="mt-1 text-[11px] text-[#738079]">Comprobando la entrega…</p>
+        : acceptanceNotice.isError ? <p className="mt-1 text-[11px] text-[#9a453a]" role="alert">No se pudo comprobar. <button className="font-semibold underline" onClick={() => acceptanceNotice.refetch()}>Reintentar</button></p>
+        : acceptanceNotice.data?.delivered ? <p className="mt-1 text-[11px] leading-5 text-[#5f736c]">
+          Disponible en la bandeja de {acceptanceNotice.data.specialistName} desde {new Date(acceptanceNotice.data.deliveredAt!).toLocaleString('es-ES')}.
+          {' '}{acceptanceNotice.data.reason === 'payment' ? 'Motivo: pago registrado.' : 'Motivo: importación de Versat confirmada.'}
+        </p>
+        : <p className="mt-1 text-[11px] text-[#738079]">No se generó un aviso para esta factura.</p>}
+    </section>}
       <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e1d5] bg-[#efeee5] px-4 py-3"><div className="flex flex-wrap items-center gap-3"><Status status={inv.status} /><span className="text-[11px] text-[#738079]">{terminal ? 'Estado final: sin más transiciones.' : canFinishHint ? 'Completa y guarda el pie de factura para poder terminar.' : st === 'finished' && isMyCommercial ? 'Si el cliente aceptó, márcala Aceptada con un clic.' : st === 'accepted' && !isOwner ? 'Aceptada: el propietario confirma tras importar en Versat.' : 'Acciones permitidas para tu rol'}</span>{inv.acceptedAt && <span className="text-[10px] text-[#85918a]">Aceptada {date(inv.acceptedAt)}</span>}{inv.confirmedAt && <span className="text-[10px] text-[#85918a]">Confirmada {date(inv.confirmedAt)}</span>}</div><div className="flex flex-wrap gap-2">{!terminal && actions.map((a) => <button key={a.status} className={`button ${a.danger ? 'button-danger' : a.status === 'accepted' ? 'button-primary' : 'button-soft'} !min-h-8 !px-3 text-[11px]`} disabled={updateStatus.isPending} onClick={() => { if (a.status === 'finished' && !hasLegal) { setActionError('Antes de terminar, completa y guarda el pie de factura de este borrador.'); document.getElementById('invoice-document-authorization')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; } setActionError(''); if (a.status === 'accepted') { changeStatus('accepted'); return; } setPending(a); }} data-testid={`button-status-${a.status}`}>{updateStatus.isPending && a.status === 'accepted' ? 'Guardando…' : a.label}</button>)}</div></div>
     {(inv.acceptedAt || inv.confirmedAt) && <div className="no-print mb-4 space-y-1 text-xs text-[#5f736c]">
       {inv.acceptedAt && <p>Aceptación del cliente registrada: {new Date(inv.acceptedAt).toLocaleString('es-ES')}</p>}
