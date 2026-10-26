@@ -10,18 +10,6 @@ import { StatusBar } from 'expo-status-bar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ActionButton, LoadingPanel, MessagePanel, Screen } from '@/components/AssiUI';
 import { getGetCurrentTeamMemberQueryKey, setAuthTokenGetter, setBaseUrl, useGetCurrentTeamMember } from '@workspace/api-client-react';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  useFonts,
-} from '@expo-google-fonts/inter';
-import * as SplashScreen from 'expo-splash-screen';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
 const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL;
 const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -108,21 +96,6 @@ function SignOutButton() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-  });
-
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
-
   if (!clerkPubKey) {
     return (
       <SafeAreaProvider>
