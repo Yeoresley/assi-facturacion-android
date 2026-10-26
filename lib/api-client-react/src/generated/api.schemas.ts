@@ -118,6 +118,19 @@ export interface IssuerSettings {
   hasSignature: boolean;
 }
 
+export interface IssuerImagesInput {
+  /**
+     * @maxLength 1400000
+     * @pattern ^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$
+     */
+  stamp?: string;
+  /**
+     * @maxLength 1400000
+     * @pattern ^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$
+     */
+  signature?: string;
+}
+
 export interface DocumentAuthorization {
   /**
      * @minLength 1

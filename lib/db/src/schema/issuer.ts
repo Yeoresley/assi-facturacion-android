@@ -36,6 +36,11 @@ export interface LegalDocument {
   authorizedBy: string;
 }
 
+export interface LegalImageSnapshot {
+  stampPath: string | null;
+  signaturePath: string | null;
+}
+
 export const issuerSettingsTable = pgTable("issuer_settings", {
   id: integer("id").primaryKey(),
   profile: jsonb("profile").$type<IssuerProfile>().notNull(),

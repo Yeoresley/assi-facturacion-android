@@ -61,6 +61,7 @@ import {
   invoicePaymentCorrectionsTable,
   invoiceSharesTable,
   invoicesTable,
+  issuerSettingsTable,
   teamInvitationsTable,
   teamMembersTable,
 } from "@workspace/db";
@@ -77,6 +78,7 @@ import {
   correctInvoicePayment, recordInvoicePayment, InvoicePaymentError, paymentFilter,
 } from "../services/invoice-payment";
 import { outstandingByCurrency } from "../services/invoice-outstanding";
+import { captureLegalImageSnapshot } from "../services/invoice-legal-images";
 
 const router: IRouter = Router();
 router.use(seriesRouter);
@@ -333,6 +335,10 @@ router.post("/invoices", async (req, res): Promise<void> => {
     invoiceId = await db.transaction(async (tx) => {
     await lockNumbering(tx);
     await validateSeriesSelection(tx, parsed.data.seriesId ?? null, versat);
+    const [issuerImages] = await tx.select({
+      stampPath: issuerSettingsTable.stampPath,
+      signaturePath: issuerSettingsTable.signaturePath,
+    }).from(issuerSettingsTable).where(eq(issuerSettingsTable.id, 1)).limit(1);
     const [invoice] = await tx
       .insert(invoicesTable)
       .values({
@@ -344,6 +350,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
         currency: parsed.data.currency,
         status: "draft",
         notes: parsed.data.notes ?? null,
+        legalImageSnapshot: captureLegalImageSnapshot(issuerImages?.stampPath, issuerImages?.signaturePath),
         versat,
         versatNumber: versat?.number ?? null,
         seriesId: parsed.data.seriesId ?? null,

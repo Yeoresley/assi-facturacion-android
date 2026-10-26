@@ -12,7 +12,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customersTable } from "./customers";
 import type { VersatInvoiceSnapshot } from "./versat-catalog";
-import type { LegalDocument } from "./issuer";
+import type { LegalDocument, LegalImageSnapshot } from "./issuer";
 
 export const invoicesTable = pgTable("invoices", {
   id: serial("id").primaryKey(),
@@ -39,6 +39,7 @@ export const invoicesTable = pgTable("invoices", {
   paidAt: timestamp("paid_at", { withTimezone: true }),
   notes: text("notes"),
   legalDocument: jsonb("legal_document").$type<LegalDocument>(),
+  legalImageSnapshot: jsonb("legal_image_snapshot").$type<LegalImageSnapshot>(),
   versat: jsonb("versat").$type<VersatInvoiceSnapshot>(),
   versatNumber: text("versat_number").unique(),
   // Kept without a circular FK; series are never deleted.

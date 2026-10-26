@@ -958,6 +958,65 @@ export const UpdateIssuerResponse = zod.object({
 })
 
 
+export const updateIssuerImagesBodyStampMax = 1400000;
+
+
+export const updateIssuerImagesBodyStampRegExp = new RegExp('^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$');
+export const updateIssuerImagesBodySignatureMax = 1400000;
+
+
+export const updateIssuerImagesBodySignatureRegExp = new RegExp('^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$');
+
+
+export const UpdateIssuerImagesBody = zod.object({
+  "stamp": zod.string().max(updateIssuerImagesBodyStampMax).regex(updateIssuerImagesBodyStampRegExp).optional(),
+  "signature": zod.string().max(updateIssuerImagesBodySignatureMax).regex(updateIssuerImagesBodySignatureRegExp).optional()
+})
+
+export const updateIssuerImagesResponseProfileOneNameMax = 200;
+
+export const updateIssuerImagesResponseProfileOneNitMax = 40;
+
+export const updateIssuerImagesResponseProfileOneIrccMax = 80;
+
+export const updateIssuerImagesResponseProfileOneAddressMax = 400;
+
+export const updateIssuerImagesResponseProfileOneOrganizationMax = 100;
+
+export const updateIssuerImagesResponseProfileOnePaymentBeneficiaryMax = 200;
+
+export const updateIssuerImagesResponseProfileOneBankAccountMax = 80;
+
+export const updateIssuerImagesResponseProfileOneBankBranchMax = 80;
+
+export const updateIssuerImagesResponseProfileOneBankNameMax = 200;
+
+
+
+export const UpdateIssuerImagesResponse = zod.object({
+  "profile": zod.union([zod.object({
+  "name": zod.string().min(1).max(updateIssuerImagesResponseProfileOneNameMax),
+  "nit": zod.string().min(1).max(updateIssuerImagesResponseProfileOneNitMax),
+  "ircc": zod.string().min(1).max(updateIssuerImagesResponseProfileOneIrccMax),
+  "address": zod.string().min(1).max(updateIssuerImagesResponseProfileOneAddressMax),
+  "organization": zod.string().min(1).max(updateIssuerImagesResponseProfileOneOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(updateIssuerImagesResponseProfileOnePaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(updateIssuerImagesResponseProfileOneBankAccountMax),
+  "bankBranch": zod.string().min(1).max(updateIssuerImagesResponseProfileOneBankBranchMax),
+  "bankName": zod.string().min(1).max(updateIssuerImagesResponseProfileOneBankNameMax)
+}),zod.null()]),
+  "hasStamp": zod.boolean(),
+  "hasSignature": zod.boolean()
+})
+
+
+export const GetIssuerImageParams = zod.object({
+  "kind": zod.enum(['stamp', 'signature'])
+})
+
+export const GetIssuerImageResponse = zod.unknown()
+
+
 
 
 

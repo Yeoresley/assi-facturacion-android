@@ -52,6 +52,7 @@ export * from './invoiceShareInfo';
 export * from './invoiceStatus';
 export * from './invoiceStatusInput';
 export * from './invoiceStatusInputStatus';
+export * from './issuerImagesInput';
 export * from './issuerProfile';
 export * from './issuerSettings';
 export * from './legalDocument';

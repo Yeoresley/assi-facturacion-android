@@ -46,6 +46,7 @@ import type {
   InvoiceShare,
   InvoiceShareInfo,
   InvoiceStatusInput,
+  IssuerImagesInput,
   IssuerProfile,
   IssuerSettings,
   ListCustomersParams,
@@ -1399,6 +1400,159 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getUpdateIssuerMutationOptions(options));
     }
+
+export const getUpdateIssuerImagesUrl = () => {
+
+
+
+
+  return `/api/issuer/images`
+}
+
+export const updateIssuerImages = async (issuerImagesInput: IssuerImagesInput, options?: Parameters<typeof customFetch>[1]): Promise<IssuerSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IssuerSettings>(getUpdateIssuerImagesUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(issuerImagesInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateIssuerImagesMutationKey = () => ['updateIssuerImages'] as const;
+
+export const getUpdateIssuerImagesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIssuerImages>>, TError,UpdateIssuerImagesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIssuerImages>>, TError,UpdateIssuerImagesMutationVariables, TContext> => {
+
+const mutationKey = getUpdateIssuerImagesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIssuerImages>>, UpdateIssuerImagesMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateIssuerImages(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIssuerImagesMutationResult = NonNullable<Awaited<ReturnType<typeof updateIssuerImages>>>
+    export type UpdateIssuerImagesMutationBody = BodyType<IssuerImagesInput>
+    export type UpdateIssuerImagesMutationError = ErrorType<void>
+    export type UpdateIssuerImagesMutationVariables = {data: BodyType<IssuerImagesInput>}
+
+    export const useUpdateIssuerImages = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIssuerImages>>, TError,UpdateIssuerImagesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateIssuerImages>>,
+        TError,
+        UpdateIssuerImagesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateIssuerImagesMutationOptions(options));
+    }
+
+export const getGetIssuerImageUrl = (kind: 'stamp' | 'signature',) => {
+
+
+
+
+  return `/api/issuer/images/${kind}`
+}
+
+export const getIssuerImage = async (kind: 'stamp' | 'signature', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetIssuerImageUrl(kind),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIssuerImageQueryKey = (kind: 'stamp' | 'signature',) => {
+    return [
+    `/api/issuer/images/${kind}`
+    ] as const;
+    }
+
+
+export const getGetIssuerImageQueryOptions = <TData = Awaited<ReturnType<typeof getIssuerImage>>, TError = ErrorType<void>>(kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuerImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIssuerImageQueryKey(kind);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIssuerImage>>> = ({ signal }) => getIssuerImage(kind, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIssuerImage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIssuerImageQueryResult = NonNullable<Awaited<ReturnType<typeof getIssuerImage>>>
+export type GetIssuerImageQueryError = ErrorType<void>
+
+
+
+export function useGetIssuerImage<TData = Awaited<ReturnType<typeof getIssuerImage>>, TError = ErrorType<void>>(
+ kind: 'stamp' | 'signature', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuerImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIssuerImageQueryOptions(kind,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getAuthorizeInvoiceDocumentUrl = (id: number,) => {
 

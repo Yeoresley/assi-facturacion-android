@@ -58,17 +58,18 @@ export async function getInvoiceRow(id: number, scope?: SQL): Promise<InvoiceRec
 }
 
 export function serializeInvoice(invoice: InvoiceRecord) {
+  const { legalImageSnapshot: _legalImageSnapshot, ...safeInvoice } = invoice;
   return {
-    ...invoice,
-    statusCode: statusCodes[invoice.status as WorkflowStatus] ?? null,
+    ...safeInvoice,
+    statusCode: statusCodes[safeInvoice.status as WorkflowStatus] ?? null,
     paymentStatus: paymentStatus(invoice),
-    totalPaid: invoice.totalPaid,
-    balanceDue: invoice.balanceDue,
-    payments: invoice.payments,
-    paidAt: invoice.paidAt?.toISOString() ?? null,
-    acceptedAt: invoice.acceptedAt?.toISOString() ?? null,
-    confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
-    createdAt: invoice.createdAt.toISOString(),
+    totalPaid: safeInvoice.totalPaid,
+    balanceDue: safeInvoice.balanceDue,
+    payments: safeInvoice.payments,
+    paidAt: safeInvoice.paidAt?.toISOString() ?? null,
+    acceptedAt: safeInvoice.acceptedAt?.toISOString() ?? null,
+    confirmedAt: safeInvoice.confirmedAt?.toISOString() ?? null,
+    createdAt: safeInvoice.createdAt.toISOString(),
   };
 }
 

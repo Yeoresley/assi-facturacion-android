@@ -263,6 +263,41 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/IssuerSettings" }
+  /issuer/images:
+    put:
+      operationId: updateIssuerImages
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssuerImagesInput" }
+      responses:
+        "200":
+          description: Imágenes del emisor sustituidas en almacenamiento privado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssuerSettings" }
+        "403":
+          description: Solo el propietario puede cambiar las imágenes.
+        "422":
+          description: La configuración o las imágenes no son válidas.
+  /issuer/images/{kind}:
+    get:
+      operationId: getIssuerImage
+      tags: [billing]
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [stamp, signature] } }
+      responses:
+        "200":
+          description: Imagen privada del emisor, visible solo para el propietario.
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "403":
+          description: Solo el propietario puede ver las imágenes en Ajustes.
+        "404":
+          description: La imagen no está configurada.
   /invoices/{id}/legal-document:
     put:
       operationId: authorizeInvoiceDocument
@@ -1060,6 +1095,12 @@ components:
             - { type: "null" }
         hasStamp: { type: boolean }
         hasSignature: { type: boolean }
+    IssuerImagesInput:
+      type: object
+      minProperties: 1
+      properties:
+        stamp: { type: string, maxLength: 1400000, pattern: "^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$" }
+        signature: { type: string, maxLength: 1400000, pattern: "^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$" }
     DocumentAuthorization:
       type: object
       required: [preparedBy, preparedPosition, deliveredBy, accountedBy, transportedBy, transportId, vehiclePlate, drivingLicense, receivedBy, receivedPosition, receivedId, customerIrcc, customerBankAccount, useStamp, useSignature, confirm]
