@@ -75,18 +75,24 @@ export function settlementPaymentCompletionDate(
     !latest || payment.paidOn > latest ? payment.paidOn : latest, null);
 }
 
-export type SettlementPaymentStatus = "pending" | "partial" | "paid";
+export type SettlementPaymentStatus = "pending" | "partial" | "paid" | "overpaid";
 
 export function calculateSettlementPaymentBalance(
   netPayable: Decimal.Value,
   payments: Array<{ amount: Decimal.Value }>,
-): { paidAmount: number; pendingAmount: number; paymentStatus: SettlementPaymentStatus } {
+): { paidAmount: number; pendingAmount: number; overpaidAmount: number; paymentStatus: SettlementPaymentStatus } {
   const paid = payments.reduce((total, payment) => total.plus(payment.amount), new Decimal(0));
-  const pending = Decimal.max(0, new Decimal(netPayable).minus(paid));
+  const approvedNet = Decimal.max(0, new Decimal(netPayable));
+  const pending = Decimal.max(0, approvedNet.minus(paid));
+  const overpaid = paid.gt(0) ? Decimal.max(0, paid.minus(approvedNet)) : new Decimal(0);
+  const roundedPaid = paid.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const roundedPending = pending.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const roundedOverpaid = overpaid.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   return {
-    paidAmount: paid.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
-    pendingAmount: pending.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
-    paymentStatus: paid.isZero() ? "pending" : pending.isZero() ? "paid" : "partial",
+    paidAmount: roundedPaid.toNumber(),
+    pendingAmount: roundedPending.toNumber(),
+    overpaidAmount: roundedOverpaid.toNumber(),
+    paymentStatus: roundedOverpaid.gt(0) ? "overpaid" : paid.isZero() ? "pending" : roundedPending.isZero() ? "paid" : "partial",
   };
 }
 

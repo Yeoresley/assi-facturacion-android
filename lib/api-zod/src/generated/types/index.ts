@@ -80,6 +80,8 @@ export * from './settlementInvoiceInclusion';
 export * from './settlementInvoiceInclusionInput';
 export * from './settlementInvoiceInclusionType';
 export * from './settlementLine';
+export * from './settlementOverpaymentResolution';
+export * from './settlementOverpaymentResolutionInput';
 export * from './settlementPaidAwaitingConfirmation';
 export * from './settlementPayment';
 export * from './settlementPaymentInput';

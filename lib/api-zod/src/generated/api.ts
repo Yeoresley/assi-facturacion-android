@@ -173,7 +173,20 @@ export const GetMonthlySettlementResponse = zod.object({
 })),
   "paidAmount": zod.number(),
   "pendingAmount": zod.number(),
-  "paymentStatus": zod.enum(['pending', 'partial', 'paid']),
+  "overpaidAmount": zod.number(),
+  "paymentStatus": zod.enum(['pending', 'partial', 'paid', 'overpaid']),
+  "overpaymentResolutions": zod.array(zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "closureId": zod.number().int(),
+  "closureVersion": zod.number().int(),
+  "overpaidAmount": zod.number(),
+  "resolution": zod.string(),
+  "reason": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date()
+})),
   "closure": zod.union([zod.object({
   "id": zod.number().int(),
   "period": zod.string(),
@@ -596,6 +609,38 @@ export const CreateSettlementPaymentResponse = zod.object({
   "amount": zod.number(),
   "paidOn": zod.coerce.date(),
   "reference": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date()
+})
+
+
+export const createSettlementOverpaymentResolutionBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
+export const createSettlementOverpaymentResolutionBodySpecialistIdMax = 255;
+
+export const createSettlementOverpaymentResolutionBodyResolutionMin = 5;
+export const createSettlementOverpaymentResolutionBodyResolutionMax = 1000;
+
+export const createSettlementOverpaymentResolutionBodyReasonMin = 5;
+export const createSettlementOverpaymentResolutionBodyReasonMax = 1000;
+
+
+
+export const CreateSettlementOverpaymentResolutionBody = zod.object({
+  "period": zod.string().regex(createSettlementOverpaymentResolutionBodyPeriodRegExp),
+  "specialistId": zod.string().min(1).max(createSettlementOverpaymentResolutionBodySpecialistIdMax),
+  "resolution": zod.string().min(createSettlementOverpaymentResolutionBodyResolutionMin).max(createSettlementOverpaymentResolutionBodyResolutionMax),
+  "reason": zod.string().min(createSettlementOverpaymentResolutionBodyReasonMin).max(createSettlementOverpaymentResolutionBodyReasonMax)
+})
+
+export const CreateSettlementOverpaymentResolutionResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "specialistId": zod.string(),
+  "closureId": zod.number().int(),
+  "closureVersion": zod.number().int(),
+  "overpaidAmount": zod.number(),
+  "resolution": zod.string(),
+  "reason": zod.string(),
   "recordedBy": zod.string(),
   "recordedAt": zod.coerce.date()
 })

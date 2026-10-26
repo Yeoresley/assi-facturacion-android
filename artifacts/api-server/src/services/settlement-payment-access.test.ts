@@ -19,6 +19,7 @@ import {
   pool,
   settlementClassificationsTable,
   settlementClosuresTable,
+  settlementOverpaymentResolutionsTable,
   settlementPaymentsTable,
   teamMembersTable,
 } from "@workspace/db";
@@ -187,6 +188,14 @@ before(async () => {
 after(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   mock.restoreAll();
+  await db.delete(settlementOverpaymentResolutionsTable).where(inArray(
+    settlementOverpaymentResolutionsTable.specialistId,
+    [specialistOneId, specialistTwoId],
+  ));
+  await db.delete(settlementClosuresTable).where(and(
+    inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]),
+    eq(settlementClosuresTable.version, 3),
+  ));
   await db.delete(settlementClosuresTable).where(and(
     inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]),
     eq(settlementClosuresTable.version, 2),
@@ -399,4 +408,62 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   const specialistCorrection = await request(specialistOneId, "POST", { reason: "Motivo válido" },
     `/settlements/closures/${correction.id}/corrections`);
   assert.equal(specialistCorrection.status, 403);
+
+  await db.update(invoicesTable).set({ subtotal: 0.01, total: 0.01 }).where(eq(invoicesTable.id, invoiceId));
+  await db.update(invoiceLinesTable).set({ unitPrice: 0.01, amount: 0.01 }).where(eq(invoiceLinesTable.id, invoiceLineId));
+  const reducedClosureResponse = await request(ownerId, "POST", {
+    reason: "Corrección reduce el neto aprobado después de las transferencias",
+  }, `/settlements/closures/${correction.id}/corrections`);
+  assert.equal(reducedClosureResponse.status, 201);
+  const reducedClosure = CreateSettlementClosureResponse.parse(await reducedClosureResponse.json());
+  assert.equal(reducedClosure.version, 3);
+  assert.equal(reducedClosure.snapshot.totals.netPayable, 0);
+  assert.equal(firstClosure.snapshot.totals.netPayable, approvedNet);
+
+  const ownerOverpaidResponse = await request(ownerId);
+  assert.equal(ownerOverpaidResponse.status, 200);
+  const ownerOverpaid = GetMonthlySettlementResponse.parse(await ownerOverpaidResponse.json())
+    .results.find((result) => result.specialistId === specialistOneId)!;
+  assert.equal(ownerOverpaid.paymentStatus, "overpaid");
+  assert.equal(ownerOverpaid.paidAmount, 225);
+  assert.equal(ownerOverpaid.pendingAmount, 0);
+  assert.equal(ownerOverpaid.overpaidAmount, 225);
+  assert.equal(ownerOverpaid.payments.length, 2);
+
+  const resolutionText = "Devolver por transferencia en un plazo de cinco días";
+  const reasonText = "El cierre corregido quedó por debajo del importe ya transferido";
+  const specialistResolution = await request(specialistOneId, "POST", {
+    period,
+    specialistId: specialistOneId,
+    resolution: resolutionText,
+    reason: reasonText,
+  }, "/settlements/overpayment-resolutions");
+  assert.equal(specialistResolution.status, 403);
+  const resolutionResponse = await request(ownerId, "POST", {
+    period,
+    specialistId: specialistOneId,
+    resolution: resolutionText,
+    reason: reasonText,
+  }, "/settlements/overpayment-resolutions");
+  assert.equal(resolutionResponse.status, 201);
+
+  const ownerAfterResolution = GetMonthlySettlementResponse.parse(
+    await (await request(ownerId)).json(),
+  ).results.find((result) => result.specialistId === specialistOneId)!;
+  const specialistAfterResolution = GetMonthlySettlementResponse.parse(
+    await (await request(specialistOneId)).json(),
+  ).results[0]!;
+  for (const result of [ownerAfterResolution, specialistAfterResolution]) {
+    assert.equal(result.paymentStatus, "overpaid");
+    assert.equal(result.overpaidAmount, 225);
+    assert.equal(result.payments.length, 2);
+    assert.equal(result.overpaymentResolutions.length, 1);
+    assert.equal(result.overpaymentResolutions[0]?.overpaidAmount, 225);
+    assert.equal(result.overpaymentResolutions[0]?.closureVersion, 3);
+    assert.equal(result.overpaymentResolutions[0]?.resolution, resolutionText);
+    assert.equal(result.overpaymentResolutions[0]?.reason, reasonText);
+    assert.equal(result.overpaymentResolutions[0]?.recordedBy, ownerId);
+    assert.deepEqual(result.closureHistory.map(({ version }) => version), [1, 2, 3]);
+    assert.equal(result.closureHistory[0]?.snapshot.totals.netPayable, approvedNet);
+  }
 });

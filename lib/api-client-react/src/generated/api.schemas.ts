@@ -1262,7 +1262,41 @@ export const SettlementPaymentStatus = {
   pending: 'pending',
   partial: 'partial',
   paid: 'paid',
+  overpaid: 'overpaid',
 } as const;
+
+export interface SettlementOverpaymentResolutionInput {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  specialistId: string;
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  resolution: string;
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface SettlementOverpaymentResolution {
+  id: number;
+  period: string;
+  specialistId: string;
+  closureId: number;
+  closureVersion: number;
+  overpaidAmount: number;
+  resolution: string;
+  reason: string;
+  recordedBy: string;
+  recordedAt: string;
+}
 
 export interface SettlementClosureInput {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
@@ -1451,7 +1485,9 @@ export interface SettlementSpecialistResult {
   payments: SettlementPayment[];
   paidAmount: number;
   pendingAmount: number;
+  overpaidAmount: number;
   paymentStatus: SettlementPaymentStatus;
+  overpaymentResolutions: SettlementOverpaymentResolution[];
   closure: SettlementClosure | null;
   closureHistory: SettlementClosure[];
 }

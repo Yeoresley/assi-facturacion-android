@@ -12,6 +12,8 @@ import {
   CreateSettlementInvoiceInclusionResponse,
   CreateSettlementPaymentBody,
   CreateSettlementPaymentResponse,
+  CreateSettlementOverpaymentResolutionBody,
+  CreateSettlementOverpaymentResolutionResponse,
   CorrectSettlementClosureBody,
   CorrectSettlementClosureParams,
   GetMonthlySettlementQueryParams,
@@ -34,6 +36,7 @@ import {
   settlementExchangeRatesTable,
   settlementExpensesTable,
   settlementInvoiceInclusionsTable,
+  settlementOverpaymentResolutionsTable,
   settlementPaymentsTable,
   teamMembersTable,
   versatCatalogTable,
@@ -94,6 +97,12 @@ function serializedSettlementPayment(payment: typeof settlementPaymentsTable.$in
 
 function serializedSettlementClosure(closure: typeof settlementClosuresTable.$inferSelect) {
   return { ...closure, approvedAt: closure.approvedAt.toISOString() };
+}
+
+function serializedOverpaymentResolution(
+  resolution: typeof settlementOverpaymentResolutionsTable.$inferSelect,
+) {
+  return { ...resolution, recordedAt: resolution.recordedAt.toISOString() };
 }
 
 async function settlementNetPayableForPayment(period: string, specialistId: string): Promise<number> {
@@ -197,7 +206,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     inArray(invoicesTable.status, ["finished", "accepted", "sent", "paid"]),
     owner ? undefined : eq(invoicesTable.specialistId, member.userId),
   );
-  const [invoices, paidAwaitingConfirmationRows, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments, closures] =
+  const [invoices, paidAwaitingConfirmationRows, classifications, expenses, currentPeriodInclusions, activeInclusions, rates, catalogServices, teamMembers, settlementPayments, closures, overpaymentResolutions] =
     await Promise.all([
       getInvoiceRows(undefined, invoiceScope),
       getInvoiceRows(undefined, paidAwaitingConfirmationScope),
@@ -230,14 +239,27 @@ router.get("/settlements", async (req, res): Promise<void> => {
         eq(settlementClosuresTable.period, period),
         owner ? undefined : eq(settlementClosuresTable.specialistId, member.userId),
       )).orderBy(desc(settlementClosuresTable.version)),
+      db.select().from(settlementOverpaymentResolutionsTable).where(and(
+        eq(settlementOverpaymentResolutionsTable.period, period),
+        owner ? undefined : eq(settlementOverpaymentResolutionsTable.specialistId, member.userId),
+      )).orderBy(desc(settlementOverpaymentResolutionsTable.recordedAt)),
     ]);
   const closureBySpecialist = new Map<string, typeof closures[number]>();
   const closureHistoryBySpecialist = new Map<string, typeof closures>();
+  const resolutionsBySpecialist = new Map<
+    string,
+    ReturnType<typeof serializedOverpaymentResolution>[]
+  >();
   for (const closure of closures) {
     if (!closureBySpecialist.has(closure.specialistId)) closureBySpecialist.set(closure.specialistId, closure);
     const history = closureHistoryBySpecialist.get(closure.specialistId) ?? [];
     history.push(closure);
     closureHistoryBySpecialist.set(closure.specialistId, history);
+  }
+  for (const resolution of overpaymentResolutions) {
+    const history = resolutionsBySpecialist.get(resolution.specialistId) ?? [];
+    history.push(serializedOverpaymentResolution(resolution));
+    resolutionsBySpecialist.set(resolution.specialistId, history);
   }
 
   const byServiceCode = new Map(classifications.flatMap((entry) =>
@@ -432,6 +454,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
       closureHistory: (closureHistoryBySpecialist.get(result.specialistId) ?? [])
         .slice().reverse().map(serializedSettlementClosure),
       ...balance,
+      overpaymentResolutions: resolutionsBySpecialist.get(result.specialistId) ?? [],
     };
   }).sort((a, b) => a.specialistName.localeCompare(b.specialistName));
 
@@ -867,6 +890,70 @@ router.post("/settlements/payments", async (req, res): Promise<void> => {
     const knownError = error instanceof SettlementRequestError;
     res.status(knownError ? error.status : 500).json({
       error: knownError ? error.message : "No se pudo registrar el pago de liquidación.",
+    });
+  }
+});
+
+router.post("/settlements/overpayment-resolutions", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "owner") {
+    res.status(403).json({ error: "Solo el propietario puede registrar cómo resolver un excedente." });
+    return;
+  }
+  const parsed = CreateSettlementOverpaymentResolutionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Indica el período, el especialista, la resolución y su motivo." });
+    return;
+  }
+  const input = parsed.data;
+  const resolution = input.resolution.trim();
+  const reason = input.reason.trim();
+  if (resolution.length < 5 || reason.length < 5) {
+    res.status(400).json({ error: "La resolución y el motivo deben tener al menos cinco caracteres." });
+    return;
+  }
+  try {
+    const created = await db.transaction(async (tx) => {
+      const lockKey = `${input.period}:${input.specialistId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      const [latestClosure] = await tx.select().from(settlementClosuresTable).where(and(
+        eq(settlementClosuresTable.period, input.period),
+        eq(settlementClosuresTable.specialistId, input.specialistId),
+      )).orderBy(desc(settlementClosuresTable.version)).limit(1);
+      if (!latestClosure) {
+        throw new SettlementRequestError("No hay un cierre aprobado para este especialista y período.", 409);
+      }
+      const payments = await tx.select().from(settlementPaymentsTable).where(and(
+        eq(settlementPaymentsTable.period, input.period),
+        eq(settlementPaymentsTable.specialistId, input.specialistId),
+      ));
+      const balance = calculateSettlementPaymentBalance(
+        latestClosure.snapshot.totals.netPayable,
+        payments,
+      );
+      if (balance.overpaidAmount <= 0) {
+        throw new SettlementRequestError("No existe un excedente actual que requiera resolución.", 409);
+      }
+      const [createdResolution] = await tx.insert(settlementOverpaymentResolutionsTable).values({
+        period: input.period,
+        specialistId: input.specialistId,
+        closureId: latestClosure.id,
+        closureVersion: latestClosure.version,
+        overpaidAmount: balance.overpaidAmount,
+        resolution,
+        reason,
+        recordedBy: member.userId,
+      }).returning();
+      return createdResolution;
+    });
+    res.status(201).json(
+      CreateSettlementOverpaymentResolutionResponse.parse(serializedOverpaymentResolution(created)),
+    );
+  } catch (error) {
+    const knownError = error instanceof SettlementRequestError;
+    res.status(knownError ? error.status : 500).json({
+      error: knownError ? error.message : "No se pudo registrar la resolución del excedente.",
     });
   }
 });

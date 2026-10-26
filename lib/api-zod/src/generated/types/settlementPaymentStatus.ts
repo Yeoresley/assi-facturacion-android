@@ -13,4 +13,5 @@ export const SettlementPaymentStatus = {
   pending: 'pending',
   partial: 'partial',
   paid: 'paid',
+  overpaid: 'overpaid',
 } as const;

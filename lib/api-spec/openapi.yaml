@@ -179,6 +179,24 @@ paths:
           description: La liquidación cambió o ya no tiene saldo pendiente.
         "422":
           description: El cálculo tiene bloqueos o el importe excede el saldo pendiente.
+  /settlements/overpayment-resolutions:
+    post:
+      operationId: createSettlementOverpaymentResolution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementOverpaymentResolutionInput" }
+      responses:
+        "201":
+          description: Resolución auditada del excedente, independiente de las versiones del cierre.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementOverpaymentResolution" }
+        "403":
+          description: Solo el propietario puede registrar cómo resolver el excedente.
+        "409":
+          description: No existe un excedente actual o el cierre cambió en otra sesión.
   /settlements/closures:
     post:
       operationId: createSettlementClosure
@@ -1665,7 +1683,29 @@ components:
         recordedAt: { type: string, format: date-time }
     SettlementPaymentStatus:
       type: string
-      enum: [pending, partial, paid]
+      enum: [pending, partial, paid, overpaid]
+    SettlementOverpaymentResolutionInput:
+      type: object
+      required: [period, specialistId, resolution, reason]
+      properties:
+        period: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        specialistId: { type: string, minLength: 1, maxLength: 255 }
+        resolution: { type: string, minLength: 5, maxLength: 1000 }
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+    SettlementOverpaymentResolution:
+      type: object
+      required: [id, period, specialistId, closureId, closureVersion, overpaidAmount, resolution, reason, recordedBy, recordedAt]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        specialistId: { type: string }
+        closureId: { type: integer }
+        closureVersion: { type: integer }
+        overpaidAmount: { type: number }
+        resolution: { type: string }
+        reason: { type: string }
+        recordedBy: { type: string }
+        recordedAt: { type: string, format: date-time }
     SettlementClosureInput:
       type: object
       required: [period, specialistId]
@@ -1819,7 +1859,7 @@ components:
         netPayable: { type: number }
     SettlementSpecialistResult:
       type: object
-      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies, payments, paidAmount, pendingAmount, paymentStatus, closure, closureHistory]
+      required: [specialistId, specialistName, invoices, expenses, totals, missingServiceCount, missingCurrencies, payments, paidAmount, pendingAmount, overpaidAmount, paymentStatus, overpaymentResolutions, closure, closureHistory]
       properties:
         specialistId: { type: string }
         specialistName: { type: string }
@@ -1831,7 +1871,9 @@ components:
         payments: { type: array, items: { $ref: "#/components/schemas/SettlementPayment" } }
         paidAmount: { type: number }
         pendingAmount: { type: number }
+        overpaidAmount: { type: number }
         paymentStatus: { $ref: "#/components/schemas/SettlementPaymentStatus" }
+        overpaymentResolutions: { type: array, items: { $ref: "#/components/schemas/SettlementOverpaymentResolution" } }
         closure: { oneOf: [{ $ref: "#/components/schemas/SettlementClosure" }, { type: "null" }] }
         closureHistory: { type: array, items: { $ref: "#/components/schemas/SettlementClosure" } }
     SettlementServiceCatalogEntry:

@@ -208,9 +208,28 @@ export const settlementClosuresTable = pgTable("settlement_closures", {
   index("settlement_closures_period_specialist_idx").on(table.period, table.specialistId, table.version),
 ]);
 
+export const settlementOverpaymentResolutionsTable = pgTable("settlement_overpayment_resolutions", {
+  id: serial("id").primaryKey(),
+  period: text("period").notNull(),
+  specialistId: text("specialist_id").notNull(),
+  closureId: integer("closure_id").notNull().references(() => settlementClosuresTable.id, { onDelete: "restrict" }),
+  closureVersion: integer("closure_version").notNull(),
+  overpaidAmount: numeric("overpaid_amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
+  resolution: text("resolution").notNull(),
+  reason: text("reason").notNull(),
+  recordedBy: text("recorded_by").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("settlement_overpayment_resolutions_period_check", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  check("settlement_overpayment_resolutions_version_check", sql`${table.closureVersion} > 0`),
+  check("settlement_overpayment_resolutions_positive_amount_check", sql`${table.overpaidAmount} > 0`),
+  index("settlement_overpayment_resolutions_period_specialist_idx").on(table.period, table.specialistId, table.recordedAt),
+]);
+
 export type SettlementClassification = typeof settlementClassificationsTable.$inferSelect;
 export type SettlementExpense = typeof settlementExpensesTable.$inferSelect;
 export type SettlementInvoiceInclusion = typeof settlementInvoiceInclusionsTable.$inferSelect;
 export type SettlementExchangeRate = typeof settlementExchangeRatesTable.$inferSelect;
 export type SettlementPayment = typeof settlementPaymentsTable.$inferSelect;
 export type SettlementClosure = typeof settlementClosuresTable.$inferSelect;
+export type SettlementOverpaymentResolution = typeof settlementOverpaymentResolutionsTable.$inferSelect;

@@ -8,6 +8,7 @@
 import type { SettlementClosure } from './settlementClosure';
 import type { SettlementExpense } from './settlementExpense';
 import type { SettlementInvoice } from './settlementInvoice';
+import type { SettlementOverpaymentResolution } from './settlementOverpaymentResolution';
 import type { SettlementPayment } from './settlementPayment';
 import type { SettlementPaymentStatus } from './settlementPaymentStatus';
 import type { SettlementTotals } from './settlementTotals';
@@ -23,7 +24,9 @@ export interface SettlementSpecialistResult {
   payments: SettlementPayment[];
   paidAmount: number;
   pendingAmount: number;
+  overpaidAmount: number;
   paymentStatus: SettlementPaymentStatus;
+  overpaymentResolutions: SettlementOverpaymentResolution[];
   closure: SettlementClosure | null;
   closureHistory: SettlementClosure[];
 }

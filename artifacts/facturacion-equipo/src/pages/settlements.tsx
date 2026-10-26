@@ -4,7 +4,8 @@ import {
   getGetCurrentTeamMemberQueryKey, getGetMonthlySettlementQueryKey, useCreateSettlementClassification,
   useCreateSettlementClosure, useCorrectSettlementClosure, useCreateSettlementExpense,
   useCreateSettlementInvoiceInclusion, useGetCurrentTeamMember,
-  useCreateSettlementPayment, useGetMonthlySettlement, useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
+  useCreateSettlementOverpaymentResolution, useCreateSettlementPayment, useGetMonthlySettlement,
+  useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
   useVoidSettlementExpense,
 } from '@workspace/api-client-react';
 import type { SettlementExpense, SettlementSalesType } from '@workspace/api-client-react';
@@ -81,9 +82,10 @@ export default function SettlementsPage() {
   const revokeInclusion = useRevokeSettlementInvoiceInclusion();
   const updateRate = useUpdateSettlementExchangeRate();
   const createPayment = useCreateSettlementPayment();
+  const createOverpaymentResolution = useCreateSettlementOverpaymentResolution();
   const createClosure = useCreateSettlementClosure();
   const correctClosure = useCorrectSettlementClosure();
-  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending || createClosure.isPending || correctClosure.isPending;
+  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending || createOverpaymentResolution.isPending || createClosure.isPending || correctClosure.isPending;
   const data = settlement.data;
   const results = data?.results ?? [];
   const activeResult = useMemo(() => results.find((result) => result.specialistId === selectedSpecialist) ?? results[0], [results, selectedSpecialist]);
@@ -149,6 +151,20 @@ export default function SettlementsPage() {
         paidOn: String(form.get('paidOn') || ''),
         reference: String(form.get('reference') || '').trim(),
         confirmReview: form.get('confirmReview') === 'on',
+      },
+    }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
+  }
+  function recordOverpaymentResolution(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!owner || !activeResult || !activeResult.closure || activeResult.overpaidAmount <= 0) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    runMutation(() => createOverpaymentResolution.mutate({
+      data: {
+        period,
+        specialistId: activeResult.specialistId,
+        resolution: String(form.get('resolution') || '').trim(),
+        reason: String(form.get('reason') || '').trim(),
       },
     }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
   }
@@ -277,19 +293,23 @@ export default function SettlementsPage() {
               <div><div className="eyebrow">{monthLabel(period)} · Pago al especialista</div><h2 id="settlement-payment-title" className="font-display mt-1 text-lg font-bold">Estado de la liquidación</h2></div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`status-pill ${activeResult.closure ? 'status-paid' : 'status-draft'}`}>{activeResult.closure ? `Cerrada · v${activeResult.closure.version}` : 'Preliminar'}</span>
-                <span className={`status-pill ${activeResult.paymentStatus === 'paid' ? 'status-paid' : activeResult.paymentStatus === 'partial' ? 'status-sent' : 'status-draft'}`}>
-                  {activeResult.paymentStatus === 'paid' ? 'Pagada' : activeResult.paymentStatus === 'partial' ? 'Pago parcial' : 'Pendiente'}
+                <span className={`status-pill ${activeResult.paymentStatus === 'overpaid' ? 'status-sent' : activeResult.paymentStatus === 'paid' ? 'status-paid' : activeResult.paymentStatus === 'partial' ? 'status-sent' : 'status-draft'}`}>
+                  {activeResult.paymentStatus === 'overpaid' ? 'Sobrepagada' : activeResult.paymentStatus === 'paid' ? 'Pagada' : activeResult.paymentStatus === 'partial' ? 'Pago parcial' : 'Pendiente'}
                 </span>
                 {owner && (activeResult.closure
                   ? <button type="button" className="button button-soft !min-h-8 !px-3 text-[10px]" onClick={() => setAuditAction({ kind: 'closure', id: activeResult.closure!.id })} disabled={busy} data-testid="button-correct-settlement-closure">Registrar corrección</button>
                   : <button type="button" className="button button-primary !min-h-8 !px-3 text-[10px]" onClick={closeSettlement} disabled={busy || blockers > 0} title={blockers ? 'Resuelve las clasificaciones y tasas pendientes antes de cerrar.' : undefined} data-testid="button-close-settlement">{createClosure.isPending ? 'Cerrando…' : 'Aprobar y cerrar'}</button>)}
               </div>
             </div>
-            <div className="grid gap-3 border-b border-[#eeece4] p-5 sm:grid-cols-3">
+            <div className="grid gap-3 border-b border-[#eeece4] p-5 sm:grid-cols-2 xl:grid-cols-4">
               <Metric label={activeResult.closure ? "Neto aprobado" : "Neto estimado"} value={displayedTotals?.netPayable ?? 0} note={activeResult.closure ? "Importe congelado en el cierre" : "El cálculo sigue siendo preliminar"} />
               <Metric label="Pagado" value={activeResult.paidAmount} note={activeResult.payments.length ? `${activeResult.payments.length} transferencia(s) registrada(s)` : 'Sin transferencias registradas'} />
               <Metric label={activeResult.closure ? "Saldo aprobado" : "Pendiente estimado"} value={activeResult.pendingAmount} note={paymentBlockers ? 'Estimación incompleta; revisa los bloqueos antes de usarla' : 'Saldo calculado después de los pagos registrados'} emphasis />
+              <Metric label="Excedente pagado" value={activeResult.overpaidAmount} note={activeResult.overpaidAmount > 0 ? 'Transferencias que superan el neto aprobado' : 'Sin pagos por encima del neto'} />
             </div>
+            {activeResult.overpaidAmount > 0 && <div className="border-b border-[#efcfc7] bg-[#fbefeb] px-5 py-3 text-[11px] leading-5 text-[#984b40]" role="alert" data-testid="settlement-overpayment-alert">
+              <strong>Sobrepago de {amount(activeResult.overpaidAmount)}.</strong> Las transferencias registradas se conservan; el propietario debe indicar cómo se resolverá este excedente.
+            </div>}
             {activeResult.payments.length > 0 && <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left">
                 <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Fecha de pago</th><th className="px-4 py-3 font-medium">Referencia</th><th className="px-4 py-3 text-right font-medium">Importe</th><th className="px-5 py-3 font-medium">Registrado</th></tr></thead>
@@ -301,6 +321,23 @@ export default function SettlementsPage() {
                 </tr>)}</tbody>
               </table>
             </div>}
+            {(activeResult.overpaymentResolutions.length > 0 || (owner && activeResult.closure && activeResult.overpaidAmount > 0)) && <section className="grid gap-4 border-t border-[#eeece4] bg-[#fbfaf5] p-5 lg:grid-cols-2" aria-label="Resoluciones de sobrepago" data-testid="settlement-overpayment-resolutions">
+              {activeResult.overpaymentResolutions.length > 0 && <div>
+                <div className="eyebrow mb-2">Resoluciones registradas</div>
+                <ol className="space-y-2">{activeResult.overpaymentResolutions.map((entry) => <li key={entry.id} className="rounded-lg border border-[#e9e6dc] bg-[#fffefa] px-3 py-2.5 text-[10px] leading-5" data-testid={`settlement-overpayment-resolution-${entry.id}`}>
+                  <strong className="text-[#29443e]">Excedente {amount(entry.overpaidAmount)} · cierre v{entry.closureVersion}</strong>
+                  <div className="mt-1">{entry.resolution}</div>
+                  <div className="text-[#78847d]">Motivo: {entry.reason}</div>
+                  <div className="text-[#78847d]">Registró: {entry.recordedBy} · {date(entry.recordedAt)}</div>
+                </li>)}</ol>
+              </div>}
+              {owner && activeResult.closure && activeResult.overpaidAmount > 0 && <form className="grid gap-3" onSubmit={recordOverpaymentResolution} data-testid="form-settlement-overpayment-resolution">
+                <div><div className="eyebrow">Acción auditable · cierre v{activeResult.closure.version}</div><h3 className="font-display mt-1 text-base font-bold">Indicar cómo se resolverá</h3></div>
+                <label><span className="field-label">Resolución acordada</span><textarea name="resolution" className="field" rows={2} required minLength={5} maxLength={1000} placeholder="Ej.: devolver por transferencia o descontar del próximo período" disabled={busy} data-testid="input-overpayment-resolution" /></label>
+                <label><span className="field-label">Motivo</span><textarea name="reason" className="field" rows={2} required minLength={5} maxLength={1000} placeholder="Explica por qué se eligió esta solución" disabled={busy} data-testid="input-overpayment-resolution-reason" /></label>
+                <button className="button button-primary justify-self-end" type="submit" disabled={busy} data-testid="button-record-overpayment-resolution">{createOverpaymentResolution.isPending ? 'Guardando…' : 'Registrar resolución'}</button>
+              </form>}
+            </section>}
             {owner && <form key={`${activeResult.specialistId}-${activeResult.pendingAmount}`} className="grid gap-3 border-t border-[#eeece4] bg-[#fbfaf5] p-5 md:grid-cols-[1fr_1fr_1.4fr_auto]" onSubmit={addSettlementPayment}>
               <label><span className="field-label">Importe transferido (CUP)</span><input name="amount" className="field" type="number" min="0.01" max={activeResult.pendingAmount} step="0.01" required defaultValue={activeResult.pendingAmount > 0 ? activeResult.pendingAmount.toFixed(2) : ''} disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-amount" /></label>
               <label><span className="field-label">Fecha del pago</span><input name="paidOn" className="field" type="date" required max={todayISO()} defaultValue={todayISO()} disabled={busy || paymentBlockers > 0 || activeResult.pendingAmount <= 0} data-testid="input-settlement-payment-date" /></label>
