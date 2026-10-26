@@ -1,0 +1,80 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build installable Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_PUBLIC_DOMAIN: ${{ vars.EXPO_PUBLIC_DOMAIN }}
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 16 build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Validate Android app configuration
+        shell: bash
+        run: |
+          if [[ -z "$EXPO_PUBLIC_DOMAIN" ]]; then
+            echo "::error::Add the repository variable EXPO_PUBLIC_DOMAIN with the published API host, without https:// or a path."
+            exit 1
+          fi
+          if [[ "$EXPO_PUBLIC_DOMAIN" == http://* || "$EXPO_PUBLIC_DOMAIN" == https://* || "$EXPO_PUBLIC_DOMAIN" == */* ]]; then
+            echo "::error::EXPO_PUBLIC_DOMAIN must contain only the host, without scheme or path."
+            exit 1
+          fi
+          if [[ -z "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" ]]; then
+            echo "::error::Add the repository secret EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY for the Clerk instance used by the app."
+            exit 1
+          fi
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate the Android native project
+        run: pnpm --filter @workspace/assi-facturacion-android exec expo prebuild --platform android --no-install
+
+      - name: Build standalone release APK for testing
+        working-directory: artifacts/assi-facturacion-android/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: assi-facturacion-android-apk
+          path: artifacts/assi-facturacion-android/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
