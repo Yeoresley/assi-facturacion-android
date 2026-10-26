@@ -3,6 +3,7 @@
 - [Alcance de imágenes autorizadas](invoice-image-authorization.md) — permiso del propietario para reproducir los escaneos; no implica firma criptográfica ni responsables automáticos.
 - [Impresión en navegador](browser-invoice-printing.md) — comprobar ambas vistas: transformaciones, márgenes del escritorio y cabeceras altas pueden romper la paginación de Chromium.
 - [Unicidad de numeración Versat](versat-numbering-scope.md) — conservar unicidad global mientras no se confirme si el escritorio permite repetir números entre talones.
+- [Huecos históricos de numeración](versat-historical-sequence-gaps.md) — un número ausente en el histórico puede corresponder a una factura eliminada; no crearla ni exigirla solo para cerrar la secuencia.
 - [Aceptación y exportación](invoice-acceptance.md) — pagos parciales/totales y exportación marcan Aceptada; Confirmada significa importada en Versat.
 - [Suspensión de accesos](team-suspension-policy.md) — conservar historial y comercial; solo la reactivación explícita levanta la suspensión; enlaces públicos separados.
 - [Contratos y liquidaciones comerciales](sales-contracts-compensation.md) — contratación/ofertas en nombre del propietario y compensación mensual sobre facturas ejecutadas y cobradas, con fórmula aún por definir.
