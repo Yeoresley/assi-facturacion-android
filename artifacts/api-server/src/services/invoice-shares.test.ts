@@ -30,6 +30,7 @@ const pending = `${tag}-pending`;
 const identities = [owner, specialist, other, unassigned, pending];
 const email = (id: string) => `${id}@example.invalid`;
 const token = randomUUID();
+const noPaymentToken = randomUUID();
 const expiredToken = randomUUID();
 const expiredReceiptToken = randomUUID();
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -42,6 +43,7 @@ let invoiceId: number;
 let otherInvoiceId: number;
 let shareId: number;
 let paymentId: number;
+let correctionId: number;
 let downloads = 0;
 
 before(async () => {
@@ -84,7 +86,10 @@ before(async () => {
     signaturePath: "/objects/legal/synthetic.png", authorizedAt: new Date().toISOString(), authorizedBy: owner,
   };
   const [invoice, foreign] = await db.insert(invoicesTable).values([
-    { number: tag, customerId, specialistId: owner, specialistName: tag, issueDate: "2026-10-21", currency: "CUP", status: "sent", versat, legalDocument },
+    {
+      number: tag, customerId, specialistId: owner, specialistName: tag, issueDate: "2026-10-21",
+      currency: "CUP", status: "sent", versat, legalDocument, subtotal: 100, total: 100,
+    },
     {
       number: `${tag}-foreign`, customerId, specialistId: specialist, specialistName: tag, issueDate: "2026-10-21",
       currency: "CUP", status: "sent", versat: { ...versat, commercialId: otherCommercialId }, legalDocument,
@@ -114,7 +119,10 @@ before(async () => {
   await db.insert(invoiceSharesTable).values({
     invoiceId, paymentId, tokenHash: hash(expiredReceiptToken), expiresAt: new Date(Date.now() - 1000),
   });
-  await db.insert(invoicePaymentCorrectionsTable).values({
+  await db.insert(invoiceSharesTable).values({
+    invoiceId: otherInvoiceId, tokenHash: hash(noPaymentToken), expiresAt: new Date(Date.now() + 3600_000),
+  });
+  const [correction] = await db.insert(invoicePaymentCorrectionsTable).values({
     invoiceId,
     idempotencyKey: `${tag}-correction`,
     reason: `${tag}-internal-correction-reason`,
@@ -125,7 +133,8 @@ before(async () => {
     afterPaymentStatus: "pending",
     beforeTotalPaid: 0,
     afterTotalPaid: 0,
-  });
+  }).returning({ id: invoicePaymentCorrectionsTable.id });
+  correctionId = correction.id;
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -158,6 +167,26 @@ after(async () => {
 
 const request = (path: string, actor = specialist, method = "GET") =>
   fetch(`${base}${path}`, { method, headers: { "x-synthetic-id": actor } });
+
+function assertSharedInvoiceHasNoPaymentData(body: Record<string, unknown>, privateValues: string[] = []) {
+  const forbiddenFields = new Set([
+    "payments", "paymentStatus", "totalPaid", "balanceDue", "paymentCorrections",
+    "paymentId", "targetPaymentId", "reversedPaymentId", "reference", "paidOn",
+    "paidBy", "recordedAt", "paymentMethod", "correctedBy", "reason",
+  ]);
+  const collectKeys = (value: unknown): string[] => {
+    if (!value || typeof value !== "object") return [];
+    if (Array.isArray(value)) return value.flatMap(collectKeys);
+    return Object.entries(value).flatMap(([key, child]) => [key, ...collectKeys(child)]);
+  };
+  for (const key of collectKeys(body)) {
+    assert.equal(forbiddenFields.has(key), false, `shared invoice must omit ${key}`);
+  }
+  const serialized = JSON.stringify(body);
+  for (const value of privateValues) {
+    assert.equal(serialized.includes(value), false, `shared invoice must omit private value ${value}`);
+  }
+}
 
 test("public shares omit internal correction audit while team detail preserves it; scoped revocation preserves history", async () => {
   const initialInvoices = await db.select().from(invoicesTable).where(inArray(invoicesTable.id, [invoiceId, otherInvoiceId])).orderBy(invoicesTable.id);
@@ -222,6 +251,9 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.equal(Object.hasOwn(sharedBody, "payments"), false);
   assert.equal(Object.hasOwn(sharedBody, "paymentStatus"), false);
   assert.equal(Object.hasOwn(sharedBody, "paymentCorrections"), false);
+  assertSharedInvoiceHasNoPaymentData(sharedBody, [
+    `${tag}-reference`, `${tag}-internal-correction-reason`, `${tag}-internal-corrector`,
+  ]);
   assert.equal(JSON.stringify(sharedBody).includes("/objects/legal/"), false);
   const sharedLegalDocument = sharedBody.legalDocument as Record<string, unknown>;
   assert.deepEqual(Object.keys(sharedLegalDocument).sort(), [
@@ -240,9 +272,14 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.deepEqual(Object.keys((sharedBody.lines as object[])[0]).sort(), [
     "amount", "description", "quantity", "serviceCode", "unitCode", "unitPrice",
   ]);
-  assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-correction-reason`), false);
-  assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-corrector`), false);
   assert.equal((await request(`/shared-invoices/${token}/receipts/${paymentId}`, "")).status, 404);
+
+  const noPaymentResponse = await request(`/shared-invoices/${noPaymentToken}`, "");
+  assert.equal(noPaymentResponse.status, 200);
+  const noPaymentBody = await noPaymentResponse.json() as Record<string, unknown>;
+  GetSharedInvoiceResponse.parse(noPaymentBody);
+  assertSharedInvoiceHasNoPaymentData(noPaymentBody);
+
   const receiptShareResponse = await request(`/invoices/${invoiceId}/payments/${paymentId}/share`, specialist, "POST");
   assert.equal(receiptShareResponse.status, 200);
   assert.match(receiptShareResponse.headers.get("cache-control")!, /no-store/);
@@ -267,11 +304,56 @@ test("public shares omit internal correction audit while team detail preserves i
     paymentCurrency: "CUP",
     paymentMethod: "transfer",
     reference: `${tag}-reference`,
-    remainingBalance: 0,
+    remainingBalance: 75,
     corrected: false,
   });
   assert.equal(JSON.stringify(receiptBody).includes(tag + "-internal-correction-reason"), false);
   assert.equal((await request(`/shared-invoices/${receiptToken}/receipts/999999`, "")).status, 404);
+
+  await db.update(invoicePaymentCorrectionsTable).set({
+    targetPaymentId: paymentId,
+    beforePaymentAmount: 25,
+    afterPaymentAmount: 20,
+    beforePaidOn: "2026-10-20",
+    afterPaidOn: "2026-10-19",
+    beforeTotalPaid: 25,
+    afterTotalPaid: 20,
+  }).where(eq(invoicePaymentCorrectionsTable.id, correctionId));
+  const correctedSharedResponse = await request(`/shared-invoices/${token}`, "");
+  assert.equal(correctedSharedResponse.status, 200);
+  const correctedSharedBody = await correctedSharedResponse.json() as Record<string, unknown>;
+  GetSharedInvoiceResponse.parse(correctedSharedBody);
+  assertSharedInvoiceHasNoPaymentData(correctedSharedBody, [
+    `${tag}-reference`, `${tag}-internal-correction-reason`, `${tag}-internal-corrector`,
+  ]);
+  const correctedReceiptResponse = await request(`/shared-invoices/${receiptToken}/receipts/${paymentId}`, "");
+  assert.equal(correctedReceiptResponse.status, 200);
+  const correctedReceiptBody = await correctedReceiptResponse.json() as Record<string, unknown>;
+  assert.deepEqual(Object.keys(correctedReceiptBody).sort(), [
+    "amount", "corrected", "currency", "customerName", "invoiceNumber", "paidOn",
+    "paymentCurrency", "paymentMethod", "reference", "remainingBalance",
+  ]);
+  assert.deepEqual(correctedReceiptBody, {
+    ...receiptBody,
+    amount: 20,
+    paidOn: "2026-10-19T00:00:00.000Z",
+    remainingBalance: 80,
+    corrected: true,
+  });
+  assert.equal(JSON.stringify(correctedReceiptBody).includes(`${tag}-internal-correction-reason`), false);
+  assert.equal(JSON.stringify(correctedReceiptBody).includes(`${tag}-internal-corrector`), false);
+
+  await db.update(invoicePaymentCorrectionsTable).set({ reversedPaymentId: paymentId })
+    .where(eq(invoicePaymentCorrectionsTable.id, correctionId));
+  const reversedSharedResponse = await request(`/shared-invoices/${token}`, "");
+  assert.equal(reversedSharedResponse.status, 200);
+  const reversedSharedBody = await reversedSharedResponse.json() as Record<string, unknown>;
+  GetSharedInvoiceResponse.parse(reversedSharedBody);
+  assertSharedInvoiceHasNoPaymentData(reversedSharedBody, [
+    `${tag}-reference`, `${tag}-internal-correction-reason`, `${tag}-internal-corrector`,
+  ]);
+  assert.equal((await request(`/shared-invoices/${receiptToken}/receipts/${paymentId}`, "")).status, 404);
+
   const teamDetail = GetInvoiceResponse.parse(await (await request(`/invoices/${invoiceId}`, owner)).json());
   assert.equal(teamDetail.paymentCorrections?.length, 1);
   assert.equal(teamDetail.paymentCorrections?.[0].reason, `${tag}-internal-correction-reason`);

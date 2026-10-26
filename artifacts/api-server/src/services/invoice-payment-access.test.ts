@@ -496,11 +496,30 @@ test("specialists see only their commercial's invoice payments in lists, details
 
   const sharedResponse = await request(`/shared-invoices/${token}`, "");
   assert.equal(sharedResponse.status, 200);
-  const sharedInvoice = GetSharedInvoiceResponse.parse(await sharedResponse.json());
+  const sharedBody = await sharedResponse.json() as Record<string, unknown>;
+  const sharedInvoice = GetSharedInvoiceResponse.parse(sharedBody);
   assert.equal(sharedInvoice.total, 100);
-  assert.equal("payments" in sharedInvoice, false);
-  assert.equal("totalPaid" in sharedInvoice, false);
-  assert.equal("balanceDue" in sharedInvoice, false);
+  const sharedFields = new Set([
+    "payments", "paymentStatus", "totalPaid", "balanceDue", "paymentCorrections",
+    "paymentId", "targetPaymentId", "reversedPaymentId", "reference", "paidOn",
+    "paidBy", "recordedAt", "paymentMethod", "correctedBy", "reason",
+  ]);
+  const collectKeys = (value: unknown): string[] => {
+    if (!value || typeof value !== "object") return [];
+    if (Array.isArray(value)) return value.flatMap(collectKeys);
+    return Object.entries(value).flatMap(([key, child]) => [key, ...collectKeys(child)]);
+  };
+  for (const key of collectKeys(sharedBody)) {
+    assert.equal(sharedFields.has(key), false, `shared invoice must omit ${key}`);
+  }
+  const sharedJson = JSON.stringify(sharedBody);
+  for (const privateValue of [
+    reference,
+    'Motivo "solo factura uno"',
+    ownerId,
+  ]) {
+    assert.equal(sharedJson.includes(privateValue), false, `shared invoice must omit ${privateValue}`);
+  }
 
   const ownerListResponse = await request("/invoices", ownerId);
   assert.equal(ownerListResponse.status, 200);
