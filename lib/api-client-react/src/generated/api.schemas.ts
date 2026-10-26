@@ -1595,6 +1595,9 @@ export interface SettlementPaidAwaitingConfirmation {
   total: number;
   totalPaid: number;
   paidOn: string;
+  /** @minimum 0 */
+  confirmationAgeDays: number;
+  confirmationOverdue: boolean;
 }
 
 export interface SettlementUnclassifiedLine {

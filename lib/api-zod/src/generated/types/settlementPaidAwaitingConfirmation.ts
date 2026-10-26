@@ -17,4 +17,7 @@ export interface SettlementPaidAwaitingConfirmation {
   total: number;
   totalPaid: number;
   paidOn: Date;
+  /** @minimum 0 */
+  confirmationAgeDays: number;
+  confirmationOverdue: boolean;
 }

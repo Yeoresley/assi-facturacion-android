@@ -2000,7 +2000,7 @@ components:
         balanceDue: { type: number }
     SettlementPaidAwaitingConfirmation:
       type: object
-      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, issueDate, currency, total, totalPaid, paidOn]
+      required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, issueDate, currency, total, totalPaid, paidOn, confirmationAgeDays, confirmationOverdue]
       properties:
         invoiceId: { type: integer }
         invoiceNumber: { type: string }
@@ -2012,6 +2012,8 @@ components:
         total: { type: number }
         totalPaid: { type: number }
         paidOn: { type: string, format: date }
+        confirmationAgeDays: { type: integer, minimum: 0 }
+        confirmationOverdue: { type: boolean }
     SettlementUnclassifiedLine:
       type: object
       required: [invoiceId, invoiceNumber, customerName, specialistId, specialistName, invoiceLineId, serviceCode, description, amount, currency]

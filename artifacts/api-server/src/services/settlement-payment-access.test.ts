@@ -328,6 +328,16 @@ test("paid invoices awaiting Versat confirmation are visible only in their speci
   const specialistResponse = await request(specialistOneId);
   assert.equal(specialistResponse.status, 200);
   const specialistResult = GetMonthlySettlementResponse.parse(await specialistResponse.json());
+  const specialistAwaitingConfirmation = specialistResult.paidAwaitingConfirmation.find(
+    ({ invoiceId: id }) => id === awaitingConfirmationInvoiceId,
+  );
+  assert.ok(specialistAwaitingConfirmation);
+  assert.ok(Number.isInteger(specialistAwaitingConfirmation.confirmationAgeDays));
+  assert.ok(specialistAwaitingConfirmation.confirmationAgeDays >= 0);
+  assert.equal(
+    specialistAwaitingConfirmation.confirmationOverdue,
+    specialistAwaitingConfirmation.confirmationAgeDays >= 7,
+  );
   assert.deepEqual(specialistResult.paidAwaitingConfirmation.map(({ invoiceId: id, paidOn: date }) => ({
     invoiceId: id,
     paidOn: date.toISOString().slice(0, 10),

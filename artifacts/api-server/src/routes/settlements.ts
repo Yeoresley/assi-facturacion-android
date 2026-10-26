@@ -49,6 +49,7 @@ import {
   settlementPaymentCompletionDate, settlementRules,
 } from "../services/settlement-calculation";
 import { buildSettlementClosureSnapshot } from "../services/settlement-snapshot";
+import { settlementConfirmationAge } from "../services/settlement-confirmation-age";
 
 const router: IRouter = Router();
 const roundedMoney = (value: number) => new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
@@ -284,6 +285,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     // Legacy invoices may have been marked paid before payment receipts were recorded.
     const paidOn = settlementPaidOnOrLegacyDate(invoice);
     if (!paidOn?.startsWith(period)) return [];
+    const confirmationAge = settlementConfirmationAge(paidOn);
     return [{
       invoiceId: invoice.id,
       invoiceNumber: invoice.versatNumber ?? invoice.number,
@@ -295,6 +297,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
       total: invoice.total,
       totalPaid: invoice.totalPaid,
       paidOn,
+      ...confirmationAge,
     }];
   }).sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.invoiceId - a.invoiceId);
   const automaticInvoices = confirmedInvoices.flatMap((invoice) => {

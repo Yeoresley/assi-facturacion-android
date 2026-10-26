@@ -101,6 +101,10 @@ export const GetMonthlySettlementQueryParams = zod.object({
   "period": zod.coerce.string().regex(getMonthlySettlementQueryPeriodRegExp)
 })
 
+export const getMonthlySettlementResponsePaidAwaitingConfirmationItemConfirmationAgeDaysMin = 0;
+
+
+
 export const GetMonthlySettlementResponse = zod.object({
   "period": zod.string(),
   "baseCurrency": zod.string(),
@@ -391,7 +395,9 @@ export const GetMonthlySettlementResponse = zod.object({
   "currency": zod.string(),
   "total": zod.number(),
   "totalPaid": zod.number(),
-  "paidOn": zod.coerce.date()
+  "paidOn": zod.coerce.date(),
+  "confirmationAgeDays": zod.number().int().min(getMonthlySettlementResponsePaidAwaitingConfirmationItemConfirmationAgeDaysMin),
+  "confirmationOverdue": zod.boolean()
 })),
   "exchangeRates": zod.array(zod.object({
   "id": zod.number().int(),

@@ -266,16 +266,20 @@ export default function SettlementsPage() {
          </section>}
         <section className="panel mb-5 overflow-hidden" aria-labelledby="settlement-awaiting-confirmation-title" data-testid="settlement-paid-awaiting-confirmation">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-5 py-4">
-            <div><div className="eyebrow">{monthLabel(period)} · Pendiente en Versat</div><h2 id="settlement-awaiting-confirmation-title" className="font-display mt-1 text-lg font-bold">Cobros pendientes de confirmar</h2><p className="mt-1 text-[10px] leading-5 text-[#78847d]">Estas facturas ya están totalmente cobradas, pero aún no se ha confirmado su importación en Versat. No entran al cálculo de liquidación hasta confirmar la importación.</p></div>
+            <div><div className="eyebrow">{monthLabel(period)} · Pendiente en Versat</div><h2 id="settlement-awaiting-confirmation-title" className="font-display mt-1 text-lg font-bold">Cobros pendientes de confirmar</h2><p className="mt-1 text-[10px] leading-5 text-[#78847d]">Estas facturas ya están totalmente cobradas, pero aún no se ha confirmado su importación en Versat. No entran al cálculo de liquidación hasta confirmar la importación. El aviso aparece al cumplir 7 días y no confirma la factura automáticamente.</p></div>
             <span className="status-pill status-sent">{data.paidAwaitingConfirmation.length} factura(s)</span>
           </div>
           {!data.paidAwaitingConfirmation.length ? <EmptyState title="Sin cobros pendientes de confirmar" text="No hay facturas totalmente cobradas que esperen confirmación de Versat en este período." /> :
             <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left">
-              <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura / cliente</th>{owner && <th className="px-4 py-3 font-medium">Especialista</th>}<th className="px-4 py-3 font-medium">Fecha de cobro</th><th className="px-4 py-3 text-right font-medium">Total</th><th className="px-5 py-3 font-medium">Detalle</th></tr></thead>
-              <tbody>{data.paidAwaitingConfirmation.map((invoice) => <tr key={invoice.invoiceId} className="table-row" data-testid={`settlement-awaiting-confirmation-${invoice.invoiceId}`}>
+              <thead><tr className="eyebrow"><th className="px-5 py-3 font-medium">Factura / cliente</th>{owner && <th className="px-4 py-3 font-medium">Especialista</th>}<th className="px-4 py-3 font-medium">Fecha de cobro</th><th className="px-4 py-3 font-medium">Tiempo esperando</th><th className="px-4 py-3 text-right font-medium">Total</th><th className="px-5 py-3 font-medium">Detalle</th></tr></thead>
+              <tbody>{data.paidAwaitingConfirmation.map((invoice) => <tr key={invoice.invoiceId} className={`table-row ${invoice.confirmationOverdue ? 'bg-[#fbefeb]' : ''}`} data-testid={`settlement-awaiting-confirmation-${invoice.invoiceId}`}>
                 <td className="px-5 py-3 text-[11px] font-semibold">{invoice.invoiceNumber}<div className="mt-1 font-normal text-[#7c8982]">{invoice.customerName}</div></td>
                 {owner && <td className="px-4 py-3 text-[11px] text-[#738078]">{invoice.specialistName}</td>}
                 <td className="px-4 py-3 text-[11px]">{date(invoice.paidOn)}</td>
+                <td className="px-4 py-3 text-[11px]" data-testid={`settlement-confirmation-age-${invoice.invoiceId}`}>
+                  <span>{invoice.confirmationAgeDays === 0 ? 'Hoy' : `${invoice.confirmationAgeDays} ${invoice.confirmationAgeDays === 1 ? 'día' : 'días'}`}</span>
+                  {invoice.confirmationOverdue && <span className="status-pill status-error ml-2" aria-label="Requiere atención: lleva 7 días o más esperando confirmación">Revisar</span>}
+                </td>
                 <td className="px-4 py-3 text-right font-mono text-[11px]">{money(invoice.total, invoice.currency)}</td>
                 <td className="px-5 py-3"><Link href={`/invoices/${invoice.invoiceId}`} className="button button-soft !min-h-8 !px-3 text-[10px]" data-testid={`link-open-awaiting-confirmation-${invoice.invoiceId}`}>Abrir factura</Link></td>
               </tr>)}</tbody>
