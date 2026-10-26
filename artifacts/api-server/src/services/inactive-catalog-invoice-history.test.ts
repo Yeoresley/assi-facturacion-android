@@ -15,6 +15,7 @@ import {
   pool,
   teamInvitationsTable,
   teamMembersTable,
+  versatCatalogAuditTable,
   versatCatalogTable,
 } from "@workspace/db";
 import billingRouter from "../routes/billing";
@@ -123,6 +124,8 @@ after(async () => {
   await db.delete(teamInvitationsTable).where(eq(teamInvitationsTable.email, specialistEmail));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, userIds));
   if (catalogIds.length) {
+    await db.delete(versatCatalogAuditTable)
+      .where(inArray(versatCatalogAuditTable.catalogEntryId, catalogIds));
     await db.delete(versatCatalogTable).where(inArray(versatCatalogTable.id, catalogIds));
   }
   await pool.end();
@@ -319,6 +322,52 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   assert.equal(unchangedUnit.active, true);
   assert.equal(unchangedUnit.name, "Access control unit");
   assert.equal(stillInactiveConcept.active, false);
+
+  const reactivatedConcept = await request(
+    `/versat/catalogs/${entries["NEW-CON"].id}`,
+    ownerId,
+    "PATCH",
+    { active: true },
+  );
+  assert.equal(reactivatedConcept.status, 200);
+  assert.equal((await reactivatedConcept.json() as { active: boolean }).active, true);
+
+  const invoiceUsingReactivatedConcept = await request(
+    "/invoices",
+    specialistId,
+    "POST",
+    invoiceBody({
+      currency: entries["ACTIVE-CUR"].code,
+      versat: {
+        ...invoiceBody().versat,
+        conceptId: entries["NEW-CON"].id,
+        number: `${tag}-REACTIVATED-FAC`,
+        talon: "0043",
+      },
+      lines: [{ ...invoiceBody().lines[0], serviceId: entries["ACTIVE-SRV"].id }],
+    }),
+  );
+  assert.equal(invoiceUsingReactivatedConcept.status, 201);
+  const reactivatedInvoice = await invoiceUsingReactivatedConcept.json() as { id: number; versat: { conceptId: number } };
+  invoiceIds.push(reactivatedInvoice.id);
+  assert.equal(reactivatedInvoice.versat.conceptId, entries["NEW-CON"].id);
+
+  const conceptHistoryResponse = await request(
+    `/versat/catalogs/${entries["NEW-CON"].id}/history`,
+    ownerId,
+  );
+  assert.equal(conceptHistoryResponse.status, 200);
+  const conceptHistory = await conceptHistoryResponse.json() as Array<{
+    action: string;
+    actorUserId: string;
+    previousValues: { active: boolean } | null;
+    newValues: { active: boolean };
+  }>;
+  assert.equal(conceptHistory.length, 1);
+  assert.equal(conceptHistory[0].action, "reactivated");
+  assert.equal(conceptHistory[0].actorUserId, ownerId);
+  assert.equal(conceptHistory[0].previousValues?.active, false);
+  assert.equal(conceptHistory[0].newValues.active, true);
 
   await db.update(invoicesTable).set({ status: "finished" })
     .where(eq(invoicesTable.id, createdInvoice.id));
