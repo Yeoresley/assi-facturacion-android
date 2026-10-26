@@ -661,7 +661,7 @@ paths:
           description: Shared invoice
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Invoice" }
+              schema: { $ref: "#/components/schemas/SharedInvoice" }
         "404": { description: Link not found or expired }
   /shared-invoices/{token}/receipts/{paymentId}:
     get:
@@ -1080,6 +1080,73 @@ components:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLine" }
         createdAt: { type: string, format: date-time }
+    SharedInvoice:
+      type: object
+      required: [number, customerName, issueDate, dueDate, currency, status, confirmedAt, notes, versat, legalDocument, subtotal, total, lines]
+      properties:
+        number: { type: string }
+        customerName: { type: string }
+        issueDate: { type: string, format: date }
+        dueDate: { type: ["string", "null"], format: date }
+        currency: { type: string }
+        status: { type: string, enum: [draft, finished, accepted, confirmed, voided, cancelled, error, sent, paid] }
+        confirmedAt: { type: ["string", "null"], format: date-time }
+        notes: { type: ["string", "null"] }
+        versat:
+          anyOf:
+            - { $ref: "#/components/schemas/SharedVersatInvoice" }
+            - { type: "null" }
+        legalDocument:
+          anyOf:
+            - { $ref: "#/components/schemas/SharedLegalDocument" }
+            - { type: "null" }
+        subtotal: { type: number }
+        total: { type: number }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/SharedInvoiceLine" }
+    SharedVersatInvoice:
+      type: object
+      required: [number, contract, customerCode, customerName, customerAddress, customerTaxId, paymentName, operationName]
+      properties:
+        number: { type: ["string", "null"] }
+        contract: { type: ["string", "null"] }
+        customerCode: { type: ["string", "null"] }
+        customerName: { type: string }
+        customerAddress: { type: ["string", "null"] }
+        customerTaxId: { type: ["string", "null"] }
+        paymentName: { type: string }
+        operationName: { type: string }
+    SharedLegalDocument:
+      type: object
+      required: [preparedBy, preparedPosition, deliveredBy, accountedBy, transportedBy, transportId, vehiclePlate, drivingLicense, receivedBy, receivedPosition, receivedId, customerIrcc, customerBankAccount, issuer, hasStamp, hasSignature]
+      properties:
+        preparedBy: { type: string, minLength: 1, maxLength: 160 }
+        preparedPosition: { type: string, minLength: 1, maxLength: 160 }
+        deliveredBy: { type: string, maxLength: 160 }
+        accountedBy: { type: string, maxLength: 160 }
+        transportedBy: { type: string, maxLength: 160 }
+        transportId: { type: string, maxLength: 40 }
+        vehiclePlate: { type: string, maxLength: 40 }
+        drivingLicense: { type: string, maxLength: 40 }
+        receivedBy: { type: string, maxLength: 160 }
+        receivedPosition: { type: string, maxLength: 160 }
+        receivedId: { type: string, maxLength: 40 }
+        customerIrcc: { type: string, maxLength: 80 }
+        customerBankAccount: { type: string, maxLength: 80 }
+        issuer: { $ref: "#/components/schemas/IssuerProfile" }
+        hasStamp: { type: boolean }
+        hasSignature: { type: boolean }
+    SharedInvoiceLine:
+      type: object
+      required: [description, serviceCode, unitCode, quantity, unitPrice, amount]
+      properties:
+        description: { type: string }
+        serviceCode: { type: ["string", "null"] }
+        unitCode: { type: ["string", "null"] }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        amount: { type: number }
     SharedInvoiceReceipt:
       type: object
       required: [invoiceNumber, customerName, currency, amount, paidOn, paymentCurrency, reference, paymentMethod, remainingBalance]

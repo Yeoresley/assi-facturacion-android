@@ -752,9 +752,50 @@ router.get("/shared-invoices/:token", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
-  const { paymentCorrections: _internalPaymentCorrections, ...sharedInvoice } = serializeInvoice(invoice);
-  // Public receipt links must not continue to present a corrected/reversed payment as active.
-  sharedInvoice.payments = activeInvoicePayments(sharedInvoice.payments, invoice.paymentCorrections);
+  const serialized = serializeInvoice(invoice);
+  const sharedInvoice = {
+    number: serialized.number,
+    customerName: serialized.customerName,
+    issueDate: serialized.issueDate,
+    dueDate: serialized.dueDate,
+    currency: serialized.currency,
+    status: serialized.status,
+    confirmedAt: serialized.confirmedAt,
+    notes: serialized.notes,
+    versat: serialized.versat ? {
+      number: serialized.versat.number ?? null,
+      contract: serialized.versat.contract ?? null,
+      customerCode: serialized.versat.customerCode,
+      customerName: serialized.versat.customerName,
+      customerAddress: serialized.versat.customerAddress,
+      customerTaxId: serialized.versat.customerTaxId,
+      paymentName: serialized.versat.paymentName,
+      operationName: serialized.versat.operationName,
+    } : null,
+    legalDocument: serialized.legalDocument ? {
+      preparedBy: serialized.legalDocument.preparedBy,
+      preparedPosition: serialized.legalDocument.preparedPosition,
+      deliveredBy: serialized.legalDocument.deliveredBy,
+      accountedBy: serialized.legalDocument.accountedBy,
+      transportedBy: serialized.legalDocument.transportedBy,
+      transportId: serialized.legalDocument.transportId,
+      vehiclePlate: serialized.legalDocument.vehiclePlate,
+      drivingLicense: serialized.legalDocument.drivingLicense,
+      receivedBy: serialized.legalDocument.receivedBy,
+      receivedPosition: serialized.legalDocument.receivedPosition,
+      receivedId: serialized.legalDocument.receivedId,
+      customerIrcc: serialized.legalDocument.customerIrcc,
+      customerBankAccount: serialized.legalDocument.customerBankAccount,
+      issuer: serialized.legalDocument.issuer,
+      hasStamp: Boolean(serialized.legalDocument.stampPath),
+      hasSignature: Boolean(serialized.legalDocument.signaturePath),
+    } : null,
+    subtotal: serialized.subtotal,
+    total: serialized.total,
+    lines: serialized.lines.map(({ description, serviceCode, unitCode, quantity, unitPrice, amount }) => ({
+      description, serviceCode, unitCode, quantity, unitPrice, amount,
+    })),
+  };
   res.set("Cache-Control", "private, no-store").json(GetSharedInvoiceResponse.parse(sharedInvoice));
 });
 

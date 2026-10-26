@@ -324,12 +324,10 @@ test("specialists see only their commercial's invoice payments in lists, details
   const sharedResponse = await request(`/shared-invoices/${token}`, "");
   assert.equal(sharedResponse.status, 200);
   const sharedInvoice = GetSharedInvoiceResponse.parse(await sharedResponse.json());
-  assertPaymentSnapshot(sharedInvoice, updatedOwnSummary);
-  assert.equal(sharedInvoice.payments.find(({ id }) => id === referencedPayment.id)?.reference, reference);
-  assert.equal(sharedInvoice.payments.find(({ id }) => id === referencedPayment.id)?.paymentMethod, "transfer");
-  assert.ok(sharedInvoice.payments
-    .filter(({ id }) => id !== referencedPayment.id)
-    .every(({ reference: value }) => value === null));
+  assert.equal(sharedInvoice.total, 100);
+  assert.equal("payments" in sharedInvoice, false);
+  assert.equal("totalPaid" in sharedInvoice, false);
+  assert.equal("balanceDue" in sharedInvoice, false);
 
   const ownerListResponse = await request("/invoices", ownerId);
   assert.equal(ownerListResponse.status, 200);

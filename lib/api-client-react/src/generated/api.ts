@@ -61,6 +61,7 @@ import type {
   SettlementPayment,
   SettlementPaymentInput,
   SettlementVoidInput,
+  SharedInvoice,
   SharedInvoiceReceipt,
   TeamInvitation,
   TeamInvitationInput,
@@ -3032,9 +3033,9 @@ export const getGetSharedInvoiceUrl = (token: string,) => {
 /**
  * @summary View an invoice using a private share token
  */
-export const getSharedInvoice = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+export const getSharedInvoice = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<SharedInvoice> => {
 
-  return customFetch<Invoice>(getGetSharedInvoiceUrl(token),
+  return customFetch<SharedInvoice>(getGetSharedInvoiceUrl(token),
   {
     ...options,
     method: 'GET'

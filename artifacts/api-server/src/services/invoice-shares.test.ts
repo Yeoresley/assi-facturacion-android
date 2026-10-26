@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-zod";
 import { eq, inArray } from "drizzle-orm";
 import {
-  db, pool, customersTable, invoicesTable, invoicePaymentCorrectionsTable, invoiceSharesTable, invoiceSeriesTable,
+  db, pool, customersTable, invoicesTable, invoiceLinesTable, invoicePaymentCorrectionsTable, invoiceSharesTable, invoiceSeriesTable,
   invoicePaymentsTable, teamMembersTable, teamInvitationsTable, versatCatalogTable, type LegalDocument,
   type VersatInvoiceSnapshot,
 } from "@workspace/db";
@@ -91,6 +91,16 @@ before(async () => {
   ]).returning();
   invoiceId = invoice.id;
   otherInvoiceId = foreign.id;
+  await db.insert(invoiceLinesTable).values({
+    invoiceId,
+    description: "Synthetic legal service",
+    serviceCode: "SVC-TEST",
+    groupCode: `${tag}-internal-group`,
+    unitCode: "EA",
+    quantity: 2,
+    unitPrice: 12.5,
+    amount: 25,
+  });
   const [payment] = await db.insert(invoicePaymentsTable).values([
     { invoiceId, idempotencyKey: `${tag}-payment`, amount: 25, currency: "CUP", paidOn: "2026-10-20", reference: `${tag}-reference`, paymentMethod: "transfer", paidBy: owner },
   ]).returning();
@@ -200,8 +210,34 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.equal(liveData.status, 200);
   assert.match(liveData.headers.get("cache-control")!, /no-store/);
   const sharedBody = await liveData.json() as Record<string, unknown>;
-  assert.equal(GetSharedInvoiceResponse.parse(sharedBody).id, invoiceId);
+  const parsedShared = GetSharedInvoiceResponse.parse(sharedBody);
+  assert.equal(parsedShared.number, tag);
+  assert.deepEqual(Object.keys(sharedBody).sort(), [
+    "confirmedAt", "currency", "customerName", "dueDate", "issueDate", "legalDocument",
+    "lines", "notes", "number", "status", "subtotal", "total", "versat",
+  ]);
+  assert.equal(Object.hasOwn(sharedBody, "id"), false);
+  assert.equal(Object.hasOwn(sharedBody, "payments"), false);
+  assert.equal(Object.hasOwn(sharedBody, "paymentStatus"), false);
   assert.equal(Object.hasOwn(sharedBody, "paymentCorrections"), false);
+  assert.equal(JSON.stringify(sharedBody).includes("/objects/legal/"), false);
+  const sharedLegalDocument = sharedBody.legalDocument as Record<string, unknown>;
+  assert.deepEqual(Object.keys(sharedLegalDocument).sort(), [
+    "accountedBy", "customerBankAccount", "customerIrcc", "deliveredBy", "drivingLicense",
+    "hasSignature", "hasStamp", "issuer", "preparedBy", "preparedPosition", "receivedBy",
+    "receivedId", "receivedPosition", "transportId", "transportedBy", "vehiclePlate",
+  ]);
+  assert.equal(sharedLegalDocument.hasStamp, true);
+  assert.equal(sharedLegalDocument.hasSignature, true);
+  for (const privateField of ["stampPath", "signaturePath", "authorizedAt", "authorizedBy", "useStamp", "useSignature", "confirm"]) {
+    assert.equal(Object.hasOwn(sharedLegalDocument, privateField), false, `shared legal document must omit ${privateField}`);
+  }
+  assert.deepEqual(Object.keys(sharedBody.versat as object).sort(), [
+    "contract", "customerAddress", "customerCode", "customerName", "customerTaxId", "number", "operationName", "paymentName",
+  ]);
+  assert.deepEqual(Object.keys((sharedBody.lines as object[])[0]).sort(), [
+    "amount", "description", "quantity", "serviceCode", "unitCode", "unitPrice",
+  ]);
   assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-correction-reason`), false);
   assert.equal(JSON.stringify(sharedBody).includes(`${tag}-internal-corrector`), false);
   assert.equal((await request(`/shared-invoices/${token}/receipts/${paymentId}`, "")).status, 404);

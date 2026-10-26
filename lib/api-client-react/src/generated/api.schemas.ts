@@ -441,6 +441,105 @@ export interface Invoice {
   createdAt: string;
 }
 
+export type SharedInvoiceStatus = typeof SharedInvoiceStatus[keyof typeof SharedInvoiceStatus];
+
+
+export const SharedInvoiceStatus = {
+  draft: 'draft',
+  finished: 'finished',
+  accepted: 'accepted',
+  confirmed: 'confirmed',
+  voided: 'voided',
+  cancelled: 'cancelled',
+  error: 'error',
+  sent: 'sent',
+  paid: 'paid',
+} as const;
+
+export interface SharedVersatInvoice {
+  /** @nullable */
+  number: string | null;
+  /** @nullable */
+  contract: string | null;
+  /** @nullable */
+  customerCode: string | null;
+  customerName: string;
+  /** @nullable */
+  customerAddress: string | null;
+  /** @nullable */
+  customerTaxId: string | null;
+  paymentName: string;
+  operationName: string;
+}
+
+export interface SharedLegalDocument {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  preparedBy: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  preparedPosition: string;
+  /** @maxLength 160 */
+  deliveredBy: string;
+  /** @maxLength 160 */
+  accountedBy: string;
+  /** @maxLength 160 */
+  transportedBy: string;
+  /** @maxLength 40 */
+  transportId: string;
+  /** @maxLength 40 */
+  vehiclePlate: string;
+  /** @maxLength 40 */
+  drivingLicense: string;
+  /** @maxLength 160 */
+  receivedBy: string;
+  /** @maxLength 160 */
+  receivedPosition: string;
+  /** @maxLength 40 */
+  receivedId: string;
+  /** @maxLength 80 */
+  customerIrcc: string;
+  /** @maxLength 80 */
+  customerBankAccount: string;
+  issuer: IssuerProfile;
+  hasStamp: boolean;
+  hasSignature: boolean;
+}
+
+export interface SharedInvoiceLine {
+  description: string;
+  /** @nullable */
+  serviceCode: string | null;
+  /** @nullable */
+  unitCode: string | null;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface SharedInvoice {
+  number: string;
+  customerName: string;
+  issueDate: string;
+  /** @nullable */
+  dueDate: string | null;
+  currency: string;
+  status: SharedInvoiceStatus;
+  /** @nullable */
+  confirmedAt: string | null;
+  /** @nullable */
+  notes: string | null;
+  versat: SharedVersatInvoice | null;
+  legalDocument: SharedLegalDocument | null;
+  subtotal: number;
+  total: number;
+  lines: SharedInvoiceLine[];
+}
+
 /**
  * @nullable
  */

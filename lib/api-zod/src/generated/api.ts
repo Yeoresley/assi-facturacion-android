@@ -2800,192 +2800,109 @@ export const GetSharedInvoiceParams = zod.object({
   "token": zod.coerce.string()
 })
 
-export const getSharedInvoiceResponseStatusCodeMax = 7;
+export const getSharedInvoiceResponseLegalDocumentOnePreparedByMax = 160;
 
-export const getSharedInvoiceResponseTotalPaidMin = 0;
+export const getSharedInvoiceResponseLegalDocumentOnePreparedPositionMax = 160;
 
-export const getSharedInvoiceResponseBalanceDueMin = 0;
+export const getSharedInvoiceResponseLegalDocumentOneDeliveredByMax = 160;
 
-export const getSharedInvoiceResponsePaymentsItemReferenceMax = 120;
+export const getSharedInvoiceResponseLegalDocumentOneAccountedByMax = 160;
 
-export const getSharedInvoiceResponseVersatOneOneNumberMax = 50;
+export const getSharedInvoiceResponseLegalDocumentOneTransportedByMax = 160;
 
+export const getSharedInvoiceResponseLegalDocumentOneTransportIdMax = 40;
 
-export const getSharedInvoiceResponseVersatOneOneNumberRegExp = new RegExp('^[A-Za-z0-9_-]*$');
-export const getSharedInvoiceResponseVersatOneOneTalonMax = 20;
+export const getSharedInvoiceResponseLegalDocumentOneVehiclePlateMax = 40;
 
+export const getSharedInvoiceResponseLegalDocumentOneDrivingLicenseMax = 40;
 
-export const getSharedInvoiceResponseVersatOneOneTalonRegExp = new RegExp('^[0-9]*$');
-export const getSharedInvoiceResponseVersatOneOneBankAccountMCMax = 100;
+export const getSharedInvoiceResponseLegalDocumentOneReceivedByMax = 160;
 
-export const getSharedInvoiceResponseVersatOneOneBankAccountOMMax = 100;
+export const getSharedInvoiceResponseLegalDocumentOneReceivedPositionMax = 160;
 
-export const getSharedInvoiceResponseVersatOneOneContractMax = 100;
+export const getSharedInvoiceResponseLegalDocumentOneReceivedIdMax = 40;
 
-export const getSharedInvoiceResponseLegalDocumentOneOnePreparedByMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneCustomerIrccMax = 80;
 
-export const getSharedInvoiceResponseLegalDocumentOneOnePreparedPositionMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneCustomerBankAccountMax = 80;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneDeliveredByMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerNameMax = 200;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneAccountedByMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerNitMax = 40;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneTransportedByMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerIrccMax = 80;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneTransportIdMax = 40;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerAddressMax = 400;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneVehiclePlateMax = 40;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerOrganizationMax = 100;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneDrivingLicenseMax = 40;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerPaymentBeneficiaryMax = 200;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneReceivedByMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerBankAccountMax = 80;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneReceivedPositionMax = 160;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerBankBranchMax = 80;
 
-export const getSharedInvoiceResponseLegalDocumentOneOneReceivedIdMax = 40;
-
-export const getSharedInvoiceResponseLegalDocumentOneOneCustomerIrccMax = 80;
-
-export const getSharedInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax = 80;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerNameMax = 200;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerNitMax = 40;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerIrccMax = 80;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerAddressMax = 400;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax = 100;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax = 200;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax = 80;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax = 80;
-
-export const getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax = 200;
+export const getSharedInvoiceResponseLegalDocumentOneIssuerBankNameMax = 200;
 
 
 
 export const GetSharedInvoiceResponse = zod.object({
-  "seriesId": zod.number().int().nullish(),
-  "id": zod.number().int(),
   "number": zod.string(),
-  "customerId": zod.number().int(),
   "customerName": zod.string(),
-  "specialistId": zod.string(),
-  "specialistName": zod.string(),
   "issueDate": zod.coerce.date(),
   "dueDate": zod.coerce.date().nullable(),
   "currency": zod.string(),
   "status": zod.enum(['draft', 'finished', 'accepted', 'confirmed', 'voided', 'cancelled', 'error', 'sent', 'paid']),
-  "statusCode": zod.number().int().min(1).max(getSharedInvoiceResponseStatusCodeMax).nullish(),
-  "paymentStatus": zod.enum(['pending', 'paid']),
-  "totalPaid": zod.number().min(getSharedInvoiceResponseTotalPaidMin),
-  "balanceDue": zod.number().min(getSharedInvoiceResponseBalanceDueMin),
-  "payments": zod.array(zod.object({
-  "id": zod.number().int(),
-  "amount": zod.number(),
-  "currency": zod.string(),
-  "paidOn": zod.coerce.date(),
-  "recordedAt": zod.coerce.date(),
-  "reference": zod.string().max(getSharedInvoiceResponsePaymentsItemReferenceMax).nullable(),
-  "paymentMethod": zod.union([zod.literal('transfer'),zod.literal('cash'),zod.literal('other'),zod.literal(null)]).nullable()
-})),
-  "paymentCorrections": zod.array(zod.object({
-  "id": zod.number().int(),
-  "reason": zod.string(),
-  "correctedBy": zod.string(),
-  "createdAt": zod.coerce.date(),
-  "targetPaymentId": zod.number().int().nullable(),
-  "reversedPaymentId": zod.number().int().nullable(),
-  "beforePaymentAmount": zod.number().nullable(),
-  "afterPaymentAmount": zod.number().nullable(),
-  "beforePaidOn": zod.coerce.date().nullable(),
-  "afterPaidOn": zod.coerce.date().nullable(),
-  "beforeInvoiceStatus": zod.string(),
-  "afterInvoiceStatus": zod.string(),
-  "beforePaymentStatus": zod.enum(['pending', 'paid']),
-  "afterPaymentStatus": zod.enum(['pending', 'paid']),
-  "beforeTotalPaid": zod.number(),
-  "afterTotalPaid": zod.number(),
-  "originalPaidBy": zod.string().nullable(),
-  "originalPaidAt": zod.coerce.date().nullable()
-})).optional(),
-  "paidAt": zod.coerce.date().nullable(),
-  "acceptedAt": zod.coerce.date().nullish(),
-  "confirmedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullable(),
   "notes": zod.string().nullable(),
   "versat": zod.union([zod.object({
-  "conceptId": zod.number().int(),
-  "operationId": zod.number().int(),
-  "commercialId": zod.number().int(),
-  "paymentId": zod.number().int(),
-  "number": zod.string().max(getSharedInvoiceResponseVersatOneOneNumberMax).regex(getSharedInvoiceResponseVersatOneOneNumberRegExp).nullish(),
-  "talon": zod.string().max(getSharedInvoiceResponseVersatOneOneTalonMax).regex(getSharedInvoiceResponseVersatOneOneTalonRegExp).nullish(),
-  "bankAccountMC": zod.string().max(getSharedInvoiceResponseVersatOneOneBankAccountMCMax).nullish(),
-  "bankAccountOM": zod.string().max(getSharedInvoiceResponseVersatOneOneBankAccountOMMax).nullish(),
-  "contract": zod.string().max(getSharedInvoiceResponseVersatOneOneContractMax).nullish()
-}).and(zod.object({
-  "currencyName": zod.string(),
-  "conceptCode": zod.string(),
-  "operationName": zod.string(),
-  "commercialName": zod.string(),
-  "commercialPosition": zod.string(),
-  "paymentName": zod.string(),
+  "number": zod.string().nullable(),
+  "contract": zod.string().nullable(),
   "customerCode": zod.string().nullable(),
   "customerName": zod.string(),
   "customerAddress": zod.string().nullable(),
-  "customerTaxId": zod.string().nullable()
-})),zod.null()]).optional(),
+  "customerTaxId": zod.string().nullable(),
+  "paymentName": zod.string(),
+  "operationName": zod.string()
+}),zod.null()]),
   "legalDocument": zod.union([zod.object({
-  "preparedBy": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneOnePreparedByMax),
-  "preparedPosition": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneOnePreparedPositionMax),
-  "deliveredBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneDeliveredByMax),
-  "accountedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneAccountedByMax),
-  "transportedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneTransportedByMax),
-  "transportId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneTransportIdMax),
-  "vehiclePlate": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneVehiclePlateMax),
-  "drivingLicense": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneDrivingLicenseMax),
-  "receivedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedByMax),
-  "receivedPosition": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedPositionMax),
-  "receivedId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneReceivedIdMax),
-  "customerIrcc": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneCustomerIrccMax),
-  "customerBankAccount": zod.string().max(getSharedInvoiceResponseLegalDocumentOneOneCustomerBankAccountMax),
-  "useStamp": zod.boolean(),
-  "useSignature": zod.boolean(),
-  "confirm": zod.literal(true)
-}).and(zod.object({
+  "preparedBy": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOnePreparedByMax),
+  "preparedPosition": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOnePreparedPositionMax),
+  "deliveredBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneDeliveredByMax),
+  "accountedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneAccountedByMax),
+  "transportedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneTransportedByMax),
+  "transportId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneTransportIdMax),
+  "vehiclePlate": zod.string().max(getSharedInvoiceResponseLegalDocumentOneVehiclePlateMax),
+  "drivingLicense": zod.string().max(getSharedInvoiceResponseLegalDocumentOneDrivingLicenseMax),
+  "receivedBy": zod.string().max(getSharedInvoiceResponseLegalDocumentOneReceivedByMax),
+  "receivedPosition": zod.string().max(getSharedInvoiceResponseLegalDocumentOneReceivedPositionMax),
+  "receivedId": zod.string().max(getSharedInvoiceResponseLegalDocumentOneReceivedIdMax),
+  "customerIrcc": zod.string().max(getSharedInvoiceResponseLegalDocumentOneCustomerIrccMax),
+  "customerBankAccount": zod.string().max(getSharedInvoiceResponseLegalDocumentOneCustomerBankAccountMax),
   "issuer": zod.object({
-  "name": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerNameMax),
-  "nit": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerNitMax),
-  "ircc": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerIrccMax),
-  "address": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerAddressMax),
-  "organization": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerOrganizationMax),
-  "paymentBeneficiary": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerPaymentBeneficiaryMax),
-  "bankAccount": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankAccountMax),
-  "bankBranch": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankBranchMax),
-  "bankName": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneTwoIssuerBankNameMax)
+  "name": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerNameMax),
+  "nit": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerNitMax),
+  "ircc": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerIrccMax),
+  "address": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerAddressMax),
+  "organization": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerOrganizationMax),
+  "paymentBeneficiary": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerPaymentBeneficiaryMax),
+  "bankAccount": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerBankAccountMax),
+  "bankBranch": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerBankBranchMax),
+  "bankName": zod.string().min(1).max(getSharedInvoiceResponseLegalDocumentOneIssuerBankNameMax)
 }),
-  "stampPath": zod.string().nullable(),
-  "signaturePath": zod.string().nullable(),
-  "authorizedAt": zod.string()
-})),zod.null()]).optional(),
+  "hasStamp": zod.boolean(),
+  "hasSignature": zod.boolean()
+}),zod.null()]),
   "subtotal": zod.number(),
   "total": zod.number(),
   "lines": zod.array(zod.object({
-  "id": zod.number().int(),
   "description": zod.string(),
-  "serviceId": zod.number().int().nullish(),
-  "serviceCode": zod.string().nullish(),
-  "groupCode": zod.string().nullish(),
-  "unitCode": zod.string().nullish(),
+  "serviceCode": zod.string().nullable(),
+  "unitCode": zod.string().nullable(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
   "amount": zod.number()
-})),
-  "createdAt": zod.coerce.date()
+}))
 })
 
 
