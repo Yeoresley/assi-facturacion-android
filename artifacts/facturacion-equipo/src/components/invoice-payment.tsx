@@ -309,12 +309,17 @@ export function CorrectPaidButton({ invoice }: { invoice: Invoice }) {
 
 export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, canExportCorrections = false }: { invoice: Invoice; canGenerateReceipts?: boolean; canExportCorrections?: boolean }) {
   const [period, setPeriod] = useState<'all' | '30' | '90'>('all');
+  const [referenceSearch, setReferenceSearch] = useState('');
   const [exportError, setExportError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const corrections = invoice.paymentCorrections ?? [];
   const sortedPayments = useMemo(() => [...invoice.payments].sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.recordedAt.localeCompare(a.recordedAt)), [invoice.payments]);
   const cutoff = period === 'all' ? null : new Date(Date.now() - Number(period) * 86400000).toISOString().slice(0, 10);
-  const visiblePayments = cutoff ? sortedPayments.filter((payment) => payment.paidOn >= cutoff) : sortedPayments;
+  const periodPayments = cutoff ? sortedPayments.filter((payment) => payment.paidOn >= cutoff) : sortedPayments;
+  const normalizedReferenceSearch = referenceSearch.trim().toLowerCase();
+  const visiblePayments = normalizedReferenceSearch
+    ? periodPayments.filter((payment) => payment.reference?.toLowerCase().includes(normalizedReferenceSearch) ?? false)
+    : periodPayments;
   const reversedPaymentIds = new Set(corrections.flatMap((entry) =>
     entry.reversedPaymentId === null ? [] : [entry.reversedPaymentId]));
 
@@ -323,11 +328,14 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
   return <section className="no-print panel mb-5 overflow-hidden" aria-labelledby="payment-history-title">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeece4] px-4 py-4 sm:px-5">
       <div><div className="eyebrow">Seguimiento de cobros</div><h2 id="payment-history-title" className="font-display mt-1 text-base font-bold">Abonos y saldo</h2></div>
-      <label className="flex items-center gap-2 text-[11px] font-semibold text-[#71817b]">Ver
-        <select className="field !h-9 !w-auto min-w-[130px] text-[11px]" value={period} onChange={(event) => setPeriod(event.target.value as 'all' | '30' | '90')} aria-label="Filtrar historial de abonos" data-testid="select-payment-history-period">
-          <option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option>
-        </select>
-      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input className="field !h-9 w-full text-[11px] sm:!w-52" type="search" value={referenceSearch} onChange={(event) => setReferenceSearch(event.target.value)} placeholder="Buscar referencia" aria-label="Buscar abonos por referencia" data-testid="input-payment-history-reference" />
+        <label className="flex items-center gap-2 text-[11px] font-semibold text-[#71817b]">Ver
+          <select className="field !h-9 !w-auto min-w-[130px] text-[11px]" value={period} onChange={(event) => setPeriod(event.target.value as 'all' | '30' | '90')} aria-label="Filtrar historial de abonos" data-testid="select-payment-history-period">
+            <option value="all">Todo el historial</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option>
+          </select>
+        </label>
+      </div>
     </div>
     <div className="grid grid-cols-3 divide-x divide-[#e8e5da] bg-[#f7f6ef] px-2 py-4 sm:px-5">
       <div className="px-2 sm:px-3"><div className="eyebrow">Total factura</div><div className="mt-1 font-display text-[14px] font-bold sm:text-[17px]">{money(invoice.total, invoice.currency)}</div></div>
@@ -351,7 +359,7 @@ export function InvoicePaymentHistory({ invoice, canGenerateReceipts = false, ca
           </div>
         </li>;
         })}
-      </ul> : <div className="rounded-lg border border-dashed border-[#dedfd4] bg-[#fbfaf5] px-4 py-5 text-center text-[12px] text-[#7b8780]" data-testid="empty-payment-history">{invoice.payments.length ? 'No hay abonos en este período.' : 'Todavía no se han registrado abonos.'}</div>}
+      </ul> : <div className="rounded-lg border border-dashed border-[#dedfd4] bg-[#fbfaf5] px-4 py-5 text-center text-[12px] text-[#7b8780]" data-testid="empty-payment-history">{normalizedReferenceSearch ? 'No hay abonos que coincidan con la referencia y el período.' : invoice.payments.length ? 'No hay abonos en este período.' : 'Todavía no se han registrado abonos.'}</div>}
       {corrections.length > 0 && <section className="mt-5 border-t border-[#eeece4] pt-4" aria-labelledby="payment-corrections-title">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><h3 id="payment-corrections-title" className="text-[12px] font-bold">Correcciones de pago</h3><span className="text-[10px] text-[#87918a]">{corrections.length}</span></div>
           {canExportCorrections && <button type="button" className="button button-soft !min-h-8 !px-2.5 !text-[11px]" disabled={isExporting} data-testid="button-download-payment-corrections" onClick={async () => {
