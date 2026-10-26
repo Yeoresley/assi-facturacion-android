@@ -30,6 +30,9 @@ import type {
   GetPaymentMethodSummaryParams,
   GetVersatCatalogAuditParams,
   HealthStatus,
+  ImageAccessNotification,
+  ImageAccessNotificationSettings,
+  ImageAccessNotificationSettingsInput,
   Invoice,
   InvoiceAcceptanceNoticeStatus,
   InvoiceAcceptanceNotification,
@@ -3747,6 +3750,322 @@ export function useListInvoiceImageAccesses<TData = Awaited<ReturnType<typeof li
 
 
 
+
+export const getGetImageAccessNotificationSettingsUrl = () => {
+
+
+
+
+  return `/api/issuer/image-access-notifications`
+}
+
+/**
+ * @summary Get the owner's public legal image opening notification preference
+ */
+export const getImageAccessNotificationSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<ImageAccessNotificationSettings> => {
+
+  return customFetch<ImageAccessNotificationSettings>(getGetImageAccessNotificationSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetImageAccessNotificationSettingsQueryKey = () => {
+    return [
+    `/api/issuer/image-access-notifications`
+    ] as const;
+    }
+
+
+export const getGetImageAccessNotificationSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getImageAccessNotificationSettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getImageAccessNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetImageAccessNotificationSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImageAccessNotificationSettings>>> = ({ signal }) => getImageAccessNotificationSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getImageAccessNotificationSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetImageAccessNotificationSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getImageAccessNotificationSettings>>>
+export type GetImageAccessNotificationSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the owner's public legal image opening notification preference
+ */
+
+export function useGetImageAccessNotificationSettings<TData = Awaited<ReturnType<typeof getImageAccessNotificationSettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getImageAccessNotificationSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetImageAccessNotificationSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateImageAccessNotificationSettingsUrl = () => {
+
+
+
+
+  return `/api/issuer/image-access-notifications`
+}
+
+/**
+ * @summary Update the owner's public legal image opening notification preference
+ */
+export const updateImageAccessNotificationSettings = async (imageAccessNotificationSettingsInput: ImageAccessNotificationSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<ImageAccessNotificationSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ImageAccessNotificationSettings>(getUpdateImageAccessNotificationSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(imageAccessNotificationSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateImageAccessNotificationSettingsMutationKey = () => ['updateImageAccessNotificationSettings'] as const;
+
+export const getUpdateImageAccessNotificationSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>, TError,UpdateImageAccessNotificationSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>, TError,UpdateImageAccessNotificationSettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdateImageAccessNotificationSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>, UpdateImageAccessNotificationSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateImageAccessNotificationSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateImageAccessNotificationSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>>
+    export type UpdateImageAccessNotificationSettingsMutationBody = BodyType<ImageAccessNotificationSettingsInput>
+    export type UpdateImageAccessNotificationSettingsMutationError = ErrorType<void>
+    export type UpdateImageAccessNotificationSettingsMutationVariables = {data: BodyType<ImageAccessNotificationSettingsInput>}
+
+    /**
+ * @summary Update the owner's public legal image opening notification preference
+ */
+export const useUpdateImageAccessNotificationSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>, TError,UpdateImageAccessNotificationSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateImageAccessNotificationSettings>>,
+        TError,
+        UpdateImageAccessNotificationSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateImageAccessNotificationSettingsMutationOptions(options));
+    }
+
+export const getListImageAccessNotificationsUrl = () => {
+
+
+
+
+  return `/api/image-access-notifications`
+}
+
+/**
+ * @summary List unread public image opening notices for the owner
+ */
+export const listImageAccessNotifications = async ( options?: Parameters<typeof customFetch>[1]): Promise<ImageAccessNotification[]> => {
+
+  return customFetch<ImageAccessNotification[]>(getListImageAccessNotificationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListImageAccessNotificationsQueryKey = () => {
+    return [
+    `/api/image-access-notifications`
+    ] as const;
+    }
+
+
+export const getListImageAccessNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listImageAccessNotifications>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listImageAccessNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListImageAccessNotificationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listImageAccessNotifications>>> = ({ signal }) => listImageAccessNotifications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listImageAccessNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListImageAccessNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listImageAccessNotifications>>>
+export type ListImageAccessNotificationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List unread public image opening notices for the owner
+ */
+
+export function useListImageAccessNotifications<TData = Awaited<ReturnType<typeof listImageAccessNotifications>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listImageAccessNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListImageAccessNotificationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkImageAccessNotificationReadUrl = (id: number,) => {
+
+
+
+
+  return `/api/image-access-notifications/${id}/read`
+}
+
+/**
+ * @summary Mark an image opening notice as read
+ */
+export const markImageAccessNotificationRead = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ImageAccessNotification> => {
+
+  return customFetch<ImageAccessNotification>(getMarkImageAccessNotificationReadUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkImageAccessNotificationReadMutationKey = () => ['markImageAccessNotificationRead'] as const;
+
+export const getMarkImageAccessNotificationReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markImageAccessNotificationRead>>, TError,MarkImageAccessNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markImageAccessNotificationRead>>, TError,MarkImageAccessNotificationReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkImageAccessNotificationReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markImageAccessNotificationRead>>, MarkImageAccessNotificationReadMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  markImageAccessNotificationRead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkImageAccessNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markImageAccessNotificationRead>>>
+
+    export type MarkImageAccessNotificationReadMutationError = ErrorType<void>
+    export type MarkImageAccessNotificationReadMutationVariables = {id: number}
+
+    /**
+ * @summary Mark an image opening notice as read
+ */
+export const useMarkImageAccessNotificationRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markImageAccessNotificationRead>>, TError,MarkImageAccessNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markImageAccessNotificationRead>>,
+        TError,
+        MarkImageAccessNotificationReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkImageAccessNotificationReadMutationOptions(options));
+    }
 
 export const getRevokeInvoiceShareUrl = (id: number,
     shareId: number,) => {

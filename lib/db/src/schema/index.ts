@@ -23,6 +23,7 @@ export * from "./invoice-payments";
 export * from "./invoice-acceptance-notifications";
 export * from "./invoice-shares";
 export * from "./invoice-image-accesses";
+export * from "./invoice-image-access-notification-settings";
 export * from "./team";
 export * from "./versat-catalog";
 export * from "./issuer";

@@ -809,6 +809,66 @@ paths:
                 items: { $ref: "#/components/schemas/InvoiceImageAccess" }
         "403": { description: Owner access required }
         "404": { description: Invoice unavailable }
+  /issuer/image-access-notifications:
+    get:
+      operationId: getImageAccessNotificationSettings
+      tags: [issuer]
+      summary: Get the owner's public legal image opening notification preference
+      responses:
+        "200":
+          description: Notification preference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageAccessNotificationSettings" }
+        "403": { description: Owner access required }
+    patch:
+      operationId: updateImageAccessNotificationSettings
+      tags: [issuer]
+      summary: Update the owner's public legal image opening notification preference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImageAccessNotificationSettingsInput" }
+      responses:
+        "200":
+          description: Updated notification preference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageAccessNotificationSettings" }
+        "403": { description: Owner access required }
+  /image-access-notifications:
+    get:
+      operationId: listImageAccessNotifications
+      tags: [invoices]
+      summary: List unread public image opening notices for the owner
+      responses:
+        "200":
+          description: Unread image opening notices without visitor identity or share tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ImageAccessNotification" }
+        "403": { description: Owner access required }
+  /image-access-notifications/{id}/read:
+    patch:
+      operationId: markImageAccessNotificationRead
+      tags: [invoices]
+      summary: Mark an image opening notice as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Notice marked as read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageAccessNotification" }
+        "403": { description: Owner access required }
+        "404": { description: Notice not found }
   /invoices/{id}/shares/{shareId}:
     delete:
       operationId: revokeInvoiceShare
@@ -1155,6 +1215,16 @@ components:
             - { type: "null" }
         hasStamp: { type: boolean }
         hasSignature: { type: boolean }
+    ImageAccessNotificationSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    ImageAccessNotificationSettingsInput:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
     IssuerImagesInput:
       type: object
       minProperties: 1
@@ -1556,6 +1626,16 @@ components:
       required: [invoiceId, shareId, kind, openedAt]
       properties:
         invoiceId: { type: integer }
+        shareId: { type: integer }
+        kind: { type: string, enum: [stamp, signature] }
+        openedAt: { type: string, format: date-time }
+    ImageAccessNotification:
+      type: object
+      required: [id, invoiceId, invoiceNumber, shareId, kind, openedAt]
+      properties:
+        id: { type: integer }
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
         shareId: { type: integer }
         kind: { type: string, enum: [stamp, signature] }
         openedAt: { type: string, format: date-time }

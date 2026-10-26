@@ -13,6 +13,8 @@ import {
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListTeamMembersQueryKey,
   getHealthCheckQueryKey, getListInvoiceAcceptanceNotificationsQueryKey,
   useListInvoiceAcceptanceNotifications, useMarkInvoiceAcceptanceNotificationRead,
+  getGetImageAccessNotificationSettingsQueryKey, getListImageAccessNotificationsQueryKey,
+  useGetImageAccessNotificationSettings, useListImageAccessNotifications, useMarkImageAccessNotificationRead,
 } from '@workspace/api-client-react';
 import type { ListInvoicesPaymentStatus, ListInvoicesStatus, Customer, CustomerInput, Invoice, InvoiceInput, InvoiceStatusInputStatus } from '@workspace/api-client-react';
 import {
@@ -236,6 +238,7 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">
         <AcceptanceNoticeBanner enabled={me.role === 'specialist'} />
+        <ImageAccessNoticeBanner enabled={me.role === 'owner'} />
         {children}
       </main>
     </div>
@@ -274,6 +277,60 @@ function AcceptanceNoticeBanner({ enabled }: { enabled: boolean }) {
           <p className="text-[#617887]">{notice.reason === 'payment'
             ? 'El administrador registró un pago y la factura quedó Aceptada.'
             : 'El administrador confirmó la importación en Versat y la factura quedó Aceptada.'}</p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Link href={`/invoices/${notice.invoiceId}`} onClick={() => markRead.mutate({ id: notice.id })} className="button button-soft !min-h-8 !px-3 text-[11px]">Ver factura</Link>
+        <button className="button button-plain !min-h-8 !px-3 text-[11px]" disabled={markRead.isPending} onClick={() => markRead.mutate({ id: notice.id })}>Entendido</button>
+      </div>
+    </article>)}
+    {markRead.isError && <p className="px-2 text-[11px] text-[#9a453a]" role="alert">No se pudo actualizar el aviso como leído. Vuelve a intentarlo.</p>}
+  </section>;
+}
+
+function ImageAccessNoticeBanner({ enabled }: { enabled: boolean }) {
+  const client = useQueryClient();
+  const settings = useGetImageAccessNotificationSettings({
+    query: {
+      queryKey: getGetImageAccessNotificationSettingsQueryKey(),
+      enabled,
+      staleTime: 0,
+      refetchInterval: enabled ? 30000 : false,
+      retry: false,
+    },
+  });
+  const notices = useListImageAccessNotifications({
+    query: {
+      queryKey: getListImageAccessNotificationsQueryKey(),
+      enabled: enabled && settings.data?.enabled === true,
+      staleTime: 0,
+      refetchInterval: enabled && settings.data?.enabled ? 15000 : false,
+      retry: false,
+    },
+  });
+  const markRead = useMarkImageAccessNotificationRead({
+    mutation: {
+      onSuccess: () => client.invalidateQueries({ queryKey: getListImageAccessNotificationsQueryKey() }),
+    },
+  });
+  const timestamp = (value: Date | string) => (value instanceof Date ? value : new Date(value)).toLocaleString('es-ES');
+  if (!enabled || (!settings.isError && !settings.data?.enabled && !notices.isError) ||
+    (!settings.isError && !notices.isError && !notices.data?.length)) return null;
+  return <section className="mb-5 space-y-2" aria-label="Avisos de aperturas de imágenes" data-testid="image-access-notifications">
+    {settings.isError && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#efd2cc] bg-[#fbefeb] px-4 py-3 text-[12px] text-[#9a453a]" role="alert">
+      <span>No se pudo comprobar si los avisos de aperturas están activados.</span>
+      <button className="font-bold underline" onClick={() => settings.refetch()}>Reintentar</button>
+    </div>}
+    {notices.isError && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#efd2cc] bg-[#fbefeb] px-4 py-3 text-[12px] text-[#9a453a]" role="alert">
+      <span>No se pudieron cargar las nuevas aperturas.</span>
+      <button className="font-bold underline" onClick={() => notices.refetch()}>Reintentar</button>
+    </div>}
+    {(notices.data ?? []).map(notice => <article key={notice.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#cfe2e9] bg-[#eaf5f8] px-4 py-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#087eaf]"><Bell size={15} /></span>
+        <div className="min-w-0 text-[12px] leading-5">
+          <div className="font-bold text-[#12365a]">Factura {notice.invoiceNumber}: se abrió la {notice.kind === 'stamp' ? 'imagen del cuño' : 'firma'}.</div>
+          <p className="text-[#617887]">Enlace #{notice.shareId} · {timestamp(notice.openedAt)}</p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">

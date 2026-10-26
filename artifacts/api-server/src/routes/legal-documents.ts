@@ -1,8 +1,17 @@
 import { and, desc, eq, isNull, type SQL } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { Router, type Response } from "express";
-import { db, invoiceImageAccessesTable, invoicesTable, issuerSettingsTable, type LegalDocument } from "@workspace/db";
-import { AuthorizeInvoiceDocumentBody, GetInvoiceResponse, ListInvoiceImageAccessesParams, ListInvoiceImageAccessesResponse, UpdateIssuerBody, UpdateIssuerImagesBody } from "@workspace/api-zod";
+import {
+  db, invoiceImageAccessesTable, invoiceImageAccessNotificationSettingsTable, invoicesTable, issuerSettingsTable,
+  type LegalDocument,
+} from "@workspace/db";
+import {
+  AuthorizeInvoiceDocumentBody, GetImageAccessNotificationSettingsResponse, GetInvoiceResponse,
+  ListImageAccessNotificationsResponse, ListInvoiceImageAccessesParams, ListInvoiceImageAccessesResponse,
+  MarkImageAccessNotificationReadParams, MarkImageAccessNotificationReadResponse,
+  UpdateImageAccessNotificationSettingsBody, UpdateImageAccessNotificationSettingsResponse,
+  UpdateIssuerBody, UpdateIssuerImagesBody,
+} from "@workspace/api-zod";
 import { requireOwner, resolveTeamMember } from "../middlewares/team-access";
 import { getInvoiceRow, serializeInvoice } from "../services/invoice-records";
 import { privateImage } from "../lib/private-images";
@@ -22,6 +31,44 @@ const toSettings = (row: Awaited<ReturnType<typeof settings>>) => ({
 router.get("/issuer", async (req, res) => {
   if (!await resolveTeamMember(req, res)) return;
   res.set("Cache-Control", "no-store").json(toSettings(await settings()));
+});
+
+router.get("/issuer/image-access-notifications", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const [preference] = await db.select({ enabled: invoiceImageAccessNotificationSettingsTable.enabled })
+    .from(invoiceImageAccessNotificationSettingsTable)
+    .where(eq(invoiceImageAccessNotificationSettingsTable.ownerUserId, owner.userId)).limit(1);
+  res.json(GetImageAccessNotificationSettingsResponse.parse({ enabled: preference?.enabled ?? false }));
+});
+
+router.patch("/issuer/image-access-notifications", async (req, res): Promise<void> => {
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const parsed = UpdateImageAccessNotificationSettingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Indica si quieres recibir avisos de nuevas aperturas." });
+    return;
+  }
+  const preference = await db.transaction(async tx => {
+    const [current] = await tx.select({ enabled: invoiceImageAccessNotificationSettingsTable.enabled })
+      .from(invoiceImageAccessNotificationSettingsTable)
+      .where(eq(invoiceImageAccessNotificationSettingsTable.ownerUserId, owner.userId))
+      .for("update").limit(1);
+    if (parsed.data.enabled && !current?.enabled) {
+      // Do not turn old history into new alerts when notifications are first enabled or re-enabled.
+      await tx.update(invoiceImageAccessesTable).set({ readAt: new Date() })
+        .where(isNull(invoiceImageAccessesTable.readAt));
+    }
+    const [saved] = await tx.insert(invoiceImageAccessNotificationSettingsTable)
+      .values({ ownerUserId: owner.userId, enabled: parsed.data.enabled, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: invoiceImageAccessNotificationSettingsTable.ownerUserId,
+        set: { enabled: parsed.data.enabled, updatedAt: new Date() },
+      }).returning({ enabled: invoiceImageAccessNotificationSettingsTable.enabled });
+    return saved;
+  });
+  res.json(UpdateImageAccessNotificationSettingsResponse.parse(preference));
 });
 
 router.put("/issuer", async (req, res) => {
@@ -217,6 +264,72 @@ router.get("/shared-invoices/:token/images/:kind", async (req, res) => {
   const share = await getActiveInvoiceShare(req.params.token);
   if (!share || share.paymentId !== null) { res.sendStatus(404); return; }
   await sendImage(share.invoiceId, req.params.kind, res, undefined, share.id);
+});
+
+router.get("/image-access-notifications", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const [preference] = await db.select({ enabled: invoiceImageAccessNotificationSettingsTable.enabled })
+    .from(invoiceImageAccessNotificationSettingsTable)
+    .where(eq(invoiceImageAccessNotificationSettingsTable.ownerUserId, owner.userId)).limit(1);
+  if (!preference?.enabled) {
+    res.json([]);
+    return;
+  }
+  const notices = await db.select({
+    id: invoiceImageAccessesTable.id,
+    invoiceId: invoiceImageAccessesTable.invoiceId,
+    invoiceNumber: invoicesTable.number,
+    shareId: invoiceImageAccessesTable.shareId,
+    kind: invoiceImageAccessesTable.kind,
+    openedAt: invoiceImageAccessesTable.openedAt,
+  }).from(invoiceImageAccessesTable)
+    .innerJoin(invoicesTable, eq(invoiceImageAccessesTable.invoiceId, invoicesTable.id))
+    .where(isNull(invoiceImageAccessesTable.readAt))
+    .orderBy(desc(invoiceImageAccessesTable.openedAt), desc(invoiceImageAccessesTable.id))
+    .limit(50);
+  res.json(ListImageAccessNotificationsResponse.parse(notices.map(notice => ({
+    ...notice,
+    openedAt: notice.openedAt.toISOString(),
+  }))));
+});
+
+router.patch("/image-access-notifications/:id/read", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  const owner = await requireOwner(req, res);
+  if (!owner) return;
+  const params = MarkImageAccessNotificationReadParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Identificador de aviso no válido." });
+    return;
+  }
+  const [access] = await db.update(invoiceImageAccessesTable)
+    .set({ readAt: new Date() })
+    .where(eq(invoiceImageAccessesTable.id, params.data.id))
+    .returning({ id: invoiceImageAccessesTable.id });
+  if (!access) {
+    res.status(404).json({ error: "Aviso no encontrado." });
+    return;
+  }
+  const [notice] = await db.select({
+    id: invoiceImageAccessesTable.id,
+    invoiceId: invoiceImageAccessesTable.invoiceId,
+    invoiceNumber: invoicesTable.number,
+    shareId: invoiceImageAccessesTable.shareId,
+    kind: invoiceImageAccessesTable.kind,
+    openedAt: invoiceImageAccessesTable.openedAt,
+  }).from(invoiceImageAccessesTable)
+    .innerJoin(invoicesTable, eq(invoiceImageAccessesTable.invoiceId, invoicesTable.id))
+    .where(eq(invoiceImageAccessesTable.id, params.data.id)).limit(1);
+  if (!notice) {
+    res.status(404).json({ error: "Aviso no encontrado." });
+    return;
+  }
+  res.json(MarkImageAccessNotificationReadResponse.parse({
+    ...notice,
+    openedAt: notice.openedAt.toISOString(),
+  }));
 });
 
 router.get("/invoices/:id/image-accesses", async (req, res): Promise<void> => {

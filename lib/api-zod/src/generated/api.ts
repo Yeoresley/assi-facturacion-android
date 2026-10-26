@@ -3052,6 +3052,60 @@ export const ListInvoiceImageAccessesResponse = zod.array(ListInvoiceImageAccess
 
 
 /**
+ * @summary Get the owner's public legal image opening notification preference
+ */
+export const GetImageAccessNotificationSettingsResponse = zod.object({
+  "enabled": zod.boolean()
+})
+
+
+/**
+ * @summary Update the owner's public legal image opening notification preference
+ */
+export const UpdateImageAccessNotificationSettingsBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const UpdateImageAccessNotificationSettingsResponse = zod.object({
+  "enabled": zod.boolean()
+})
+
+
+/**
+ * @summary List unread public image opening notices for the owner
+ */
+export const ListImageAccessNotificationsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "shareId": zod.number().int(),
+  "kind": zod.enum(['stamp', 'signature']),
+  "openedAt": zod.coerce.date()
+})
+export const ListImageAccessNotificationsResponse = zod.array(ListImageAccessNotificationsResponseItem)
+
+
+/**
+ * @summary Mark an image opening notice as read
+ */
+
+
+
+export const MarkImageAccessNotificationReadParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const MarkImageAccessNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "invoiceId": zod.number().int(),
+  "invoiceNumber": zod.string(),
+  "shareId": zod.number().int(),
+  "kind": zod.enum(['stamp', 'signature']),
+  "openedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Revoke only this link, preserving the invoice and share history
  */
 

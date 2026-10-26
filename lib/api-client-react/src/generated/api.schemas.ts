@@ -118,6 +118,14 @@ export interface IssuerSettings {
   hasSignature: boolean;
 }
 
+export interface ImageAccessNotificationSettings {
+  enabled: boolean;
+}
+
+export interface ImageAccessNotificationSettingsInput {
+  enabled: boolean;
+}
+
 export interface IssuerImagesInput {
   /**
      * @maxLength 1400000
@@ -853,6 +861,23 @@ export interface InvoiceImageAccess {
   invoiceId: number;
   shareId: number;
   kind: InvoiceImageAccessKind;
+  openedAt: string;
+}
+
+export type ImageAccessNotificationKind = typeof ImageAccessNotificationKind[keyof typeof ImageAccessNotificationKind];
+
+
+export const ImageAccessNotificationKind = {
+  stamp: 'stamp',
+  signature: 'signature',
+} as const;
+
+export interface ImageAccessNotification {
+  id: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  shareId: number;
+  kind: ImageAccessNotificationKind;
   openedAt: string;
 }
 

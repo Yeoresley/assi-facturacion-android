@@ -14,6 +14,7 @@ export const invoiceImageAccessesTable = pgTable("invoice_image_accesses", {
     .references(() => invoiceSharesTable.id, { onDelete: "cascade" }),
   kind: text("kind").$type<"stamp" | "signature">().notNull(),
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp("read_at", { withTimezone: true }),
 }, (table) => [
   index("invoice_image_accesses_invoice_opened_idx").on(table.invoiceId, table.openedAt),
 ]);

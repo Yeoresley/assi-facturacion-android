@@ -6,14 +6,18 @@ import express from "express";
 import { clerkClient } from "@clerk/express";
 import {
   CreateInvoiceShareResponse,
+  GetImageAccessNotificationSettingsResponse,
   GetInvoiceResponse,
   GetSharedInvoiceResponse,
+  ListImageAccessNotificationsResponse,
   ListInvoiceImageAccessesResponse,
   ListInvoiceSharesResponse,
+  MarkImageAccessNotificationReadResponse,
 } from "@workspace/api-zod";
 import { eq, inArray } from "drizzle-orm";
 import {
-  db, pool, customersTable, invoicesTable, invoiceLinesTable, invoicePaymentCorrectionsTable, invoiceSharesTable, invoiceSeriesTable,
+  db, pool, customersTable, invoicesTable, invoiceLinesTable, invoicePaymentCorrectionsTable, invoiceSharesTable,
+  invoiceImageAccessNotificationSettingsTable, invoiceSeriesTable,
   invoicePaymentsTable, teamMembersTable, teamInvitationsTable, versatCatalogTable, type LegalDocument,
   type VersatInvoiceSnapshot,
 } from "@workspace/db";
@@ -159,6 +163,8 @@ after(async () => {
   if (invoiceIds.length) await db.delete(invoicesTable).where(inArray(invoicesTable.id, invoiceIds));
   if (customerId) await db.delete(customersTable).where(eq(customersTable.id, customerId));
   await db.delete(teamInvitationsTable).where(inArray(teamInvitationsTable.email, identities.map(email)));
+  await db.delete(invoiceImageAccessNotificationSettingsTable)
+    .where(eq(invoiceImageAccessNotificationSettingsTable.ownerUserId, owner));
   await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
   if (commercialId) await db.delete(versatCatalogTable).where(eq(versatCatalogTable.id, commercialId));
   if (otherCommercialId) await db.delete(versatCatalogTable).where(eq(versatCatalogTable.id, otherCommercialId));
@@ -167,6 +173,13 @@ after(async () => {
 
 const request = (path: string, actor = specialist, method = "GET") =>
   fetch(`${base}${path}`, { method, headers: { "x-synthetic-id": actor } });
+
+const requestJson = (path: string, actor: string, method: string, body: unknown) =>
+  fetch(`${base}${path}`, {
+    method,
+    headers: { "x-synthetic-id": actor, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 function assertSharedInvoiceHasNoPaymentData(body: Record<string, unknown>, privateValues: string[] = []) {
   const forbiddenFields = new Set([
@@ -404,6 +417,53 @@ test("public shares omit internal correction audit while team detail preserves i
   const foreignHistory = await request(`/invoices/${otherInvoiceId}/image-accesses`, owner);
   assert.equal(foreignHistory.status, 200);
   assert.deepEqual(ListInvoiceImageAccessesResponse.parse(await foreignHistory.json()), []);
+  const notificationSettingsUrl = "/issuer/image-access-notifications";
+  const notificationSettings = GetImageAccessNotificationSettingsResponse.parse(
+    await (await request(notificationSettingsUrl, owner)).json(),
+  );
+  assert.deepEqual(notificationSettings, { enabled: false });
+  assert.equal((await request(notificationSettingsUrl, specialist)).status, 403);
+  assert.equal((await request("/image-access-notifications", specialist)).status, 403);
+  assert.equal((await requestJson(notificationSettingsUrl, specialist, "PATCH", { enabled: true })).status, 403);
+  const enabledSettings = await requestJson(notificationSettingsUrl, owner, "PATCH", { enabled: true });
+  assert.deepEqual(GetImageAccessNotificationSettingsResponse.parse(await enabledSettings.json()), { enabled: true });
+  assert.deepEqual(ListImageAccessNotificationsResponse.parse(
+    await (await request("/image-access-notifications", owner)).json(),
+  ), [], "prior image history should not become new notices when enabled");
+  const notifiedImage = await request(`/shared-invoices/${token}/images/stamp`, "");
+  assert.equal(notifiedImage.status, 200);
+  const imageNoticesResponse = await request("/image-access-notifications", owner);
+  assert.equal(imageNoticesResponse.status, 200);
+  assert.match(imageNoticesResponse.headers.get("cache-control")!, /no-store/);
+  const imageNotices = ListImageAccessNotificationsResponse.parse(await imageNoticesResponse.json());
+  assert.equal(imageNotices.length, 1);
+  assert.deepEqual(
+    (({ invoiceId: noticeInvoiceId, invoiceNumber, shareId: noticeShareId, kind }) =>
+      ({ invoiceId: noticeInvoiceId, invoiceNumber, shareId: noticeShareId, kind }))(imageNotices[0]),
+    { invoiceId, invoiceNumber: tag, shareId, kind: "stamp" },
+  );
+  assert.ok(Number.isFinite(imageNotices[0].openedAt.getTime()));
+  assert.ok(!JSON.stringify(imageNotices).includes(token));
+  assert.ok(!JSON.stringify(imageNotices).includes(hash(token)));
+  assert.ok(!JSON.stringify(imageNotices).includes("visitor"));
+  const readNoticeResponse = await request(`/image-access-notifications/${imageNotices[0].id}/read`, owner, "PATCH");
+  assert.equal(readNoticeResponse.status, 200);
+  MarkImageAccessNotificationReadResponse.parse(await readNoticeResponse.json());
+  assert.deepEqual(ListImageAccessNotificationsResponse.parse(
+    await (await request("/image-access-notifications", owner)).json(),
+  ), []);
+  assert.equal((await request(`/image-access-notifications/${imageNotices[0].id}/read`, specialist, "PATCH")).status, 403);
+  const disabledSettings = await requestJson(notificationSettingsUrl, owner, "PATCH", { enabled: false });
+  assert.deepEqual(GetImageAccessNotificationSettingsResponse.parse(await disabledSettings.json()), { enabled: false });
+  assert.equal((await request(`/shared-invoices/${token}/images/signature`, "")).status, 200);
+  assert.deepEqual(ListImageAccessNotificationsResponse.parse(
+    await (await request("/image-access-notifications", owner)).json(),
+  ), []);
+  const reenabledSettings = await requestJson(notificationSettingsUrl, owner, "PATCH", { enabled: true });
+  assert.deepEqual(GetImageAccessNotificationSettingsResponse.parse(await reenabledSettings.json()), { enabled: true });
+  assert.deepEqual(ListImageAccessNotificationsResponse.parse(
+    await (await request("/image-access-notifications", owner)).json(),
+  ), [], "opens made while disabled should not be delivered retroactively");
   const created = await request(`/invoices/${invoiceId}/share`, specialist, "POST");
   assert.match(created.headers.get("cache-control")!, /no-store/);
   const newLink = CreateInvoiceShareResponse.parse(await created.json());
@@ -454,7 +514,7 @@ test("public shares omit internal correction audit while team detail preserves i
   }
   assert.equal(downloads, previousDownloads);
   const afterInvalidAccesses = ListInvoiceImageAccessesResponse.parse(await (await request(imageAccessUrl, owner)).json());
-  assert.equal(afterInvalidAccesses.length, 4, "only successful image requests should be recorded; expired, revoked, cancelled and annulled requests must not be");
+  assert.equal(afterInvalidAccesses.length, 6, "only successful image requests should be recorded; expired, revoked, cancelled and annulled requests must not be");
   const remaining = ListInvoiceSharesResponse.parse(await (await request(list, owner)).json());
   assert.deepEqual(remaining.map(link => link.id), [newLink.id]);
   assert.ok(remaining[0].createdAt);
