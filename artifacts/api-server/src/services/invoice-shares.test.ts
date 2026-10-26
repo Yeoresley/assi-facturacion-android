@@ -256,7 +256,7 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.match(receiptResponse.headers.get("cache-control")!, /no-store/);
   const receiptBody = await receiptResponse.json() as Record<string, unknown>;
   assert.deepEqual(Object.keys(receiptBody).sort(), [
-    "amount", "currency", "customerName", "invoiceNumber", "paidOn", "paymentCurrency", "paymentMethod", "reference", "remainingBalance",
+    "amount", "corrected", "currency", "customerName", "invoiceNumber", "paidOn", "paymentCurrency", "paymentMethod", "reference", "remainingBalance",
   ]);
   assert.deepEqual(receiptBody, {
     invoiceNumber: tag,
@@ -268,6 +268,7 @@ test("public shares omit internal correction audit while team detail preserves i
     paymentMethod: "transfer",
     reference: `${tag}-reference`,
     remainingBalance: 0,
+    corrected: false,
   });
   assert.equal(JSON.stringify(receiptBody).includes(tag + "-internal-correction-reason"), false);
   assert.equal((await request(`/shared-invoices/${receiptToken}/receipts/999999`, "")).status, 404);
@@ -327,6 +328,22 @@ test("public shares omit internal correction audit while team detail preserves i
   assert.ok(newLink.id !== shareId);
   const newToken = new URL(newLink.url).pathname.split("/").at(-1)!;
   assert.notEqual(newToken, token);
+  for (const kind of ["stamp", "signature"] as const) {
+    const image = await request(`/shared-invoices/${newToken}/images/${kind}`, "");
+    assert.equal(image.status, 200, `a newly created link should serve ${kind} while the invoice is issued`);
+    assert.equal(await image.text(), "synthetic-image");
+  }
+  const downloadsBeforeCancellation = downloads;
+  for (const status of ["voided", "cancelled"] as const) {
+    await db.update(invoicesTable).set({ status }).where(eq(invoicesTable.id, invoiceId));
+    for (const kind of ["stamp", "signature"] as const) {
+      const image = await request(`/shared-invoices/${newToken}/images/${kind}`, "");
+      assert.equal(image.status, 404, `${status} shared ${kind} must stay hidden`);
+      assert.ok(!(await image.text()).includes("synthetic-image"), `${status} shared ${kind} must not send image contents`);
+    }
+  }
+  assert.equal(downloads, downloadsBeforeCancellation, "an annulled or cancelled invoice must not download either scan");
+  await db.update(invoicesTable).set({ status: "sent" }).where(eq(invoicesTable.id, invoiceId));
   assert.equal((await request(list)).status, 200);
   assert.deepEqual(ListInvoiceSharesResponse.parse(await (await request(list)).json()).map(link => link.id).sort((a, b) => a - b), [shareId, receiptLink.id, newLink.id].sort((a, b) => a - b));
   const receiptRevoke = `${list}/${receiptLink.id}`;
@@ -355,7 +372,7 @@ test("public shares omit internal correction audit while team detail preserves i
   }
   assert.equal(downloads, previousDownloads);
   const afterInvalidAccesses = ListInvoiceImageAccessesResponse.parse(await (await request(imageAccessUrl, owner)).json());
-  assert.equal(afterInvalidAccesses.length, 2, "expired and revoked links must not record successful openings");
+  assert.equal(afterInvalidAccesses.length, 4, "only successful image requests should be recorded; expired, revoked, cancelled and annulled requests must not be");
   const remaining = ListInvoiceSharesResponse.parse(await (await request(list, owner)).json());
   assert.deepEqual(remaining.map(link => link.id), [newLink.id]);
   assert.ok(remaining[0].createdAt);
