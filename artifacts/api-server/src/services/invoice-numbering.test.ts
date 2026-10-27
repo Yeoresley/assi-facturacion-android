@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { after, before, test } from "node:test";
+import { after, before, mock, test } from "node:test";
+import type { Server } from "node:http";
+import express from "express";
+import { clerkClient } from "@clerk/express";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   customersTable, db, pool, invoiceAcceptanceNotificationsTable, invoiceLinesTable, invoiceNumberReservationsTable, invoicePaymentsTable, invoicesTable,
-  invoicePaymentCorrectionsTable, invoiceSeriesTable, type LegalDocument, type VersatInvoiceSnapshot,
+  invoicePaymentCorrectionsTable, invoiceSeriesTable, teamMembersTable, type LegalDocument, type VersatInvoiceSnapshot,
 } from "@workspace/db";
+import billingRouter from "../routes/billing";
 import { allocateNumber, formatSeries, lockNumbering, reserveNumber, validateSeriesSelection } from "./invoice-numbering";
 import { transitionInvoice as scopedTransitionInvoice } from "./issue-invoice";
 import { invoiceScope } from "./invoice-access";
@@ -72,6 +76,91 @@ test("created invoice series response matches the saved series contract", () => 
     width: 3, talon: "5", nextNumber: 91, active: true,
   };
   assert.deepEqual(CreateInvoiceSeriesResponse.parse(saved), saved);
+});
+
+test("a different authenticated specialist cannot read or mark another recipient's notice as read", async () => {
+  const recipientId = `${tag}notice-recipient`;
+  const otherSpecialistId = `${tag}other-specialist`;
+  const identities = [recipientId, otherSpecialistId];
+  let server: Server | undefined;
+  const email = (userId: string) => `${userId}@example.invalid`;
+
+  mock.method(clerkClient.users, "getUser", async (id: string) => ({
+    id,
+    firstName: "Synthetic",
+    lastName: "Notice Test",
+    primaryEmailAddressId: "verified",
+    emailAddresses: [{
+      id: "verified",
+      emailAddress: email(id),
+      verification: { status: "verified" },
+    }],
+  }));
+
+  try {
+    await db.insert(teamMembersTable).values(identities.map((userId) => ({
+      userId, name: userId, email: email(userId), role: "specialist" as const,
+    })));
+    const invoice = await draft(null, {
+      number: `${tag}PRIVATE_NOTICE_INVOICE`,
+      specialistId: recipientId,
+      specialistName: recipientId,
+    });
+    const [notice] = await db.insert(invoiceAcceptanceNotificationsTable).values({
+      invoiceId: invoice.id,
+      recipientUserId: recipientId,
+      invoiceNumber: `${tag}PRIVATE_NOTICE_NUMBER`,
+      reason: "payment",
+    }).returning();
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      const auth = Object.assign(
+        () => ({ userId: req.headers["x-synthetic-id"] ?? null, tokenType: "session_token" }),
+        { [Symbol.for("@clerk/express.auth")]: true },
+      );
+      Object.assign(req, { auth });
+      next();
+    });
+    app.use("/api", billingRouter);
+    server = app.listen(0, "127.0.0.1");
+    await new Promise<void>((resolve) => server!.once("listening", resolve));
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const base = `http://127.0.0.1:${address.port}/api`;
+    const request = (path: string, actor: string, method = "GET") => fetch(`${base}${path}`, {
+      method,
+      headers: { "x-synthetic-id": actor },
+    });
+
+    const recipientNoticesResponse = await request("/notifications", recipientId);
+    assert.equal(recipientNoticesResponse.status, 200);
+    const recipientNotices = await recipientNoticesResponse.json() as Array<{ id: number }>;
+    assert.ok(recipientNotices.some(({ id }) => id === notice.id));
+
+    const otherNoticesResponse = await request("/notifications", otherSpecialistId);
+    assert.equal(otherNoticesResponse.status, 200);
+    const otherNoticesText = await otherNoticesResponse.text();
+    assert.deepEqual(JSON.parse(otherNoticesText), []);
+    assert.equal(otherNoticesText.includes(`${tag}PRIVATE_NOTICE_NUMBER`), false);
+    assert.equal(otherNoticesText.includes(`${tag}PRIVATE_NOTICE_INVOICE`), false);
+
+    const markReadResponse = await request(`/notifications/${notice.id}/read`, otherSpecialistId, "PATCH");
+    assert.equal(markReadResponse.status, 404);
+    const markReadBody = await markReadResponse.text();
+    assert.deepEqual(JSON.parse(markReadBody), { error: "Notice not found" });
+    assert.equal(markReadBody.includes(`${tag}PRIVATE_NOTICE_NUMBER`), false);
+    assert.equal(markReadBody.includes(`${tag}PRIVATE_NOTICE_INVOICE`), false);
+
+    const [storedNotice] = await db.select().from(invoiceAcceptanceNotificationsTable)
+      .where(eq(invoiceAcceptanceNotificationsTable.id, notice.id));
+    assert.equal(storedNotice.readAt, null);
+  } finally {
+    if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
+    mock.restoreAll();
+    await db.delete(teamMembersTable).where(inArray(teamMembersTable.userId, identities));
+  }
 });
 
 test("orphaned number reservations still block reuse, including compact spellings", async () => {
