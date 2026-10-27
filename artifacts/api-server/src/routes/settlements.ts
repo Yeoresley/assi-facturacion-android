@@ -779,6 +779,8 @@ router.post("/settlements/closures", async (req, res): Promise<void> => {
     return;
   }
   try {
+    // The snapshot builder reads active inclusions in separate queries; keep all reads
+    // on one database view so a concurrent revocation cannot produce a mixed snapshot.
     const created = await db.transaction(async (tx) => {
       const lockKey = `${period}:${specialistId}`;
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);

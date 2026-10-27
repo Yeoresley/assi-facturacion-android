@@ -25,6 +25,7 @@ import {
   settlementClassificationsTable,
   settlementClosuresTable,
   settlementExchangeRatesTable,
+  settlementInvoiceInclusionsTable,
   settlementOverpaymentResolutionsTable,
   settlementOverpaymentFulfillmentsTable,
   settlementPaymentsTable,
@@ -51,6 +52,8 @@ let awaitingConfirmationInvoiceId: number;
 let correctedPartialInvoiceId: number;
 let inactivePaidInvoiceIds: number[] = [];
 let invoiceLineId: number;
+let concurrentRevocationInvoiceId: number;
+let concurrentRevocationLineId: number;
 
 before(async () => {
   mock.method(clerkClient.users, "getUser", async (id: string) => ({
@@ -294,14 +297,27 @@ after(async () => {
     eq(settlementExchangeRatesTable.currency, testCurrency),
   ));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
+  if (concurrentRevocationInvoiceId) {
+    await db.delete(settlementInvoiceInclusionsTable)
+      .where(eq(settlementInvoiceInclusionsTable.invoiceId, concurrentRevocationInvoiceId));
+  }
+  const classificationLineIds = [invoiceLineId, concurrentRevocationLineId].filter(
+    (id): id is number => Boolean(id),
+  );
+  if (classificationLineIds.length) {
+    await db.delete(settlementClassificationsTable)
+      .where(inArray(settlementClassificationsTable.invoiceLineId, classificationLineIds));
+  }
   if (correctedPartialInvoiceId) {
     await db.delete(invoicePaymentCorrectionsTable)
       .where(eq(invoicePaymentCorrectionsTable.invoiceId, correctedPartialInvoiceId));
     await db.delete(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, correctedPartialInvoiceId));
   }
-  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId || inactivePaidInvoiceIds.length) {
+  if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId
+    || concurrentRevocationInvoiceId || inactivePaidInvoiceIds.length) {
     await db.delete(invoicesTable).where(inArray(invoicesTable.id, [
       invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId, correctedPartialInvoiceId,
+      concurrentRevocationInvoiceId,
       ...inactivePaidInvoiceIds,
     ].filter((id): id is number => Boolean(id))));
   }
@@ -831,4 +847,88 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   assert.equal(storedPayments.length, 2);
   assert.equal((await db.select().from(settlementOverpaymentFulfillmentsTable)
     .where(eq(settlementOverpaymentFulfillmentsTable.resolutionId, createdResolution.id))).length, 2);
+});
+
+test("a concurrent inclusion revocation leaves the closure snapshot complete and single-versioned", async () => {
+  const [invoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-concurrent-revocation`,
+    customerId,
+    specialistId: specialistTwoId,
+    specialistName: specialistTwoId,
+    issueDate: paidOn,
+    currency: "CUP",
+    status: "confirmed",
+    paymentStatus: "pending",
+    confirmedBy: ownerId,
+    confirmedAt: new Date(),
+    subtotal: 1_250,
+    total: 1_250,
+  }).returning();
+  concurrentRevocationInvoiceId = invoice.id;
+  const [line] = await db.insert(invoiceLinesTable).values({
+    invoiceId: invoice.id,
+    description: `${tag}-concurrent-revocation-service`,
+    serviceCode: `${tag}-concurrent-revocation-code`,
+    quantity: 1,
+    unitPrice: 1_250,
+    amount: 1_250,
+  }).returning();
+  concurrentRevocationLineId = line.id;
+  await db.insert(settlementClassificationsTable).values({
+    invoiceLineId: line.id,
+    salesType: "service",
+    label: "Servicio para prueba de revocación concurrente",
+    updatedBy: ownerId,
+  });
+
+  const inclusionResponse = await request(ownerId, "POST", {
+    invoiceId: invoice.id,
+    period,
+    reason: "Incluir antes de revocar durante el cierre",
+  }, "/settlements/inclusions");
+  assert.equal(inclusionResponse.status, 201);
+  const inclusion = await inclusionResponse.json() as { id: number };
+
+  let revokeResponse: Response | undefined;
+  const closeResponse = await editDuringSettlementExpenseRead(
+    () => request(ownerId, "POST", {
+      period,
+      specialistId: specialistTwoId,
+    }, "/settlements/closures"),
+    async () => {
+      revokeResponse = await request(ownerId, "POST", {
+        reason: "Revocación concurrente de la inclusión de prueba",
+      }, `/settlements/inclusions/${inclusion.id}/revoke`);
+      assert.equal(revokeResponse.status, 200);
+    },
+  );
+  assert.ok(revokeResponse);
+  assert.equal(closeResponse.status, 201);
+  const closure = CreateSettlementClosureResponse.parse(await closeResponse.json());
+  assert.equal(closure.version, 1);
+
+  const snapshotInvoice = closure.snapshot.invoices.find(({ invoiceId }) => invoiceId === invoice.id);
+  assert.ok(snapshotInvoice, "the closure must use the inclusion state from its consistent transaction snapshot");
+  assert.equal(snapshotInvoice.inclusionType, "manual");
+  assert.equal(snapshotInvoice.inclusionReason, "Incluir antes de revocar durante el cierre");
+  assert.equal(snapshotInvoice.total, 1_250);
+  assert.equal(snapshotInvoice.lines.length, 1);
+  assert.equal(snapshotInvoice.lines[0]?.amount, 1_250);
+
+  const storedInclusion = await db.select().from(settlementInvoiceInclusionsTable)
+    .where(eq(settlementInvoiceInclusionsTable.id, inclusion.id));
+  assert.ok(storedInclusion[0]?.revokedAt);
+  const closureVersions = await db.select({
+    version: settlementClosuresTable.version,
+    invoiceIds: settlementClosuresTable.snapshot,
+  }).from(settlementClosuresTable).where(and(
+    eq(settlementClosuresTable.period, period),
+    eq(settlementClosuresTable.specialistId, specialistTwoId),
+  ));
+  assert.equal(closureVersions.length, 1, "a concurrent revocation must not create a partial extra closure version");
+  assert.deepEqual(closureVersions.map(({ version }) => version), [1]);
+  assert.equal(
+    closureVersions[0]?.invoiceIds.invoices.filter(({ invoiceId }) => invoiceId === invoice.id).length,
+    1,
+  );
 });
