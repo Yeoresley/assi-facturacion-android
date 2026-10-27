@@ -652,6 +652,40 @@ export const CreateSettlementOverpaymentResolutionResponse = zod.object({
 })
 
 
+/**
+ * @summary List unread overpayment resolution notices for the signed-in specialist
+ */
+export const ListSettlementOverpaymentNotificationsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "overpaidAmount": zod.number(),
+  "resolution": zod.string(),
+  "recordedAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})
+export const ListSettlementOverpaymentNotificationsResponse = zod.array(ListSettlementOverpaymentNotificationsResponseItem)
+
+
+/**
+ * @summary Mark the signed-in specialist's overpayment resolution notice as read
+ */
+
+
+
+export const MarkSettlementOverpaymentNotificationReadParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const MarkSettlementOverpaymentNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "period": zod.string(),
+  "overpaidAmount": zod.number(),
+  "resolution": zod.string(),
+  "recordedAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})
+
+
 export const createSettlementClosureBodyPeriodRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])$');
 export const createSettlementClosureBodySpecialistIdMax = 255;
 

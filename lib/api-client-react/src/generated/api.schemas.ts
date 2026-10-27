@@ -1426,6 +1426,16 @@ export interface SettlementOverpaymentResolution {
   recordedAt: string;
 }
 
+export interface SettlementOverpaymentNotification {
+  id: number;
+  period: string;
+  overpaidAmount: number;
+  resolution: string;
+  recordedAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
 export interface SettlementClosureInput {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])$ */
   period: string;

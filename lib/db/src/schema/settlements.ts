@@ -219,6 +219,7 @@ export const settlementOverpaymentResolutionsTable = pgTable("settlement_overpay
   reason: text("reason").notNull(),
   recordedBy: text("recorded_by").notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp("read_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
   check("settlement_overpayment_resolutions_period_check", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   check("settlement_overpayment_resolutions_version_check", sql`${table.closureVersion} > 0`),

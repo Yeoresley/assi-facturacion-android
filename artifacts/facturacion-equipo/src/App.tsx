@@ -13,6 +13,8 @@ import {
   getListInvoicesQueryKey, getExportVersatInvoicesQueryKey, getListTeamMembersQueryKey,
   getHealthCheckQueryKey, getListInvoiceAcceptanceNotificationsQueryKey,
   useListInvoiceAcceptanceNotifications, useMarkInvoiceAcceptanceNotificationRead,
+  getListSettlementOverpaymentNotificationsQueryKey,
+  useListSettlementOverpaymentNotifications, useMarkSettlementOverpaymentNotificationRead,
   getGetImageAccessNotificationSettingsQueryKey, getListImageAccessNotificationsQueryKey,
   useGetImageAccessNotificationSettings, useListImageAccessNotifications, useMarkImageAccessNotificationRead,
 } from '@workspace/api-client-react';
@@ -210,7 +212,7 @@ function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!sig) return;
     if (lastSig.current !== null && lastSig.current !== sig) {
-      client.resetQueries({ predicate: (q) => { const k = String(q.queryKey[0] ?? ''); return k.startsWith('/api/invoices') || k.startsWith('/api/billing') || k.startsWith('/api/customers'); } });
+      client.resetQueries({ predicate: (q) => { const k = String(q.queryKey[0] ?? ''); return k.startsWith('/api/invoices') || k.startsWith('/api/billing') || k.startsWith('/api/customers') || k.startsWith('/api/settlements'); } });
     }
     lastSig.current = sig;
   }, [sig, client]);
@@ -238,6 +240,7 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="main-content min-w-0 flex-1 px-5 py-8 md:px-9 md:py-9">
         <AcceptanceNoticeBanner enabled={me.role === 'specialist'} />
+        <OverpaymentResolutionNoticeBanner enabled={me.role === 'specialist'} />
         <ImageAccessNoticeBanner enabled={me.role === 'owner'} />
         {children}
       </main>
@@ -285,6 +288,43 @@ function AcceptanceNoticeBanner({ enabled }: { enabled: boolean }) {
         <Link href={`/invoices/${notice.invoiceId}`} onClick={() => markRead.mutate({ id: notice.id })} className="button button-soft !min-h-8 !px-3 text-[11px]">Ver factura</Link>
         <button className="button button-plain !min-h-8 !px-3 text-[11px]" disabled={markRead.isPending} onClick={() => markRead.mutate({ id: notice.id })}>Entendido</button>
       </div>
+    </article>)}
+    {markRead.isError && <p className="px-2 text-[11px] text-[#9a453a]" role="alert">No se pudo actualizar el aviso como leído. Vuelve a intentarlo.</p>}
+  </section>;
+}
+
+function OverpaymentResolutionNoticeBanner({ enabled }: { enabled: boolean }) {
+  const client = useQueryClient();
+  const queryKey = getListSettlementOverpaymentNotificationsQueryKey();
+  const notices = useListSettlementOverpaymentNotifications({
+    query: {
+      queryKey,
+      enabled,
+      staleTime: 0,
+      refetchInterval: enabled ? 15000 : false,
+      retry: false,
+    },
+  });
+  const markRead = useMarkSettlementOverpaymentNotificationRead({
+    mutation: {
+      onSuccess: () => client.invalidateQueries({ queryKey }),
+    },
+  });
+  if (!enabled || (!notices.isError && !notices.data?.length)) return null;
+  return <section className="mb-5 space-y-2" aria-label="Avisos de resolución de excedentes" data-testid="overpayment-resolution-notifications">
+    {notices.isError && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#efd2cc] bg-[#fbefeb] px-4 py-3 text-[12px] text-[#9a453a]" role="alert">
+      <span>No se pudieron cargar los avisos de liquidación.</span>
+      <button className="font-bold underline" onClick={() => notices.refetch()}>Reintentar</button>
+    </div>}
+    {(notices.data ?? []).map((notice) => <article key={notice.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#cfe2e9] bg-[#eaf5f8] px-4 py-3" data-testid={`overpayment-notice-${notice.id}`}>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#087eaf]"><Bell size={15} /></span>
+        <div className="min-w-0 text-[12px] leading-5">
+          <div className="font-bold text-[#12365a]">Resolución de excedente · {notice.period} · {money(notice.overpaidAmount)}</div>
+          <p className="text-[#617887]">El propietario registró esta solución: {notice.resolution}</p>
+        </div>
+      </div>
+      <button className="button button-soft !min-h-8 !px-3 text-[11px]" disabled={markRead.isPending} onClick={() => markRead.mutate({ id: notice.id })}>Entendido</button>
     </article>)}
     {markRead.isError && <p className="px-2 text-[11px] text-[#9a453a]" role="alert">No se pudo actualizar el aviso como leído. Vuelve a intentarlo.</p>}
   </section>;

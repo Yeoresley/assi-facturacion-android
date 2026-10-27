@@ -14,6 +14,9 @@ import {
   CreateSettlementPaymentResponse,
   CreateSettlementOverpaymentResolutionBody,
   CreateSettlementOverpaymentResolutionResponse,
+  ListSettlementOverpaymentNotificationsResponse,
+  MarkSettlementOverpaymentNotificationReadParams,
+  MarkSettlementOverpaymentNotificationReadResponse,
   CorrectSettlementClosureBody,
   CorrectSettlementClosureParams,
   GetMonthlySettlementQueryParams,
@@ -112,6 +115,19 @@ function serializedOverpaymentResolution(
   resolution: typeof settlementOverpaymentResolutionsTable.$inferSelect,
 ) {
   return { ...resolution, recordedAt: resolution.recordedAt.toISOString() };
+}
+
+function serializedOverpaymentNotification(
+  resolution: typeof settlementOverpaymentResolutionsTable.$inferSelect,
+) {
+  return {
+    id: resolution.id,
+    period: resolution.period,
+    overpaidAmount: resolution.overpaidAmount,
+    resolution: resolution.resolution,
+    recordedAt: resolution.recordedAt.toISOString(),
+    readAt: resolution.readAt?.toISOString() ?? null,
+  };
 }
 
 async function settlementNetPayableForPayment(period: string, specialistId: string): Promise<number> {
@@ -962,6 +978,7 @@ router.post("/settlements/overpayment-resolutions", async (req, res): Promise<vo
         resolution,
         reason,
         recordedBy: member.userId,
+        readAt: null,
       }).returning();
       return createdResolution;
     });
@@ -974,6 +991,57 @@ router.post("/settlements/overpayment-resolutions", async (req, res): Promise<vo
       error: knownError ? error.message : "No se pudo registrar la resolución del excedente.",
     });
   }
+});
+
+router.get("/settlements/overpayment-notifications", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "specialist") {
+    res.status(403).json({ error: "Solo los especialistas pueden consultar estos avisos." });
+    return;
+  }
+  const notices = await db.select().from(settlementOverpaymentResolutionsTable).where(and(
+    eq(settlementOverpaymentResolutionsTable.specialistId, member.userId),
+    isNull(settlementOverpaymentResolutionsTable.readAt),
+  )).orderBy(desc(settlementOverpaymentResolutionsTable.recordedAt)).limit(50);
+  res.json(ListSettlementOverpaymentNotificationsResponse.parse(
+    notices.map(serializedOverpaymentNotification),
+  ));
+});
+
+router.patch("/settlements/overpayment-notifications/:id/read", async (req, res): Promise<void> => {
+  const member = await resolveTeamMember(req, res);
+  if (!member) return;
+  if (member.role !== "specialist") {
+    res.status(403).json({ error: "Solo los especialistas pueden actualizar estos avisos." });
+    return;
+  }
+  const params = MarkSettlementOverpaymentNotificationReadParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  let [notice] = await db.update(settlementOverpaymentResolutionsTable)
+    .set({ readAt: new Date() })
+    .where(and(
+      eq(settlementOverpaymentResolutionsTable.id, params.data.id),
+      eq(settlementOverpaymentResolutionsTable.specialistId, member.userId),
+      isNull(settlementOverpaymentResolutionsTable.readAt),
+    ))
+    .returning();
+  if (!notice) {
+    [notice] = await db.select().from(settlementOverpaymentResolutionsTable).where(and(
+      eq(settlementOverpaymentResolutionsTable.id, params.data.id),
+      eq(settlementOverpaymentResolutionsTable.specialistId, member.userId),
+    )).limit(1);
+  }
+  if (!notice) {
+    res.status(404).json({ error: "No se encontró el aviso para este especialista." });
+    return;
+  }
+  res.json(MarkSettlementOverpaymentNotificationReadResponse.parse(
+    serializedOverpaymentNotification(notice),
+  ));
 });
 
 export default router;

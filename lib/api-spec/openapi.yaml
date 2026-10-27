@@ -197,6 +197,38 @@ paths:
           description: Solo el propietario puede registrar cómo resolver el excedente.
         "409":
           description: No existe un excedente actual o el cierre cambió en otra sesión.
+  /settlements/overpayment-notifications:
+    get:
+      operationId: listSettlementOverpaymentNotifications
+      tags: [settlements]
+      summary: List unread overpayment resolution notices for the signed-in specialist
+      responses:
+        "200":
+          description: Unread notices for the signed-in specialist only
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SettlementOverpaymentNotification" }
+        "403": { description: Only specialists can read these notices }
+  /settlements/overpayment-notifications/{id}/read:
+    patch:
+      operationId: markSettlementOverpaymentNotificationRead
+      tags: [settlements]
+      summary: Mark the signed-in specialist's overpayment resolution notice as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Notice marked as read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementOverpaymentNotification" }
+        "403": { description: Only specialists can read these notices }
+        "404": { description: Notice not found for the signed-in specialist }
   /settlements/closures:
     post:
       operationId: createSettlementClosure
@@ -1980,6 +2012,16 @@ components:
         reason: { type: string }
         recordedBy: { type: string }
         recordedAt: { type: string, format: date-time }
+    SettlementOverpaymentNotification:
+      type: object
+      required: [id, period, overpaidAmount, resolution, recordedAt, readAt]
+      properties:
+        id: { type: integer }
+        period: { type: string }
+        overpaidAmount: { type: number }
+        resolution: { type: string }
+        recordedAt: { type: string, format: date-time }
+        readAt: { type: ["string", "null"], format: date-time }
     SettlementClosureInput:
       type: object
       required: [period, specialistId]

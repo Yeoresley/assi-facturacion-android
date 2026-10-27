@@ -71,6 +71,7 @@ import type {
   SettlementExpenseInput,
   SettlementInvoiceInclusion,
   SettlementInvoiceInclusionInput,
+  SettlementOverpaymentNotification,
   SettlementOverpaymentResolution,
   SettlementOverpaymentResolutionInput,
   SettlementPayment,
@@ -1089,6 +1090,157 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateSettlementOverpaymentResolutionMutationOptions(options));
+    }
+
+export const getListSettlementOverpaymentNotificationsUrl = () => {
+
+
+
+
+  return `/api/settlements/overpayment-notifications`
+}
+
+/**
+ * @summary List unread overpayment resolution notices for the signed-in specialist
+ */
+export const listSettlementOverpaymentNotifications = async ( options?: Parameters<typeof customFetch>[1]): Promise<SettlementOverpaymentNotification[]> => {
+
+  return customFetch<SettlementOverpaymentNotification[]>(getListSettlementOverpaymentNotificationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSettlementOverpaymentNotificationsQueryKey = () => {
+    return [
+    `/api/settlements/overpayment-notifications`
+    ] as const;
+    }
+
+
+export const getListSettlementOverpaymentNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSettlementOverpaymentNotificationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>> = ({ signal }) => listSettlementOverpaymentNotifications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSettlementOverpaymentNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>>
+export type ListSettlementOverpaymentNotificationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List unread overpayment resolution notices for the signed-in specialist
+ */
+
+export function useListSettlementOverpaymentNotifications<TData = Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettlementOverpaymentNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSettlementOverpaymentNotificationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkSettlementOverpaymentNotificationReadUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/overpayment-notifications/${id}/read`
+}
+
+/**
+ * @summary Mark the signed-in specialist's overpayment resolution notice as read
+ */
+export const markSettlementOverpaymentNotificationRead = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<SettlementOverpaymentNotification> => {
+
+  return customFetch<SettlementOverpaymentNotification>(getMarkSettlementOverpaymentNotificationReadUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkSettlementOverpaymentNotificationReadMutationKey = () => ['markSettlementOverpaymentNotificationRead'] as const;
+
+export const getMarkSettlementOverpaymentNotificationReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>, TError,MarkSettlementOverpaymentNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>, TError,MarkSettlementOverpaymentNotificationReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkSettlementOverpaymentNotificationReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>, MarkSettlementOverpaymentNotificationReadMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  markSettlementOverpaymentNotificationRead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkSettlementOverpaymentNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>>
+
+    export type MarkSettlementOverpaymentNotificationReadMutationError = ErrorType<void>
+    export type MarkSettlementOverpaymentNotificationReadMutationVariables = {id: number}
+
+    /**
+ * @summary Mark the signed-in specialist's overpayment resolution notice as read
+ */
+export const useMarkSettlementOverpaymentNotificationRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>, TError,MarkSettlementOverpaymentNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markSettlementOverpaymentNotificationRead>>,
+        TError,
+        MarkSettlementOverpaymentNotificationReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkSettlementOverpaymentNotificationReadMutationOptions(options));
     }
 
 export const getCreateSettlementClosureUrl = () => {

@@ -8,6 +8,8 @@ import {
   CreateSettlementClosureResponse,
   CreateSettlementPaymentResponse,
   GetMonthlySettlementResponse,
+  ListSettlementOverpaymentNotificationsResponse,
+  MarkSettlementOverpaymentNotificationReadResponse,
 } from "@workspace/api-zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
@@ -639,6 +641,55 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     reason: reasonText,
   }, "/settlements/overpayment-resolutions");
   assert.equal(resolutionResponse.status, 201);
+
+  const noticesPath = "/settlements/overpayment-notifications";
+  const specialistNoticesResponse = await request(specialistOneId, "GET", undefined, noticesPath);
+  assert.equal(specialistNoticesResponse.status, 200);
+  const specialistNotices = ListSettlementOverpaymentNotificationsResponse.parse(
+    await specialistNoticesResponse.json(),
+  );
+  assert.equal(specialistNotices.length, 1);
+  assert.deepEqual(specialistNotices.map(({ period: noticePeriod, overpaidAmount, resolution, readAt }) => ({
+    period: noticePeriod,
+    overpaidAmount,
+    resolution,
+    readAt,
+  })), [{ period, overpaidAmount: 225, resolution: resolutionText, readAt: null }]);
+  assert.equal(JSON.stringify(specialistNotices).includes(specialistTwoId), false);
+
+  const otherSpecialistNoticesResponse = await request(specialistTwoId, "GET", undefined, noticesPath);
+  assert.equal(otherSpecialistNoticesResponse.status, 200);
+  assert.deepEqual(await otherSpecialistNoticesResponse.json(), []);
+  assert.equal((await request(ownerId, "GET", undefined, noticesPath)).status, 403);
+  assert.equal(
+    (await request(specialistTwoId, "PATCH", undefined, `${noticesPath}/${specialistNotices[0]!.id}/read`)).status,
+    404,
+  );
+
+  const failedResolution = await request(ownerId, "POST", {
+    period,
+    specialistId: specialistTwoId,
+    resolution: "Devolver por transferencia",
+    reason: "No se encuentra un cierre para este especialista",
+  }, "/settlements/overpayment-resolutions");
+  assert.equal(failedResolution.status, 409);
+  assert.deepEqual(
+    await (await request(specialistTwoId, "GET", undefined, noticesPath)).json(),
+    [],
+  );
+
+  const markReadResponse = await request(
+    specialistOneId,
+    "PATCH",
+    undefined,
+    `${noticesPath}/${specialistNotices[0]!.id}/read`,
+  );
+  assert.equal(markReadResponse.status, 200);
+  assert.ok(MarkSettlementOverpaymentNotificationReadResponse.parse(await markReadResponse.json()).readAt);
+  assert.deepEqual(
+    await (await request(specialistOneId, "GET", undefined, noticesPath)).json(),
+    [],
+  );
 
   const ownerAfterResolution = GetMonthlySettlementResponse.parse(
     await (await request(ownerId)).json(),
