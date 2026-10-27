@@ -505,7 +505,7 @@ test("settlement follows the saved invoice assignment instead of Versat commerci
   assert.ok(ownerInvoices.some(({ invoiceId: id }) => id === ownerCommercialInvoiceId));
 });
 
-test("correcting a receipt date moves the invoice between settlement periods in both preview and closure", async () => {
+test("correcting a receipt date moves the invoice in new calculations but preserves the approved snapshot", async () => {
   const originalPaidOn = `${effectiveDateOriginalPeriod}-01`;
   const correctedPaidOn = "2026-02-28";
   const [invoice] = await db.insert(invoicesTable).values({
@@ -554,6 +554,18 @@ test("correcting a receipt date moves the invoice between settlement periods in 
   assert.ok(originalPreview.results.flatMap(({ invoices }) => invoices)
     .some(({ invoiceId: id }) => id === invoice.id));
 
+  const originalCloseResponse = await request(ownerId, "POST", {
+    period: effectiveDateOriginalPeriod,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(originalCloseResponse.status, 201);
+  const originalClosure = CreateSettlementClosureResponse.parse(await originalCloseResponse.json());
+  const originalSnapshotInvoice = originalClosure.snapshot.invoices.find(({ invoiceId: id }) => id === invoice.id);
+  assert.ok(originalSnapshotInvoice);
+  assert.equal(originalSnapshotInvoice.total, 250);
+  assert.equal(originalSnapshotInvoice.totalPaid, 250);
+  assert.equal(originalSnapshotInvoice.paidOn?.toISOString().slice(0, 10), originalPaidOn);
+
   await correctInvoicePayment(invoice.id, {
     paymentId: payment.id,
     amount: payment.amount,
@@ -569,6 +581,13 @@ test("correcting a receipt date moves the invoice between settlement periods in 
   const movedOut = GetMonthlySettlementResponse.parse(await movedOutResponse.json());
   assert.equal(movedOut.results.flatMap(({ invoices }) => invoices)
     .some(({ invoiceId: id }) => id === invoice.id), false);
+  const originalPeriodResult = movedOut.results.find(({ specialistId }) => specialistId === specialistOneId);
+  const historicalInvoice = originalPeriodResult?.closure?.snapshot.invoices
+    .find(({ invoiceId: id }) => id === invoice.id);
+  assert.ok(historicalInvoice);
+  assert.equal(historicalInvoice.total, 250);
+  assert.equal(historicalInvoice.totalPaid, 250);
+  assert.equal(historicalInvoice.paidOn?.toISOString().slice(0, 10), originalPaidOn);
 
   const correctedPreviewResponse = await request(ownerId, "GET", undefined,
     `/settlements?period=${effectiveDateSettlementPeriod}`);
