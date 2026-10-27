@@ -17,6 +17,7 @@ import { getInvoiceRow, serializeInvoice } from "../services/invoice-records";
 import { privateImage } from "../lib/private-images";
 import { getActiveInvoiceShare, invoiceScope } from "../services/invoice-access";
 import { hasCompleteLegalImageSnapshot, resolveLegalImageSnapshot } from "../services/invoice-legal-images";
+import { buildInvoiceImageAccessCsv } from "../services/invoice-image-access-export";
 
 const router = Router();
 const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -353,6 +354,31 @@ router.get("/invoices/:id/image-accesses", async (req, res): Promise<void> => {
     ...access,
     openedAt: access.openedAt.toISOString(),
   }))));
+});
+
+router.get("/invoices/:id/image-accesses/export", async (req, res): Promise<void> => {
+  res.set("Cache-Control", "private, no-store");
+  if (!await requireOwner(req, res)) return;
+  const params = ListInvoiceImageAccessesParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Identificador no válido." }); return; }
+  const [invoice] = await db.select({ id: invoicesTable.id, number: invoicesTable.number })
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, params.data.id))
+    .limit(1);
+  if (!invoice) { res.status(404).json({ error: "Factura no disponible." }); return; }
+  const accesses = await db.select({
+    shareId: invoiceImageAccessesTable.shareId,
+    kind: invoiceImageAccessesTable.kind,
+    openedAt: invoiceImageAccessesTable.openedAt,
+  }).from(invoiceImageAccessesTable)
+    .where(eq(invoiceImageAccessesTable.invoiceId, invoice.id))
+    .orderBy(desc(invoiceImageAccessesTable.openedAt), desc(invoiceImageAccessesTable.id));
+  const csv = buildInvoiceImageAccessCsv(invoice.number, accesses);
+  res.set({
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="historial-aperturas-factura-${invoice.id}.csv"`,
+    "X-Content-Type-Options": "nosniff",
+  }).send(csv);
 });
 
 export default router;

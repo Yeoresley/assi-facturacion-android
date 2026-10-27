@@ -3052,6 +3052,19 @@ export const ListInvoiceImageAccessesResponse = zod.array(ListInvoiceImageAccess
 
 
 /**
+ * @summary Download public legal image opening history as CSV (owner only; no tokens or visitor identity)
+ */
+
+
+
+export const ExportInvoiceImageAccessesParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const ExportInvoiceImageAccessesResponse = zod.unknown()
+
+
+/**
  * @summary Get the owner's public legal image opening notification preference
  */
 export const GetImageAccessNotificationSettingsResponse = zod.object({

@@ -809,6 +809,27 @@ paths:
                 items: { $ref: "#/components/schemas/InvoiceImageAccess" }
         "403": { description: Owner access required }
         "404": { description: Invoice unavailable }
+  /invoices/{id}/image-accesses/export:
+    get:
+      operationId: exportInvoiceImageAccesses
+      tags: [invoices]
+      summary: Download public legal image opening history as CSV (owner only; no tokens or visitor identity)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: CSV export of the invoice image opening history
+          content:
+            text/csv:
+              schema: { type: string }
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+        "403": { description: Owner access required }
+        "404": { description: Invoice unavailable }
   /issuer/image-access-notifications:
     get:
       operationId: getImageAccessNotificationSettings

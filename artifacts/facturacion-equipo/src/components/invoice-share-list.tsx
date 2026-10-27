@@ -22,7 +22,43 @@ export function InvoiceShareList({ invoiceId, isOwner }: { invoiceId: number; is
   const updateNotificationSettings = useUpdateImageAccessNotificationSettings();
   const client = useQueryClient();
   const [notice, setNotice] = useState('');
+  const [exportingHistory, setExportingHistory] = useState(false);
   const timestamp = (value: Date | string) => (value instanceof Date ? value : new Date(value)).toLocaleString('es-ES');
+
+  async function downloadAccessHistory() {
+    setNotice('');
+    setExportingHistory(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/image-accesses/export`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/csv' },
+      });
+      if (!response.ok) {
+        let message = 'No se pudo descargar el historial de aperturas.';
+        try {
+          const body: unknown = await response.json();
+          if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') message = body.error;
+        } catch {
+          // Keep the safe, user-facing fallback for non-JSON errors.
+        }
+        throw new Error(message);
+      }
+      const file = await response.blob();
+      const url = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `historial-aperturas-factura-${invoiceId}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice('Historial descargado.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'No se pudo descargar el historial de aperturas.');
+    } finally {
+      setExportingHistory(false);
+    }
+  }
 
   function closeLink(shareId: number) {
     if (!window.confirm(`¿Revocar el enlace #${shareId}? Dejará de mostrar los datos y las imágenes. La factura y los demás enlaces no cambiarán.`)) return;
@@ -65,7 +101,17 @@ export function InvoiceShareList({ invoiceId, isOwner }: { invoiceId: number; is
           </button>
         </li>)}</ul> : <p className="mt-3 text-xs">No hay enlaces activos.</p>}
     {isOwner && <div className="mt-5 border-t border-[#e4e1d5] pt-4" aria-label="Historial de aperturas">
-      <h3 className="text-sm font-bold">Aperturas de cuño y firma</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold">Aperturas de cuño y firma</h3>
+        <button
+          className="button button-soft !min-h-8"
+          onClick={downloadAccessHistory}
+          disabled={exportingHistory}
+          data-testid="download-image-access-history"
+        >
+          {exportingHistory ? 'Preparando…' : 'Descargar CSV'}
+        </button>
+      </div>
       <p className="mt-1 text-xs text-[#71817b]">Se registra cada imagen servida desde un enlace público. No se identifica a quien lo abrió.</p>
       <div className="mt-4 rounded-lg border border-[#e4e1d5] bg-white/70 p-3">
         {notificationSettings.isLoading ? <p className="text-xs">Cargando preferencia de avisos…</p> : notificationSettings.isError ?
