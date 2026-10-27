@@ -24,6 +24,7 @@ import {
   pool,
   settlementClassificationsTable,
   settlementClosuresTable,
+  settlementExchangeRatesTable,
   settlementOverpaymentResolutionsTable,
   settlementOverpaymentFulfillmentsTable,
   settlementPaymentsTable,
@@ -40,6 +41,7 @@ const identities = [ownerId, specialistOneId, specialistTwoId];
 const paidOn = new Date().toISOString().slice(0, 10);
 const period = paidOn.slice(0, 7);
 const email = (id: string) => `${id}@example.invalid`;
+const testCurrency = `T${randomUUID().slice(0, 7).toUpperCase()}`;
 let server: Server;
 let base: string;
 let customerId: number;
@@ -287,6 +289,10 @@ after(async () => {
     eq(settlementClosuresTable.version, 2),
   ));
   await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
+  await db.delete(settlementExchangeRatesTable).where(and(
+    eq(settlementExchangeRatesTable.period, period),
+    eq(settlementExchangeRatesTable.currency, testCurrency),
+  ));
   await db.delete(settlementPaymentsTable).where(inArray(settlementPaymentsTable.specialistId, [specialistOneId, specialistTwoId]));
   if (correctedPartialInvoiceId) {
     await db.delete(invoicePaymentCorrectionsTable)
@@ -534,18 +540,33 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     label: "Servicio de prueba",
     updatedBy: ownerId,
   });
+  await db.update(invoicesTable).set({ currency: testCurrency }).where(eq(invoicesTable.id, invoiceId));
+  await db.insert(settlementExchangeRatesTable).values({
+    period,
+    currency: testCurrency,
+    rateToCup: 1.25,
+    updatedBy: ownerId,
+  });
 
   const closeResponse = await editDuringSettlementExpenseRead(
     () => request(ownerId, "POST", {
       period,
       specialistId: specialistOneId,
     }, "/settlements/closures"),
-    () => db.transaction(async (tx) => {
-      await tx.update(invoiceLinesTable).set({ unitPrice: 20_000, amount: 20_000 })
-        .where(eq(invoiceLinesTable.id, invoiceLineId));
-      await tx.update(settlementClassificationsTable).set({ salesType: "license" })
-        .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
-    }),
+    async () => {
+      await db.transaction(async (tx) => {
+        await tx.update(invoiceLinesTable).set({ unitPrice: 20_000, amount: 20_000 })
+          .where(eq(invoiceLinesTable.id, invoiceLineId));
+        await tx.update(settlementClassificationsTable).set({ salesType: "license" })
+          .where(eq(settlementClassificationsTable.invoiceLineId, invoiceLineId));
+      });
+      const rateResponse = await request(ownerId, "PUT", {
+        period,
+        currency: testCurrency,
+        rateToCup: 2.5,
+      }, "/settlements/exchange-rates");
+      assert.equal(rateResponse.status, 200);
+    },
   );
   assert.equal(closeResponse.status, 201);
   const firstClosure = CreateSettlementClosureResponse.parse(await closeResponse.json());
@@ -554,6 +575,11 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   assert.equal(firstClosure.approvedBy, ownerId);
   assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.salesType, "service");
   assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.amount, 10_000);
+  assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.rateToCup, 1.25);
+  assert.equal(firstClosure.snapshot.invoices[0]?.lines[0]?.amountInCup, 12_500);
+  assert.deepEqual(firstClosure.snapshot.exchangeRates
+    .filter(({ currency }) => currency === testCurrency)
+    .map(({ rateToCup }) => rateToCup), [1.25]);
   const firstVersions = await db.select({ version: settlementClosuresTable.version })
     .from(settlementClosuresTable).where(and(
       eq(settlementClosuresTable.period, period),
@@ -601,6 +627,11 @@ test("owner closes a frozen snapshot and corrections append an auditable version
   assert.equal(correction.correctionReason, reason);
   assert.equal(correction.snapshot.invoices[0]?.lines[0]?.salesType, "license");
   assert.equal(correction.snapshot.invoices[0]?.lines[0]?.amount, 20_000);
+  assert.equal(correction.snapshot.invoices[0]?.lines[0]?.rateToCup, 2.5);
+  assert.equal(correction.snapshot.invoices[0]?.lines[0]?.amountInCup, 50_000);
+  assert.deepEqual(correction.snapshot.exchangeRates
+    .filter(({ currency }) => currency === testCurrency)
+    .map(({ rateToCup }) => rateToCup), [2.5]);
 
   const correctedResponse = await request(specialistOneId);
   const corrected = GetMonthlySettlementResponse.parse(await correctedResponse.json()).results[0]!;
@@ -616,6 +647,7 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     `/settlements/closures/${correction.id}/corrections`);
   assert.equal(specialistCorrection.status, 403);
 
+  await db.update(invoicesTable).set({ currency: "CUP" }).where(eq(invoicesTable.id, invoiceId));
   await db.update(invoicesTable).set({ subtotal: 0.01, total: 0.01 }).where(eq(invoicesTable.id, invoiceId));
   await db.update(invoiceLinesTable).set({ unitPrice: 0.01, amount: 0.01 }).where(eq(invoiceLinesTable.id, invoiceLineId));
   const reducedClosureResponse = await request(ownerId, "POST", {
