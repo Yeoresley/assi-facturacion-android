@@ -54,6 +54,10 @@ let inactivePaidInvoiceIds: number[] = [];
 let invoiceLineId: number;
 let concurrentRevocationInvoiceId: number;
 let concurrentRevocationLineId: number;
+let effectiveDateInvoiceId: number;
+let effectiveDateInvoiceLineId: number;
+const effectiveDateSettlementPeriod = "2026-02";
+const effectiveDateOriginalPeriod = "2026-03";
 
 before(async () => {
   mock.method(clerkClient.users, "getUser", async (id: string) => ({
@@ -292,6 +296,10 @@ after(async () => {
     eq(settlementClosuresTable.version, 2),
   ));
   await db.delete(settlementClosuresTable).where(inArray(settlementClosuresTable.specialistId, [specialistOneId, specialistTwoId]));
+  await db.delete(settlementClosuresTable).where(and(
+    eq(settlementClosuresTable.period, effectiveDateSettlementPeriod),
+    eq(settlementClosuresTable.specialistId, specialistOneId),
+  ));
   await db.delete(settlementExchangeRatesTable).where(and(
     eq(settlementExchangeRatesTable.period, period),
     eq(settlementExchangeRatesTable.currency, testCurrency),
@@ -301,7 +309,9 @@ after(async () => {
     await db.delete(settlementInvoiceInclusionsTable)
       .where(eq(settlementInvoiceInclusionsTable.invoiceId, concurrentRevocationInvoiceId));
   }
-  const classificationLineIds = [invoiceLineId, concurrentRevocationLineId].filter(
+  const classificationLineIds = [
+    invoiceLineId, concurrentRevocationLineId, effectiveDateInvoiceLineId,
+  ].filter(
     (id): id is number => Boolean(id),
   );
   if (classificationLineIds.length) {
@@ -313,11 +323,16 @@ after(async () => {
       .where(eq(invoicePaymentCorrectionsTable.invoiceId, correctedPartialInvoiceId));
     await db.delete(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, correctedPartialInvoiceId));
   }
+  if (effectiveDateInvoiceId) {
+    await db.delete(invoicePaymentCorrectionsTable)
+      .where(eq(invoicePaymentCorrectionsTable.invoiceId, effectiveDateInvoiceId));
+    await db.delete(invoicePaymentsTable).where(eq(invoicePaymentsTable.invoiceId, effectiveDateInvoiceId));
+  }
   if (invoiceId || ownerCommercialInvoiceId || awaitingConfirmationInvoiceId || correctedPartialInvoiceId
-    || concurrentRevocationInvoiceId || inactivePaidInvoiceIds.length) {
+    || concurrentRevocationInvoiceId || effectiveDateInvoiceId || inactivePaidInvoiceIds.length) {
     await db.delete(invoicesTable).where(inArray(invoicesTable.id, [
       invoiceId, ownerCommercialInvoiceId, awaitingConfirmationInvoiceId, correctedPartialInvoiceId,
-      concurrentRevocationInvoiceId,
+      concurrentRevocationInvoiceId, effectiveDateInvoiceId,
       ...inactivePaidInvoiceIds,
     ].filter((id): id is number => Boolean(id))));
   }
@@ -488,6 +503,96 @@ test("settlement follows the saved invoice assignment instead of Versat commerci
   const ownerResult = GetMonthlySettlementResponse.parse(await ownerResponse.json());
   const ownerInvoices = ownerResult.results.find((result) => result.specialistId === ownerId)?.invoices ?? [];
   assert.ok(ownerInvoices.some(({ invoiceId: id }) => id === ownerCommercialInvoiceId));
+});
+
+test("correcting a receipt date moves the invoice between settlement periods in both preview and closure", async () => {
+  const originalPaidOn = `${effectiveDateOriginalPeriod}-01`;
+  const correctedPaidOn = "2026-02-28";
+  const [invoice] = await db.insert(invoicesTable).values({
+    number: `${tag}-effective-date`,
+    customerId,
+    specialistId: specialistOneId,
+    specialistName: specialistOneId,
+    issueDate: originalPaidOn,
+    currency: "CUP",
+    status: "confirmed",
+    paymentStatus: "paid",
+    confirmedBy: ownerId,
+    confirmedAt: new Date(),
+    subtotal: 250,
+    total: 250,
+  }).returning();
+  effectiveDateInvoiceId = invoice.id;
+  const [line] = await db.insert(invoiceLinesTable).values({
+    invoiceId: invoice.id,
+    description: `${tag}-effective-date-service`,
+    serviceCode: `${tag}-effective-date-service-code`,
+    quantity: 1,
+    unitPrice: 250,
+    amount: 250,
+  }).returning();
+  effectiveDateInvoiceLineId = line.id;
+  await db.insert(settlementClassificationsTable).values({
+    invoiceLineId: line.id,
+    salesType: "service",
+    label: "Servicio de prueba",
+    updatedBy: ownerId,
+  });
+  const [payment] = await db.insert(invoicePaymentsTable).values({
+    invoiceId: invoice.id,
+    idempotencyKey: randomUUID(),
+    amount: 250,
+    currency: "CUP",
+    paidOn: originalPaidOn,
+    paidBy: ownerId,
+  }).returning();
+
+  const originalPreviewResponse = await request(ownerId, "GET", undefined,
+    `/settlements?period=${effectiveDateOriginalPeriod}`);
+  assert.equal(originalPreviewResponse.status, 200);
+  const originalPreview = GetMonthlySettlementResponse.parse(await originalPreviewResponse.json());
+  assert.ok(originalPreview.results.flatMap(({ invoices }) => invoices)
+    .some(({ invoiceId: id }) => id === invoice.id));
+
+  await correctInvoicePayment(invoice.id, {
+    paymentId: payment.id,
+    amount: payment.amount,
+    paidOn: correctedPaidOn,
+    reason: "Fecha del recibo corregida",
+    idempotencyKey: randomUUID(),
+    confirmed: true,
+  }, { role: "owner", userId: ownerId });
+
+  const movedOutResponse = await request(ownerId, "GET", undefined,
+    `/settlements?period=${effectiveDateOriginalPeriod}`);
+  assert.equal(movedOutResponse.status, 200);
+  const movedOut = GetMonthlySettlementResponse.parse(await movedOutResponse.json());
+  assert.equal(movedOut.results.flatMap(({ invoices }) => invoices)
+    .some(({ invoiceId: id }) => id === invoice.id), false);
+
+  const correctedPreviewResponse = await request(ownerId, "GET", undefined,
+    `/settlements?period=${effectiveDateSettlementPeriod}`);
+  assert.equal(correctedPreviewResponse.status, 200);
+  const correctedPreview = GetMonthlySettlementResponse.parse(await correctedPreviewResponse.json());
+  const previewInvoice = correctedPreview.results.flatMap(({ invoices }) => invoices)
+    .find(({ invoiceId: id }) => id === invoice.id);
+  assert.ok(previewInvoice);
+  assert.equal(previewInvoice.paidOn?.toISOString().slice(0, 10), correctedPaidOn);
+  assert.equal(previewInvoice.inclusionType, "paid_in_month");
+
+  const closeResponse = await request(ownerId, "POST", {
+    period: effectiveDateSettlementPeriod,
+    specialistId: specialistOneId,
+  }, "/settlements/closures");
+  assert.equal(closeResponse.status, 201);
+  const closure = CreateSettlementClosureResponse.parse(await closeResponse.json());
+  const snapshotInvoice = closure.snapshot.invoices.find(({ invoiceId: id }) => id === invoice.id);
+  assert.ok(snapshotInvoice);
+  assert.equal(
+    snapshotInvoice.paidOn?.toISOString().slice(0, 10),
+    previewInvoice.paidOn?.toISOString().slice(0, 10),
+  );
+  assert.equal(snapshotInvoice.inclusionType, previewInvoice.inclusionType);
 });
 
 test("owner can record a reviewed partial transfer with its date and reference", async () => {
