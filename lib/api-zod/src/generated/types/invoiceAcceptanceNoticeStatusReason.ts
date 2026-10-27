@@ -14,5 +14,6 @@ export type InvoiceAcceptanceNoticeStatusReason = typeof InvoiceAcceptanceNotice
 
 export const InvoiceAcceptanceNoticeStatusReason = {
   payment: 'payment',
+  versat_export: 'versat_export',
   versat_import: 'versat_import',
 } as const;

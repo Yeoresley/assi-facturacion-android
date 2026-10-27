@@ -183,13 +183,15 @@ export default function InvoiceDetailPage() {
        onSelectedReceiptPaymentIdsChange={setSelectedReceiptPaymentIds}
        onPrintSelectedReceipts={printSelectedReceipts}
      />
-    {isOwner && (inv.acceptedSource === 'payment' || inv.acceptedSource === 'versat_import') && <section className="no-print mb-4 rounded-xl border border-[#dce8ed] bg-white px-4 py-3" data-testid="acceptance-notice-delivery">
+    {isOwner && (inv.acceptedSource === 'payment' || inv.acceptedSource === 'versat_export' || inv.acceptedSource === 'versat_import') && <section className="no-print mb-4 rounded-xl border border-[#dce8ed] bg-white px-4 py-3" data-testid="acceptance-notice-delivery">
       <div className="text-[11px] font-bold text-[#315b52]">Aviso de aceptación automática</div>
       {acceptanceNotice.isPending ? <p className="mt-1 text-[11px] text-[#738079]">Comprobando la entrega…</p>
         : acceptanceNotice.isError ? <p className="mt-1 text-[11px] text-[#9a453a]" role="alert">No se pudo comprobar. <button className="font-semibold underline" onClick={() => acceptanceNotice.refetch()}>Reintentar</button></p>
         : acceptanceNotice.data?.delivered ? <p className="mt-1 text-[11px] leading-5 text-[#5f736c]">
           Disponible en la bandeja de {acceptanceNotice.data.specialistName} desde {new Date(acceptanceNotice.data.deliveredAt!).toLocaleString('es-ES')}.
-          {' '}{acceptanceNotice.data.reason === 'payment' ? 'Motivo: pago registrado.' : 'Motivo: importación de Versat confirmada.'}
+          {' '}{acceptanceNotice.data.reason === 'payment' ? 'Motivo: pago registrado.'
+            : acceptanceNotice.data.reason === 'versat_export' ? 'Motivo: exportación a Versat.'
+              : 'Motivo: importación de Versat confirmada.'}
         </p>
         : <p className="mt-1 text-[11px] text-[#738079]">No se generó un aviso para esta factura.</p>}
     </section>}

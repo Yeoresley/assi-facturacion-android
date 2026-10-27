@@ -1555,7 +1555,7 @@ components:
         id: { type: integer }
         invoiceId: { type: integer }
         invoiceNumber: { type: string }
-        reason: { type: string, enum: [payment, versat_import] }
+        reason: { type: string, enum: [payment, versat_export, versat_import] }
         deliveredAt: { type: string, format: date-time }
         readAt: { type: ["string", "null"], format: date-time }
     InvoiceAcceptanceNoticeStatus:
@@ -1565,7 +1565,7 @@ components:
         delivered: { type: boolean }
         invoiceNumber: { type: string }
         specialistName: { type: string }
-        reason: { type: ["string", "null"], enum: [payment, versat_import] }
+        reason: { type: ["string", "null"], enum: [payment, versat_export, versat_import, null] }
         deliveredAt: { type: ["string", "null"], format: date-time }
     InvoicePaymentCorrection:
       type: object

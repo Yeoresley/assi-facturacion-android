@@ -24,6 +24,7 @@ import { buildFac, encodeFac, facWarnings, getVersatIssues } from "../services/v
 import type { BillingTransaction } from "../services/invoice-numbering";
 import { facFilename, facNumber } from "../services/versat-identity";
 import { acceptanceFromWorkflowEvent } from "../services/invoice-status";
+import { createInvoiceAcceptanceNotification } from "../services/invoice-acceptance-notifications";
 import { compareCatalogCsv } from "../services/versat-catalog-check";
 
 const router: IRouter = Router();
@@ -376,6 +377,9 @@ router.post("/invoices/:id/versat-file", async (req, res): Promise<void> => {
       if (Object.keys(acceptance).length) {
         await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
       }
+      if (acceptance.acceptedSource === "versat_export") {
+        await createInvoiceAcceptanceNotification(tx, invoice, "versat_export");
+      }
       return response;
     });
     if (!result) { res.status(404).json({ error: "Factura no encontrada." }); return; }
@@ -435,6 +439,9 @@ router.post("/versat/export-file", async (req, res): Promise<void> => {
       const acceptance = acceptanceFromWorkflowEvent(invoice, owner.userId, "versat_export", acceptedAt);
       if (Object.keys(acceptance).length) {
         await tx.update(invoicesTable).set(acceptance).where(eq(invoicesTable.id, invoice.id));
+      }
+      if (acceptance.acceptedSource === "versat_export") {
+        await createInvoiceAcceptanceNotification(tx, invoice, "versat_export");
       }
     }
     return response;

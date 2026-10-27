@@ -9,6 +9,7 @@ import { eq, inArray } from "drizzle-orm";
 import {
   customersTable,
   db,
+  invoiceAcceptanceNotificationsTable,
   invoiceLinesTable,
   invoiceNumberReservationsTable,
   invoicesTable,
@@ -531,6 +532,31 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   assert.equal(acceptedInvoice.acceptedBy, ownerId);
   assert.ok(acceptedInvoice.acceptedAt instanceof Date);
   assert.equal(acceptedInvoice.acceptedSource, "versat_export");
+  const individualNotices = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, createdInvoice.id));
+  assert.equal(individualNotices.length, 1);
+  assert.equal(individualNotices[0].recipientUserId, specialistId);
+  assert.equal(individualNotices[0].reason, "versat_export");
+  const specialistNoticesResponse = await request("/notifications", specialistId);
+  assert.equal(specialistNoticesResponse.status, 200);
+  const specialistNotices = await specialistNoticesResponse.json() as Array<{ invoiceId: number; reason: string }>;
+  assert.ok(specialistNotices.some((notice) => notice.invoiceId === createdInvoice.id && notice.reason === "versat_export"));
+  const ownerNoticeResponse = await request(`/invoices/${createdInvoice.id}/acceptance-notification`, ownerId);
+  assert.equal(ownerNoticeResponse.status, 200);
+  const ownerNotice = await ownerNoticeResponse.json() as { delivered: boolean; reason: string | null; specialistName: string };
+  assert.equal(ownerNotice.delivered, true);
+  assert.equal(ownerNotice.reason, "versat_export");
+  assert.equal(ownerNotice.specialistName, "Synthetic Catalog History");
+
+  const individualReexport = await request(
+    `/invoices/${createdInvoice.id}/versat-file`,
+    ownerId,
+    "POST",
+    { catalogCsv: compatibleCatalogCsv },
+  );
+  assert.equal(individualReexport.status, 200, await individualReexport.text());
+  assert.equal((await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, createdInvoice.id))).length, 1);
 
   const acceptedReexport = await request(
     `/invoices/${reactivatedInvoice.id}/versat-file`,
@@ -588,6 +614,11 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   assert.equal(periodAcceptedInvoice.acceptedBy, ownerId);
   assert.ok(periodAcceptedInvoice.acceptedAt instanceof Date);
   assert.equal(periodAcceptedInvoice.acceptedSource, "versat_export");
+  const periodNotices = await db.select().from(invoiceAcceptanceNotificationsTable)
+    .where(eq(invoiceAcceptanceNotificationsTable.invoiceId, periodInvoice.id));
+  assert.equal(periodNotices.length, 1);
+  assert.equal(periodNotices[0].recipientUserId, specialistId);
+  assert.equal(periodNotices[0].reason, "versat_export");
   const [periodReexportedInvoice] = await db.select().from(invoicesTable)
     .where(eq(invoicesTable.id, reactivatedInvoice.id));
   assert.equal(periodReexportedInvoice.status, "accepted");

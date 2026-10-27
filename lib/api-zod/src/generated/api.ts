@@ -2814,7 +2814,7 @@ export const GetInvoiceAcceptanceNotificationResponse = zod.object({
   "delivered": zod.boolean(),
   "invoiceNumber": zod.string(),
   "specialistName": zod.string(),
-  "reason": zod.enum(['payment', 'versat_import']).nullable(),
+  "reason": zod.union([zod.literal('payment'),zod.literal('versat_export'),zod.literal('versat_import'),zod.literal(null)]).nullable(),
   "deliveredAt": zod.coerce.date().nullable()
 })
 
@@ -2826,7 +2826,7 @@ export const ListInvoiceAcceptanceNotificationsResponseItem = zod.object({
   "id": zod.number().int(),
   "invoiceId": zod.number().int(),
   "invoiceNumber": zod.string(),
-  "reason": zod.enum(['payment', 'versat_import']),
+  "reason": zod.enum(['payment', 'versat_export', 'versat_import']),
   "deliveredAt": zod.coerce.date(),
   "readAt": zod.coerce.date().nullable()
 })
@@ -2847,7 +2847,7 @@ export const MarkInvoiceAcceptanceNotificationReadResponse = zod.object({
   "id": zod.number().int(),
   "invoiceId": zod.number().int(),
   "invoiceNumber": zod.string(),
-  "reason": zod.enum(['payment', 'versat_import']),
+  "reason": zod.enum(['payment', 'versat_export', 'versat_import']),
   "deliveredAt": zod.coerce.date(),
   "readAt": zod.coerce.date().nullable()
 })

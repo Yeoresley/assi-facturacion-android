@@ -276,7 +276,9 @@ function AcceptanceNoticeBanner({ enabled }: { enabled: boolean }) {
           <div className="font-bold text-[#12365a]">Factura {notice.invoiceNumber} aceptada automáticamente</div>
           <p className="text-[#617887]">{notice.reason === 'payment'
             ? 'El administrador registró un pago y la factura quedó Aceptada.'
-            : 'El administrador confirmó la importación en Versat y la factura quedó Aceptada.'}</p>
+            : notice.reason === 'versat_export'
+              ? 'El administrador generó el archivo de Versat y la factura quedó Aceptada.'
+              : 'El administrador confirmó la importación en Versat y la factura quedó Aceptada.'}</p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">

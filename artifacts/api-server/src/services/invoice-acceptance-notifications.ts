@@ -4,7 +4,7 @@ import { invoiceAcceptanceNotificationsTable, type Invoice } from "@workspace/db
 export async function createInvoiceAcceptanceNotification(
   tx: BillingTransaction,
   invoice: Pick<Invoice, "id" | "number" | "specialistId">,
-  reason: "payment" | "versat_import",
+  reason: "payment" | "versat_export" | "versat_import",
 ) {
   await tx.insert(invoiceAcceptanceNotificationsTable).values({
     invoiceId: invoice.id,

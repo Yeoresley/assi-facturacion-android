@@ -8,7 +8,7 @@ export const invoiceAcceptanceNotificationsTable = pgTable("invoice_acceptance_n
     .references(() => invoicesTable.id, { onDelete: "cascade" }),
   recipientUserId: text("recipient_user_id").notNull(),
   invoiceNumber: text("invoice_number").notNull(),
-  reason: text("reason").$type<"payment" | "versat_import">().notNull(),
+  reason: text("reason").$type<"payment" | "versat_export" | "versat_import">().notNull(),
   deliveredAt: timestamp("delivered_at", { withTimezone: true }).notNull().defaultNow(),
   readAt: timestamp("read_at", { withTimezone: true }),
 }, (table) => [
