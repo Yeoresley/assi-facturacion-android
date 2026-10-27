@@ -19,6 +19,9 @@ test("un pago o una exportación aceptan una factura terminada sin reemplazar un
     status: "accepted", acceptedBy: "specialist-1", acceptedAt, acceptedSource: "specialist",
   }, "owner-2", "payment", new Date()), {});
   assert.deepEqual(acceptanceFromWorkflowEvent({
+    status: "accepted", acceptedBy: "owner-1", acceptedAt, acceptedSource: "payment",
+  }, "owner-2", "versat_export", new Date()), {});
+  assert.deepEqual(acceptanceFromWorkflowEvent({
     status: "confirmed", acceptedBy: "owner-1", acceptedAt, acceptedSource: "versat_import",
   }, "owner-2", "versat_export", new Date()), {});
   assert.deepEqual(acceptanceFromWorkflowEvent({

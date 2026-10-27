@@ -417,6 +417,13 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   const reactivatedInvoice = await invoiceUsingReactivatedConcept.json() as { id: number; versat: { conceptId: number } };
   invoiceIds.push(reactivatedInvoice.id);
   assert.equal(reactivatedInvoice.versat.conceptId, entries["NEW-CON"].id);
+  const originalAcceptanceAt = new Date("2098-12-30T12:00:00.000Z");
+  await db.update(invoicesTable).set({
+    status: "accepted",
+    acceptedBy: specialistId,
+    acceptedAt: originalAcceptanceAt,
+    acceptedSource: "specialist",
+  }).where(eq(invoicesTable.id, reactivatedInvoice.id));
 
   const conceptHistoryResponse = await request(
     `/versat/catalogs/${entries["NEW-CON"].id}/history`,
@@ -440,9 +447,11 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   const preview = await request("/versat/export?from=2098-12-30&to=2098-12-30");
   assert.equal(preview.status, 200);
   const previewRows = await preview.json() as Array<{ invoiceNumber: string; currency: string; taxId: string | null }>;
-  assert.equal(previewRows.length, 1);
-  assert.equal(previewRows[0].taxId, "HISTORICAL TAX ID");
-  assert.equal(previewRows[0].currency, entries.CUR.code);
+  assert.equal(previewRows.length, 2);
+  const originalSnapshotPreview = previewRows.find(({ currency }) => currency === entries.CUR.code);
+  assert.ok(originalSnapshotPreview);
+  assert.equal(originalSnapshotPreview.taxId, "HISTORICAL TAX ID");
+  assert.equal(originalSnapshotPreview.currency, entries.CUR.code);
 
   // The comparator trims imported cells; normalize legacy padded DB values only
   // for this test's compatible-catalog export and restore them in the teardown.
@@ -519,6 +528,39 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   const [acceptedInvoice] = await db.select().from(invoicesTable)
     .where(eq(invoicesTable.id, createdInvoice.id));
   assert.equal(acceptedInvoice.status, "accepted");
+  assert.equal(acceptedInvoice.acceptedBy, ownerId);
+  assert.ok(acceptedInvoice.acceptedAt instanceof Date);
+  assert.equal(acceptedInvoice.acceptedSource, "versat_export");
+
+  const acceptedReexport = await request(
+    `/invoices/${reactivatedInvoice.id}/versat-file`,
+    ownerId,
+    "POST",
+    { catalogCsv: compatibleCatalogCsv },
+  );
+  assert.equal(acceptedReexport.status, 200, await acceptedReexport.text());
+  const [stillOriginallyAccepted] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, reactivatedInvoice.id));
+  assert.equal(stillOriginallyAccepted.status, "accepted");
+  assert.equal(stillOriginallyAccepted.acceptedBy, specialistId);
+  assert.deepEqual(stillOriginallyAccepted.acceptedAt, originalAcceptanceAt);
+  assert.equal(stillOriginallyAccepted.acceptedSource, "specialist");
+
+  const periodInvoiceResponse = await request("/invoices", specialistId, "POST", invoiceBody({
+    currency: entries["ACTIVE-CUR"].code,
+    versat: {
+      ...invoiceBody().versat,
+      conceptId: entries["ACTIVE-CON"].id,
+      number: `${tag}-PERIOD-FAC`,
+    },
+    lines: [{ ...invoiceBody().lines[0], serviceId: entries["ACTIVE-SRV"].id }],
+  }));
+  const periodInvoiceBody = await periodInvoiceResponse.text();
+  assert.equal(periodInvoiceResponse.status, 201, periodInvoiceBody);
+  const periodInvoice = JSON.parse(periodInvoiceBody) as { id: number };
+  invoiceIds.push(periodInvoice.id);
+  await db.update(invoicesTable).set({ status: "finished" })
+    .where(eq(invoicesTable.id, periodInvoice.id));
 
   const periodExport = await request(
     "/versat/export-file?from=2098-12-30&to=2098-12-30",
@@ -536,10 +578,22 @@ test("inactive catalog entries stay out of new invoices, remain on their drafts 
   };
   assert.match(periodFile.filename, /\.zip$/);
   assert.equal(periodFile.contentType, "application/zip");
-  assert.equal(periodFile.invoiceCount, 1);
+  assert.equal(periodFile.invoiceCount, 3);
   const archive = unzipSync(Buffer.from(periodFile.base64, "base64"));
-  assert.ok(Object.keys(archive).some((filename) => filename.endsWith(".Fac")));
+  assert.equal(Object.keys(archive).filter((filename) => filename.endsWith(".Fac")).length, 3);
   assert.ok(archive["LEEME.txt"]);
+  const [periodAcceptedInvoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, periodInvoice.id));
+  assert.equal(periodAcceptedInvoice.status, "accepted");
+  assert.equal(periodAcceptedInvoice.acceptedBy, ownerId);
+  assert.ok(periodAcceptedInvoice.acceptedAt instanceof Date);
+  assert.equal(periodAcceptedInvoice.acceptedSource, "versat_export");
+  const [periodReexportedInvoice] = await db.select().from(invoicesTable)
+    .where(eq(invoicesTable.id, reactivatedInvoice.id));
+  assert.equal(periodReexportedInvoice.status, "accepted");
+  assert.equal(periodReexportedInvoice.acceptedBy, specialistId);
+  assert.deepEqual(periodReexportedInvoice.acceptedAt, originalAcceptanceAt);
+  assert.equal(periodReexportedInvoice.acceptedSource, "specialist");
   for (const entry of originalCatalogExportValues) {
     await db.update(versatCatalogTable).set({ exportValue: entry.exportValue })
       .where(eq(versatCatalogTable.id, entry.id));
