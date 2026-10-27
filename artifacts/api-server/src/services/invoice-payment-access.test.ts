@@ -30,6 +30,7 @@ import {
   type VersatInvoiceSnapshot,
 } from "@workspace/db";
 import billingRouter from "../routes/billing";
+import { summarizePayments } from "./invoice-payment";
 
 const tag = `payment-access-${randomUUID()}`;
 const ownerId = `${tag}-owner`;
@@ -399,6 +400,79 @@ test("only the owner can download corrections for the requested invoice", async 
     await db.delete(invoicePaymentCorrectionsTable)
       .where(eq(invoicePaymentCorrectionsTable.id, noReceiptCorrection.id));
     await db.update(invoicePaymentsTable).set({ reference: originalReceipt.reference })
+      .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+  }
+});
+
+test("invoice summaries use the highest correction ID and retain the original receipt", async () => {
+  const originalReference = `${tag}-ORIGINAL-RECEIPT`;
+  await db.update(invoicePaymentsTable).set({ reference: originalReference })
+    .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+  const [latestCorrection] = await db.insert(invoicePaymentCorrectionsTable).values({
+    invoiceId: invoiceOneId,
+    idempotencyKey: randomUUID(),
+    reason: "Ajuste posterior del mismo recibo",
+    correctedBy: ownerId,
+    targetPaymentId: invoiceOnePaymentId,
+    reversedPaymentId: null,
+    beforePaymentAmount: 8,
+    afterPaymentAmount: 6,
+    beforePaidOn: "2026-10-18",
+    afterPaidOn: null,
+    beforePaymentMethod: null,
+    afterPaymentMethod: null,
+    beforeInvoiceStatus: "sent",
+    afterInvoiceStatus: "sent",
+    beforePaymentStatus: "pending",
+    afterPaymentStatus: "pending",
+    beforeTotalPaid: 33,
+    afterTotalPaid: 31,
+    originalPaidBy: ownerId,
+    originalPaidAt: new Date("2026-10-19T12:00:00Z"),
+  }).returning();
+
+  try {
+    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceOneId));
+    const payments = await db.select().from(invoicePaymentsTable)
+      .where(eq(invoicePaymentsTable.invoiceId, invoiceOneId));
+    const corrections = await db.select().from(invoicePaymentCorrectionsTable)
+      .where(eq(invoicePaymentCorrectionsTable.invoiceId, invoiceOneId));
+    const shuffledSummary = summarizePayments(invoice, payments, [...corrections].reverse());
+    assert.equal(shuffledSummary.totalPaid, 31);
+    assert.equal(shuffledSummary.balanceDue, 69);
+    assert.deepEqual(shuffledSummary.payments
+      .filter(({ id }) => id === invoiceOnePaymentId)
+      .map(({ amount, reference }) => ({ amount, reference })), [
+      { amount: 6, reference: originalReference },
+    ]);
+
+    const detailResponse = await request(`/invoices/${invoiceOneId}`, ownerId);
+    assert.equal(detailResponse.status, 200);
+    const detail = GetInvoiceResponse.parse(await detailResponse.json());
+    assert.equal(detail.totalPaid, 31);
+    assert.equal(detail.balanceDue, 69);
+    assert.deepEqual(detail.payments
+      .filter(({ id }) => id === invoiceOnePaymentId)
+      .map(({ amount, reference }) => ({ amount, reference })), [
+      { amount: 6, reference: originalReference },
+    ]);
+
+    const listResponse = await request("/invoices", ownerId);
+    assert.equal(listResponse.status, 200);
+    const list = ListInvoicesResponse.parse(await listResponse.json());
+    const listedInvoice = list.find(({ id }) => id === invoiceOneId);
+    assert.ok(listedInvoice);
+    assert.equal(listedInvoice.totalPaid, 31);
+    assert.equal(listedInvoice.balanceDue, 69);
+
+    const [storedPayment] = await db.select().from(invoicePaymentsTable)
+      .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
+    assert.equal(storedPayment.amount, 10);
+    assert.equal(storedPayment.reference, originalReference);
+  } finally {
+    await db.delete(invoicePaymentCorrectionsTable)
+      .where(eq(invoicePaymentCorrectionsTable.id, latestCorrection.id));
+    await db.update(invoicePaymentsTable).set({ reference: null })
       .where(eq(invoicePaymentsTable.id, invoiceOnePaymentId));
   }
 });

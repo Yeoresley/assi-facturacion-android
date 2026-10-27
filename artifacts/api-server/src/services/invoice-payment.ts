@@ -83,16 +83,27 @@ export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paym
   const reversedPaymentIds = new Set(corrections.flatMap(({ reversedPaymentId }) =>
     reversedPaymentId === null ? [] : [reversedPaymentId]));
   const activePayments = payments.filter((payment) => !reversedPaymentIds.has(payment.id));
-  const orderedCorrections = [...corrections].sort((a, b) => a.id - b.id);
-  const latestFieldCorrection = <K extends "afterPaymentAmount" | "afterPaidOn">(
-    paymentId: number,
-    field: K,
-  ) => [...orderedCorrections].reverse().find((correction) =>
-    correction.targetPaymentId === paymentId && correction[field] !== null)?.[field] ?? undefined;
-  const latestMethodCorrection = (paymentId: number) => [...orderedCorrections].reverse().find((correction) =>
-    correction.targetPaymentId === paymentId && correction.afterPaymentMethod !== null);
+  const latestAmounts = new Map<number, { id: number; amount: number }>();
+  const latestDates = new Map<number, { id: number; paidOn: string }>();
+  const latestMethods = new Map<number, { id: number; method: "transfer" | "cash" | "other" }>();
+  for (const correction of corrections) {
+    if (correction.targetPaymentId === null) continue;
+    const paymentId = correction.targetPaymentId;
+    if (correction.afterPaymentAmount !== null &&
+        correction.id > (latestAmounts.get(paymentId)?.id ?? -1)) {
+      latestAmounts.set(paymentId, { id: correction.id, amount: correction.afterPaymentAmount });
+    }
+    if (correction.afterPaidOn !== null &&
+        correction.id > (latestDates.get(paymentId)?.id ?? -1)) {
+      latestDates.set(paymentId, { id: correction.id, paidOn: correction.afterPaidOn });
+    }
+    if (correction.afterPaymentMethod !== null &&
+        correction.id > (latestMethods.get(paymentId)?.id ?? -1)) {
+      latestMethods.set(paymentId, { id: correction.id, method: correction.afterPaymentMethod });
+    }
+  }
   const recordedCents = activePayments.reduce((sum, payment) => {
-    return sum + cents(latestFieldCorrection(payment.id, "afterPaymentAmount") ?? payment.amount);
+    return sum + cents(latestAmounts.get(payment.id)?.amount ?? payment.amount);
   }, 0);
   // Legacy records marked paid before the payment ledger existed remain settled, without a fake receipt.
   const totalPaidCents = invoice.status === "paid" || invoice.paymentStatus === "paid"
@@ -105,12 +116,12 @@ export function summarizePayments(invoice: Pick<Invoice, "id" | "status" | "paym
     balanceDue: Math.max(0, cents(invoice.total) - totalPaidCents) / 100,
     payments: payments.map(({ id, amount, currency, paidOn, recordedAt, reference, paymentMethod }) => ({
       id,
-      amount: latestFieldCorrection(id, "afterPaymentAmount") ?? amount,
+      amount: latestAmounts.get(id)?.amount ?? amount,
       currency,
-      paidOn: latestFieldCorrection(id, "afterPaidOn") ?? paidOn,
+      paidOn: latestDates.get(id)?.paidOn ?? paidOn,
       recordedAt: recordedAt.toISOString(),
       reference,
-      paymentMethod: latestMethodCorrection(id)?.afterPaymentMethod ?? paymentMethod,
+      paymentMethod: latestMethods.get(id)?.method ?? paymentMethod,
     })),
     paymentCorrections: corrections.map((correction) => ({
       ...correction,
