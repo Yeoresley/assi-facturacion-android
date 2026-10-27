@@ -189,7 +189,18 @@ export const GetMonthlySettlementResponse = zod.object({
   "resolution": zod.string(),
   "reason": zod.string(),
   "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date(),
+  "fulfillmentStatus": zod.enum(['pending', 'resolved']),
+  "fulfilledAmount": zod.number(),
+  "fulfillments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "resolutionId": zod.number().int(),
+  "fulfilledOn": zod.coerce.date(),
+  "amount": zod.number(),
+  "reason": zod.string(),
+  "recordedBy": zod.string(),
   "recordedAt": zod.coerce.date()
+}))
 })),
   "closure": zod.union([zod.object({
   "id": zod.number().int(),
@@ -646,6 +657,48 @@ export const CreateSettlementOverpaymentResolutionResponse = zod.object({
   "closureVersion": zod.number().int(),
   "overpaidAmount": zod.number(),
   "resolution": zod.string(),
+  "reason": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date(),
+  "fulfillmentStatus": zod.enum(['pending', 'resolved']),
+  "fulfilledAmount": zod.number(),
+  "fulfillments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "resolutionId": zod.number().int(),
+  "fulfilledOn": zod.coerce.date(),
+  "amount": zod.number(),
+  "reason": zod.string(),
+  "recordedBy": zod.string(),
+  "recordedAt": zod.coerce.date()
+}))
+})
+
+
+
+
+
+export const CreateSettlementOverpaymentFulfillmentParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const createSettlementOverpaymentFulfillmentBodyAmountExclusiveMin = 0;
+
+export const createSettlementOverpaymentFulfillmentBodyReasonMin = 5;
+export const createSettlementOverpaymentFulfillmentBodyReasonMax = 1000;
+
+
+
+export const CreateSettlementOverpaymentFulfillmentBody = zod.object({
+  "fulfilledOn": zod.coerce.date(),
+  "amount": zod.number().gt(createSettlementOverpaymentFulfillmentBodyAmountExclusiveMin),
+  "reason": zod.string().min(createSettlementOverpaymentFulfillmentBodyReasonMin).max(createSettlementOverpaymentFulfillmentBodyReasonMax)
+})
+
+export const CreateSettlementOverpaymentFulfillmentResponse = zod.object({
+  "id": zod.number().int(),
+  "resolutionId": zod.number().int(),
+  "fulfilledOn": zod.coerce.date(),
+  "amount": zod.number(),
   "reason": zod.string(),
   "recordedBy": zod.string(),
   "recordedAt": zod.coerce.date()

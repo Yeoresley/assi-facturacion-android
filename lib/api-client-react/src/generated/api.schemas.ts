@@ -1413,6 +1413,24 @@ export interface SettlementOverpaymentResolutionInput {
   reason: string;
 }
 
+export type SettlementOverpaymentResolutionFulfillmentStatus = typeof SettlementOverpaymentResolutionFulfillmentStatus[keyof typeof SettlementOverpaymentResolutionFulfillmentStatus];
+
+
+export const SettlementOverpaymentResolutionFulfillmentStatus = {
+  pending: 'pending',
+  resolved: 'resolved',
+} as const;
+
+export interface SettlementOverpaymentFulfillment {
+  id: number;
+  resolutionId: number;
+  fulfilledOn: string;
+  amount: number;
+  reason: string;
+  recordedBy: string;
+  recordedAt: string;
+}
+
 export interface SettlementOverpaymentResolution {
   id: number;
   period: string;
@@ -1424,6 +1442,20 @@ export interface SettlementOverpaymentResolution {
   reason: string;
   recordedBy: string;
   recordedAt: string;
+  fulfillmentStatus: SettlementOverpaymentResolutionFulfillmentStatus;
+  fulfilledAmount: number;
+  fulfillments: SettlementOverpaymentFulfillment[];
+}
+
+export interface SettlementOverpaymentFulfillmentInput {
+  fulfilledOn: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
 }
 
 export interface SettlementOverpaymentNotification {

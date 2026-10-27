@@ -6,6 +6,8 @@ import express from "express";
 import { clerkClient } from "@clerk/express";
 import {
   CreateSettlementClosureResponse,
+  CreateSettlementOverpaymentFulfillmentResponse,
+  CreateSettlementOverpaymentResolutionResponse,
   CreateSettlementPaymentResponse,
   GetMonthlySettlementResponse,
   ListSettlementOverpaymentNotificationsResponse,
@@ -23,6 +25,7 @@ import {
   settlementClassificationsTable,
   settlementClosuresTable,
   settlementOverpaymentResolutionsTable,
+  settlementOverpaymentFulfillmentsTable,
   settlementPaymentsTable,
   teamMembersTable,
 } from "@workspace/db";
@@ -262,6 +265,15 @@ before(async () => {
 after(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   mock.restoreAll();
+  const resolutionIdsToClean = await db.select({ id: settlementOverpaymentResolutionsTable.id })
+    .from(settlementOverpaymentResolutionsTable)
+    .where(inArray(settlementOverpaymentResolutionsTable.specialistId, [specialistOneId, specialistTwoId]));
+  if (resolutionIdsToClean.length) {
+    await db.delete(settlementOverpaymentFulfillmentsTable).where(inArray(
+      settlementOverpaymentFulfillmentsTable.resolutionId,
+      resolutionIdsToClean.map(({ id }) => id),
+    ));
+  }
   await db.delete(settlementOverpaymentResolutionsTable).where(inArray(
     settlementOverpaymentResolutionsTable.specialistId,
     [specialistOneId, specialistTwoId],
@@ -641,6 +653,69 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     reason: reasonText,
   }, "/settlements/overpayment-resolutions");
   assert.equal(resolutionResponse.status, 201);
+  const createdResolution = CreateSettlementOverpaymentResolutionResponse.parse(
+    await resolutionResponse.json(),
+  );
+  assert.equal((await request(ownerId, "POST", {
+    period,
+    specialistId: specialistOneId,
+    resolution: resolutionText,
+    reason: reasonText,
+  }, "/settlements/overpayment-resolutions")).status, 409);
+  assert.equal(createdResolution.fulfillmentStatus, "pending");
+  assert.equal(createdResolution.fulfilledAmount, 0);
+  assert.deepEqual(createdResolution.fulfillments, []);
+
+  const fulfillmentPath = `/settlements/overpayment-resolutions/${createdResolution.id}/fulfillments`;
+  assert.equal((await request(specialistOneId, "POST", {
+    fulfilledOn: paidOn,
+    amount: 100,
+    reason: "Devolución registrada por transferencia",
+  }, fulfillmentPath)).status, 403);
+  assert.equal((await request(ownerId, "POST", {
+    fulfilledOn: paidOn,
+    amount: 226,
+    reason: "Importe superior al excedente pendiente",
+  }, fulfillmentPath)).status, 409);
+
+  const firstFulfillmentResponse = await request(ownerId, "POST", {
+    fulfilledOn: paidOn,
+    amount: 100,
+    reason: "Primera parte devuelta mediante transferencia",
+  }, fulfillmentPath);
+  assert.equal(firstFulfillmentResponse.status, 201);
+  const firstFulfillment = CreateSettlementOverpaymentFulfillmentResponse.parse(
+    await firstFulfillmentResponse.json(),
+  );
+  assert.equal(firstFulfillment.resolutionId, createdResolution.id);
+  assert.equal(firstFulfillment.amount, 100);
+  assert.equal(firstFulfillment.recordedBy, ownerId);
+
+  const afterPartialFulfillment = GetMonthlySettlementResponse.parse(
+    await (await request(ownerId)).json(),
+  ).results.find((result) => result.specialistId === specialistOneId)!;
+  assert.equal(afterPartialFulfillment.overpaymentResolutions[0]?.fulfillmentStatus, "pending");
+  assert.equal(afterPartialFulfillment.overpaymentResolutions[0]?.fulfilledAmount, 100);
+  assert.equal(afterPartialFulfillment.overpaymentResolutions[0]?.fulfillments.length, 1);
+  assert.equal(afterPartialFulfillment.overpaidAmount, 225);
+  assert.equal(afterPartialFulfillment.payments.length, 2);
+  assert.deepEqual(afterPartialFulfillment.closureHistory.map(({ version }) => version), [1, 2, 3]);
+
+  const finalFulfillmentResponse = await request(ownerId, "POST", {
+    fulfilledOn: paidOn,
+    amount: 125,
+    reason: "Saldo compensado en la liquidación siguiente",
+  }, fulfillmentPath);
+  assert.equal(finalFulfillmentResponse.status, 201);
+  const finalFulfillment = CreateSettlementOverpaymentFulfillmentResponse.parse(
+    await finalFulfillmentResponse.json(),
+  );
+  assert.equal(finalFulfillment.amount, 125);
+  assert.equal((await request(ownerId, "POST", {
+    fulfilledOn: paidOn,
+    amount: 0.01,
+    reason: "No debe permitirse un exceso de registro",
+  }, fulfillmentPath)).status, 409);
 
   const noticesPath = "/settlements/overpayment-notifications";
   const specialistNoticesResponse = await request(specialistOneId, "GET", undefined, noticesPath);
@@ -707,7 +782,21 @@ test("owner closes a frozen snapshot and corrections append an auditable version
     assert.equal(result.overpaymentResolutions[0]?.resolution, resolutionText);
     assert.equal(result.overpaymentResolutions[0]?.reason, reasonText);
     assert.equal(result.overpaymentResolutions[0]?.recordedBy, ownerId);
+    assert.equal(result.overpaymentResolutions[0]?.fulfillmentStatus, "resolved");
+    assert.equal(result.overpaymentResolutions[0]?.fulfilledAmount, 225);
+    assert.deepEqual(result.overpaymentResolutions[0]?.fulfillments.map(({ amount }) => amount), [100, 125]);
+    assert.deepEqual(result.overpaymentResolutions[0]?.fulfillments.map(({ reason }) => reason), [
+      "Primera parte devuelta mediante transferencia",
+      "Saldo compensado en la liquidación siguiente",
+    ]);
     assert.deepEqual(result.closureHistory.map(({ version }) => version), [1, 2, 3]);
     assert.equal(result.closureHistory[0]?.snapshot.totals.netPayable, approvedNet);
   }
+  const storedPayments = await db.select().from(settlementPaymentsTable).where(and(
+    eq(settlementPaymentsTable.period, period),
+    eq(settlementPaymentsTable.specialistId, specialistOneId),
+  ));
+  assert.equal(storedPayments.length, 2);
+  assert.equal((await db.select().from(settlementOverpaymentFulfillmentsTable)
+    .where(eq(settlementOverpaymentFulfillmentsTable.resolutionId, createdResolution.id))).length, 2);
 });

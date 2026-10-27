@@ -4,6 +4,7 @@ import {
   getGetCurrentTeamMemberQueryKey, getGetMonthlySettlementQueryKey, useCreateSettlementClassification,
   useCreateSettlementClosure, useCorrectSettlementClosure, useCreateSettlementExpense,
   useCreateSettlementInvoiceInclusion, useGetCurrentTeamMember,
+  useCreateSettlementOverpaymentFulfillment,
   useCreateSettlementOverpaymentResolution, useCreateSettlementPayment, useGetMonthlySettlement,
   useRevokeSettlementInvoiceInclusion, useUpdateSettlementExchangeRate,
   useVoidSettlementExpense,
@@ -83,12 +84,17 @@ export default function SettlementsPage() {
   const updateRate = useUpdateSettlementExchangeRate();
   const createPayment = useCreateSettlementPayment();
   const createOverpaymentResolution = useCreateSettlementOverpaymentResolution();
+  const createOverpaymentFulfillment = useCreateSettlementOverpaymentFulfillment();
   const createClosure = useCreateSettlementClosure();
   const correctClosure = useCorrectSettlementClosure();
-  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending || createOverpaymentResolution.isPending || createClosure.isPending || correctClosure.isPending;
+  const busy = classify.isPending || createExpense.isPending || voidExpense.isPending || createInclusion.isPending || revokeInclusion.isPending || updateRate.isPending || createPayment.isPending || createOverpaymentResolution.isPending || createOverpaymentFulfillment.isPending || createClosure.isPending || correctClosure.isPending;
   const data = settlement.data;
   const results = data?.results ?? [];
   const activeResult = useMemo(() => results.find((result) => result.specialistId === selectedSpecialist) ?? results[0], [results, selectedSpecialist]);
+  const currentOverpaymentResolution = activeResult?.closure && activeResult.overpaidAmount > 0
+    ? activeResult.overpaymentResolutions.find((entry) =>
+      entry.closureId === activeResult.closure?.id && entry.overpaidAmount === activeResult.overpaidAmount)
+    : undefined;
 
   function refreshPeriod() {
     void queryClient.invalidateQueries({ queryKey: getGetMonthlySettlementQueryKey({ period }) });
@@ -164,6 +170,20 @@ export default function SettlementsPage() {
         period,
         specialistId: activeResult.specialistId,
         resolution: String(form.get('resolution') || '').trim(),
+        reason: String(form.get('reason') || '').trim(),
+      },
+    }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
+  }
+  function recordOverpaymentFulfillment(event: FormEvent<HTMLFormElement>, resolutionId: number) {
+    event.preventDefault();
+    if (!owner) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    runMutation(() => createOverpaymentFulfillment.mutate({
+      id: resolutionId,
+      data: {
+        fulfilledOn: String(form.get('fulfilledOn') || ''),
+        amount: Number(form.get('amount')),
         reason: String(form.get('reason') || '').trim(),
       },
     }, { onSuccess: () => { formElement.reset(); refreshPeriod(); }, onError: handleMutationError }));
@@ -311,8 +331,12 @@ export default function SettlementsPage() {
               <Metric label={activeResult.closure ? "Saldo aprobado" : "Pendiente estimado"} value={activeResult.pendingAmount} note={paymentBlockers ? 'Estimación incompleta; revisa los bloqueos antes de usarla' : 'Saldo calculado después de los pagos registrados'} emphasis />
               <Metric label="Excedente pagado" value={activeResult.overpaidAmount} note={activeResult.overpaidAmount > 0 ? 'Transferencias que superan el neto aprobado' : 'Sin pagos por encima del neto'} />
             </div>
-            {activeResult.overpaidAmount > 0 && <div className="border-b border-[#efcfc7] bg-[#fbefeb] px-5 py-3 text-[11px] leading-5 text-[#984b40]" role="alert" data-testid="settlement-overpayment-alert">
-              <strong>Sobrepago de {amount(activeResult.overpaidAmount)}.</strong> Las transferencias registradas se conservan; el propietario debe indicar cómo se resolverá este excedente.
+            {activeResult.overpaidAmount > 0 && <div className={`border-b px-5 py-3 text-[11px] leading-5 ${currentOverpaymentResolution?.fulfillmentStatus === 'resolved' ? 'border-[#cfe2d2] bg-[#edf6ee] text-[#376044]' : 'border-[#efcfc7] bg-[#fbefeb] text-[#984b40]'}`} role={currentOverpaymentResolution?.fulfillmentStatus === 'resolved' ? 'status' : 'alert'} data-testid="settlement-overpayment-alert">
+              <strong>{currentOverpaymentResolution?.fulfillmentStatus === 'resolved' ? 'Excedente resuelto' : `Sobrepago de ${amount(activeResult.overpaidAmount)}`}.</strong> Las transferencias registradas se conservan. {currentOverpaymentResolution?.fulfillmentStatus === 'resolved'
+                ? 'El cumplimiento quedó guardado en el historial.'
+                : currentOverpaymentResolution
+                  ? `La resolución está pendiente de completar ${amount(Math.max(0, currentOverpaymentResolution.overpaidAmount - currentOverpaymentResolution.fulfilledAmount))}.`
+                  : 'El propietario debe indicar cómo se resolverá este excedente.'}
             </div>}
             {activeResult.payments.length > 0 && <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left">
@@ -330,12 +354,27 @@ export default function SettlementsPage() {
                 <div className="eyebrow mb-2">Resoluciones registradas</div>
                 <ol className="space-y-2">{activeResult.overpaymentResolutions.map((entry) => <li key={entry.id} className="rounded-lg border border-[#e9e6dc] bg-[#fffefa] px-3 py-2.5 text-[10px] leading-5" data-testid={`settlement-overpayment-resolution-${entry.id}`}>
                   <strong className="text-[#29443e]">Excedente {amount(entry.overpaidAmount)} · cierre v{entry.closureVersion}</strong>
+                  <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 font-semibold ${entry.fulfillmentStatus === 'resolved' ? 'bg-[#e8f3e9] text-[#376044]' : 'bg-[#fbf0df] text-[#8a6426]'}`} data-testid={`settlement-overpayment-status-${entry.id}`}>{entry.fulfillmentStatus === 'resolved' ? 'Excedente resuelto' : `Resolución pendiente · ${amount(Math.max(0, entry.overpaidAmount - entry.fulfilledAmount))} pendiente`}</span>
                   <div className="mt-1">{entry.resolution}</div>
                   <div className="text-[#78847d]">Motivo: {entry.reason}</div>
                   <div className="text-[#78847d]">Registró: {entry.recordedBy} · {date(entry.recordedAt)}</div>
+                  {entry.fulfillments.length > 0 && <div className="mt-2 border-t border-[#eeece4] pt-2">
+                    <div className="eyebrow mb-1">Cumplimientos registrados · {amount(entry.fulfilledAmount)} de {amount(entry.overpaidAmount)}</div>
+                    <ol className="space-y-1">{entry.fulfillments.map((fulfillment) => <li key={fulfillment.id} data-testid={`settlement-overpayment-fulfillment-${fulfillment.id}`}>
+                      <strong>{amount(fulfillment.amount)} · {date(fulfillment.fulfilledOn)}</strong>
+                      <span className="ml-2 text-[#78847d]">{fulfillment.reason} · Registró: {fulfillment.recordedBy} · {date(fulfillment.recordedAt)}</span>
+                    </li>)}</ol>
+                  </div>}
+                  {owner && entry.fulfillmentStatus === 'pending' && <form className="mt-3 grid gap-2 border-t border-[#eeece4] pt-3 sm:grid-cols-2" onSubmit={(event) => recordOverpaymentFulfillment(event, entry.id)} data-testid={`form-settlement-overpayment-fulfillment-${entry.id}`}>
+                    <div className="sm:col-span-2"><div className="eyebrow">Registrar devolución o compensación</div><p className="mt-1 text-[#78847d]">Guarda el cumplimiento como evento aparte; no modifica las transferencias ni el cierre.</p></div>
+                    <label><span className="field-label">Fecha</span><input name="fulfilledOn" className="field" type="date" required max={todayISO()} defaultValue={todayISO()} disabled={busy} data-testid={`input-overpayment-fulfillment-date-${entry.id}`} /></label>
+                    <label><span className="field-label">Importe (CUP)</span><input name="amount" className="field" type="number" min="0.01" max={Math.max(0, entry.overpaidAmount - entry.fulfilledAmount)} step="0.01" required defaultValue={Math.max(0, entry.overpaidAmount - entry.fulfilledAmount).toFixed(2)} disabled={busy} data-testid={`input-overpayment-fulfillment-amount-${entry.id}`} /></label>
+                    <label className="sm:col-span-2"><span className="field-label">Motivo o referencia del cumplimiento</span><textarea name="reason" className="field" rows={2} minLength={5} maxLength={1000} required placeholder="Ej.: transferencia devuelta, comprobante o período compensado" disabled={busy} data-testid={`input-overpayment-fulfillment-reason-${entry.id}`} /></label>
+                    <button className="button button-primary justify-self-end sm:col-span-2" type="submit" disabled={busy} data-testid={`button-record-overpayment-fulfillment-${entry.id}`}>{createOverpaymentFulfillment.isPending ? 'Guardando…' : 'Registrar cumplimiento'}</button>
+                  </form>}
                 </li>)}</ol>
               </div>}
-              {owner && activeResult.closure && activeResult.overpaidAmount > 0 && <form className="grid gap-3" onSubmit={recordOverpaymentResolution} data-testid="form-settlement-overpayment-resolution">
+              {owner && activeResult.closure && activeResult.overpaidAmount > 0 && !currentOverpaymentResolution && <form className="grid gap-3" onSubmit={recordOverpaymentResolution} data-testid="form-settlement-overpayment-resolution">
                 <div><div className="eyebrow">Acción auditable · cierre v{activeResult.closure.version}</div><h3 className="font-display mt-1 text-base font-bold">Indicar cómo se resolverá</h3></div>
                 <label><span className="field-label">Resolución acordada</span><textarea name="resolution" className="field" rows={2} required minLength={5} maxLength={1000} placeholder="Ej.: devolver por transferencia o descontar del próximo período" disabled={busy} data-testid="input-overpayment-resolution" /></label>
                 <label><span className="field-label">Motivo</span><textarea name="reason" className="field" rows={2} required minLength={5} maxLength={1000} placeholder="Explica por qué se eligió esta solución" disabled={busy} data-testid="input-overpayment-resolution-reason" /></label>

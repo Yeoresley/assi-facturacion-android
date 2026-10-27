@@ -196,7 +196,32 @@ paths:
         "403":
           description: Solo el propietario puede registrar cómo resolver el excedente.
         "409":
-          description: No existe un excedente actual o el cierre cambió en otra sesión.
+          description: No existe un excedente actual, el cierre cambió o ya se registró su resolución.
+  /settlements/overpayment-resolutions/{id}/fulfillments:
+    post:
+      operationId: createSettlementOverpaymentFulfillment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettlementOverpaymentFulfillmentInput" }
+      responses:
+        "201":
+          description: Cumplimiento del excedente registrado como evento independiente.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettlementOverpaymentFulfillment" }
+        "403":
+          description: Solo el propietario puede registrar el cumplimiento.
+        "404":
+          description: No existe la resolución indicada.
+        "409":
+          description: La resolución ya está completa o el importe supera el saldo pendiente.
   /settlements/overpayment-notifications:
     get:
       operationId: listSettlementOverpaymentNotifications
@@ -2000,7 +2025,7 @@ components:
         reason: { type: string, minLength: 5, maxLength: 1000 }
     SettlementOverpaymentResolution:
       type: object
-      required: [id, period, specialistId, closureId, closureVersion, overpaidAmount, resolution, reason, recordedBy, recordedAt]
+      required: [id, period, specialistId, closureId, closureVersion, overpaidAmount, resolution, reason, recordedBy, recordedAt, fulfillmentStatus, fulfilledAmount, fulfillments]
       properties:
         id: { type: integer }
         period: { type: string }
@@ -2009,6 +2034,27 @@ components:
         closureVersion: { type: integer }
         overpaidAmount: { type: number }
         resolution: { type: string }
+        reason: { type: string }
+        recordedBy: { type: string }
+        recordedAt: { type: string, format: date-time }
+        fulfillmentStatus: { type: string, enum: [pending, resolved] }
+        fulfilledAmount: { type: number }
+        fulfillments: { type: array, items: { $ref: "#/components/schemas/SettlementOverpaymentFulfillment" } }
+    SettlementOverpaymentFulfillmentInput:
+      type: object
+      required: [fulfilledOn, amount, reason]
+      properties:
+        fulfilledOn: { type: string, format: date }
+        amount: { type: number, exclusiveMinimum: 0 }
+        reason: { type: string, minLength: 5, maxLength: 1000 }
+    SettlementOverpaymentFulfillment:
+      type: object
+      required: [id, resolutionId, fulfilledOn, amount, reason, recordedBy, recordedAt]
+      properties:
+        id: { type: integer }
+        resolutionId: { type: integer }
+        fulfilledOn: { type: string, format: date }
+        amount: { type: number }
         reason: { type: string }
         recordedBy: { type: string }
         recordedAt: { type: string, format: date-time }

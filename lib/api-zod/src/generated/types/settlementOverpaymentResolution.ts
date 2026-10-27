@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SettlementOverpaymentFulfillment } from './settlementOverpaymentFulfillment';
+import type { SettlementOverpaymentResolutionFulfillmentStatus } from './settlementOverpaymentResolutionFulfillmentStatus';
 
 export interface SettlementOverpaymentResolution {
   id: number;
@@ -17,4 +19,7 @@ export interface SettlementOverpaymentResolution {
   reason: string;
   recordedBy: string;
   recordedAt: Date;
+  fulfillmentStatus: SettlementOverpaymentResolutionFulfillmentStatus;
+  fulfilledAmount: number;
+  fulfillments: SettlementOverpaymentFulfillment[];
 }
